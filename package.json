@@ -10,7 +10,13 @@
     "build": "electron-builder",
     "build-react": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "install-all": "npm install && npm run install-python",
+    "install-python": "pip install -r backend/requirements.txt",
+    "update-deps": "npm update && npm run update-python || echo 'Note: Python update may fail due to network issues'",
+    "update-python": "pip install --upgrade -r backend/requirements.txt",
+    "setup": "npm run install-all && npm run update-deps",
+    "audit-fix": "npm audit fix"
   },
   "keywords": [
     "electron",
@@ -23,20 +29,20 @@
   "author": "Westfall",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^25.0.0",
-    "electron-builder": "^24.0.0",
-    "concurrently": "^8.0.0"
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.0",
+    "concurrently": "^9.0.0"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
     "react-scripts": "5.0.1",
-    "@mui/material": "^5.14.0",
-    "@emotion/react": "^11.11.0",
-    "@emotion/styled": "^11.11.0",
-    "@mui/icons-material": "^5.14.0",
-    "axios": "^1.4.0",
-    "electron-store": "^8.1.0"
+    "@mui/material": "^5.16.0",
+    "@emotion/react": "^11.13.0",
+    "@emotion/styled": "^11.13.0",
+    "@mui/icons-material": "^5.16.0",
+    "axios": "^1.7.0",
+    "electron-store": "^10.0.0"
   },
   "homepage": "./",
   "build": {

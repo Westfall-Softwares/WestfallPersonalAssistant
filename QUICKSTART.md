@@ -15,14 +15,35 @@ cd WestfallPersonalAssistant
 
 ### 3. Install Dependencies
 
-#### Frontend Dependencies
+#### Quick Setup (Recommended)
+Run the automated setup script:
+```bash
+./setup.sh
+```
+
+This single command will:
+- Install all Node.js dependencies
+- Install all Python dependencies  
+- Update dependencies to latest compatible versions
+- Apply security fixes
+- Verify everything is working
+
+#### Manual Setup (Alternative)
+If you prefer manual control:
+
+##### Frontend Dependencies
 ```bash
 npm install
 ```
 
-#### Backend Dependencies (Core)
+##### Backend Dependencies (Core)
 ```bash
 pip install -r backend/requirements.txt
+```
+
+##### Update Everything
+```bash
+npm run setup
 ```
 
 #### Optional AI Dependencies
@@ -37,6 +58,32 @@ pip install torch transformers
 
 # For screen capture features  
 pip install opencv-python pytesseract pillow
+```
+
+## Updating Dependencies
+
+### Keep Everything Up to Date
+```bash
+npm run update-deps
+```
+
+This command will:
+- Update Node.js packages to latest compatible versions
+- Update Python packages to latest versions
+- Maintain compatibility with your current setup
+
+### Security Updates Only
+```bash
+npm run audit-fix
+```
+
+### Individual Updates
+```bash
+# Update Node.js packages only
+npm update
+
+# Update Python packages only  
+npm run update-python
 ```
 
 ## Usage
@@ -97,6 +144,12 @@ python backend/server.py
 - **Secure Storage**: Temporary files with automatic cleanup
 
 ## Troubleshooting
+
+### Dependency Issues
+1. **Outdated dependencies**: Run `npm run update-deps` to update everything
+2. **Security vulnerabilities**: Run `npm run audit-fix` for safe fixes
+3. **Python dependency conflicts**: Try `pip install --upgrade -r backend/requirements.txt`
+4. **Node.js version issues**: Ensure you have Node.js 16+ installed
 
 ### Model Loading Issues
 1. Check model file format (GGUF, GGML, PyTorch)
