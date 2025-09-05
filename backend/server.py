@@ -27,6 +27,14 @@ except ImportError:
     SCREEN_CAPTURE_AVAILABLE = False
     print("Warning: Screen capture module not available")
 
+# Import model handler
+try:
+    from model_handler import model_manager
+    MODEL_HANDLER_AVAILABLE = True
+except ImportError:
+    MODEL_HANDLER_AVAILABLE = False
+    print("Warning: Model handler not available")
+
 # Model inference imports (these would need to be installed)
 try:
     import torch
@@ -119,28 +127,33 @@ def load_model(model_path: str) -> bool:
     global current_model
     
     try:
-        # Determine model format
-        model_format = detect_model_format(model_path)
-        logger.info(f"Loading model: {model_path} (format: {model_format})")
-        
-        # This is a placeholder - actual implementation would depend on the model format
-        # For GGUF/GGML models, you'd use llama-cpp-python
-        # For PyTorch models, you'd use transformers or direct PyTorch loading
-        
-        if model_format == "gguf":
-            # Placeholder for llama.cpp integration
-            logger.info("GGUF model loading would be implemented here")
-            current_model = {"type": "gguf", "path": model_path, "loaded": True}
-        elif model_format == "pytorch":
-            # Placeholder for PyTorch model loading
-            logger.info("PyTorch model loading would be implemented here")
-            current_model = {"type": "pytorch", "path": model_path, "loaded": True}
+        if MODEL_HANDLER_AVAILABLE:
+            # Use the new model handler
+            success = model_manager.load_model(model_path)
+            if success:
+                current_model = {"loaded": True, "path": model_path, "handler": "model_manager"}
+                logger.info(f"Model loaded successfully via model_handler: {model_path}")
+                return True
+            else:
+                logger.error("Model loading failed via model_handler")
+                return False
         else:
-            logger.error(f"Unsupported model format: {model_format}")
-            return False
-        
-        logger.info("Model loaded successfully")
-        return True
+            # Fallback to original placeholder implementation
+            model_format = detect_model_format(model_path)
+            logger.info(f"Loading model: {model_path} (format: {model_format})")
+            
+            if model_format == "gguf":
+                logger.info("GGUF model loading would be implemented here")
+                current_model = {"type": "gguf", "path": model_path, "loaded": True}
+            elif model_format == "pytorch":
+                logger.info("PyTorch model loading would be implemented here")
+                current_model = {"type": "pytorch", "path": model_path, "loaded": True}
+            else:
+                logger.error(f"Unsupported model format: {model_format}")
+                return False
+            
+            logger.info("Model loaded successfully (placeholder)")
+            return True
         
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
@@ -168,17 +181,22 @@ def generate_response(message: str, thinking_mode: str) -> str:
     if not current_model:
         return "No model loaded. Please load a model first."
     
-    # This is a placeholder - actual implementation would call the loaded model
-    responses = {
-        "normal": f"I understand your message: '{message}'. This is a normal response from the AI assistant.",
-        "thinking": f"""🤔 **Thinking Process:**
+    try:
+        if MODEL_HANDLER_AVAILABLE and current_model.get("handler") == "model_manager":
+            # Use the real model handler
+            return model_manager.generate(message, thinking_mode)
+        else:
+            # Fallback to placeholder responses
+            responses = {
+                "normal": f"I understand your message: '{message}'. This is a normal response from the AI assistant.",
+                "thinking": f"""🤔 **Thinking Process:**
 
 1. **Message Analysis**: You asked about '{message}'
 2. **Context Consideration**: Analyzing the request in context
 3. **Response Formulation**: Crafting an appropriate response
 
 **Final Response**: Based on my analysis, here's my response to your message.""",
-        "research": f"""📚 **Research-Grade Analysis**
+                "research": f"""📚 **Research-Grade Analysis**
 
 **Input Analysis**: "{message}"
 
@@ -195,9 +213,12 @@ def generate_response(message: str, thinking_mode: str) -> str:
 **Comprehensive Response**: After thorough analysis, my detailed response addresses all aspects of your query.
 
 *Note: This analysis is based on the loaded model's knowledge and should be verified with authoritative sources when appropriate.*"""
-    }
+            }
+            return responses.get(thinking_mode, responses["normal"])
     
-    return responses.get(thinking_mode, responses["normal"])
+    except Exception as e:
+        logger.error(f"Error generating response: {e}")
+        return f"Error generating response: {str(e)}"
 
 @app.get("/")
 async def root():
@@ -242,17 +263,19 @@ async def unload_model():
 @app.get("/model-info")
 async def get_model_info():
     """Get information about the currently loaded model"""
-    if not current_model:
+    if MODEL_HANDLER_AVAILABLE:
+        return model_manager.get_model_info()
+    elif current_model:
+        model_file = Path(current_model["path"])
+        return {
+            "loaded": True,
+            "name": model_file.name,
+            "path": current_model["path"],
+            "type": current_model.get("type", "unknown"),
+            "size_gb": round(model_file.stat().st_size / (1024**3), 2)
+        }
+    else:
         return {"loaded": False}
-    
-    model_file = Path(current_model["path"])
-    return {
-        "loaded": True,
-        "name": model_file.name,
-        "path": current_model["path"],
-        "type": current_model["type"],
-        "size_gb": round(model_file.stat().st_size / (1024**3), 2)
-    }
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(message: ChatMessage):
