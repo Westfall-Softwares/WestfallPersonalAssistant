@@ -1,0 +1,16 @@
+# Backend dependencies for Westfall Personal Assistant
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# Optional AI/ML dependencies (install based on needs)
+# torch>=2.0.0  # For PyTorch models
+# transformers>=4.35.0  # For Hugging Face models
+# llama-cpp-python>=0.2.0  # For GGUF/GGML models
+# opencv-python>=4.8.0  # For screen capture and image processing
+# pytesseract>=0.3.10  # For OCR functionality
+# pillow>=10.0.0  # For image processing
+
+# Development dependencies
+requests>=2.31.0
