@@ -44,6 +44,30 @@ const ScreenCapture = () => {
     }
   };
 
+  const handleToggleMonitoring = async () => {
+    setError('');
+    
+    try {
+      if (window.electronAPI) {
+        if (autoCapture) {
+          // Stop monitoring
+          const result = await window.electronAPI.stopMonitoring();
+          if (result.status === 'monitoring_stopped') {
+            setAutoCapture(false);
+          }
+        } else {
+          // Start monitoring
+          const result = await window.electronAPI.startMonitoring(30);
+          if (result.status === 'monitoring_started') {
+            setAutoCapture(true);
+          }
+        }
+      }
+    } catch (error) {
+      setError(`Monitoring error: ${error.message}`);
+    }
+  };
+
   return (
     <Box>
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -96,7 +120,7 @@ const ScreenCapture = () => {
               control={
                 <Switch
                   checked={autoCapture}
-                  onChange={(e) => setAutoCapture(e.target.checked)}
+                  onChange={handleToggleMonitoring}
                 />
               }
               label="Continuous monitoring (captures every 30 seconds)"

@@ -177,11 +177,48 @@ ipcMain.handle('save-settings', (event, settings) => {
   return true;
 });
 
-// Screen capture (placeholder - would need platform-specific implementation)
+// Screen capture (integrates with backend)
 ipcMain.handle('capture-screen', async () => {
-  // This would integrate with native screen capture APIs
-  return {
-    success: false,
-    message: 'Screen capture not yet implemented'
-  };
+  try {
+    // Call backend screen capture endpoint
+    const response = await fetch('http://127.0.0.1:8000/capture-screen', {
+      method: 'POST'
+    });
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      message: `Screen capture failed: ${error.message}`
+    };
+  }
+});
+
+ipcMain.handle('start-monitoring', async (event, interval) => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/start-monitoring', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interval: interval || 30 })
+    });
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to start monitoring: ${error.message}`
+    };
+  }
+});
+
+ipcMain.handle('stop-monitoring', async () => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/stop-monitoring', {
+      method: 'POST'
+    });
+    return await response.json();
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to stop monitoring: ${error.message}`
+    };
+  }
 });

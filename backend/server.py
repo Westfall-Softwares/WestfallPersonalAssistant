@@ -19,6 +19,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Import screen capture module
+try:
+    from screen_capture import screen_engine
+    SCREEN_CAPTURE_AVAILABLE = True
+except ImportError:
+    SCREEN_CAPTURE_AVAILABLE = False
+    print("Warning: Screen capture module not available")
+
 # Model inference imports (these would need to be installed)
 try:
     import torch
@@ -268,6 +276,70 @@ async def chat_endpoint(message: ChatMessage):
     except Exception as e:
         logger.error(f"Error processing chat message: {e}")
         raise HTTPException(status_code=500, detail="Error processing message")
+
+# Screen capture endpoints
+@app.post("/capture-screen")
+async def capture_screen_endpoint():
+    """Capture the current screen"""
+    try:
+        if SCREEN_CAPTURE_AVAILABLE:
+            result = screen_engine.capture_screen()
+            return result
+        else:
+            return {
+                "success": False,
+                "message": "Screen capture not available in this environment"
+            }
+    except Exception as e:
+        logger.error(f"Screen capture error: {e}")
+        raise HTTPException(status_code=500, detail="Screen capture failed")
+
+@app.post("/analyze-capture")
+async def analyze_capture_endpoint(data: dict):
+    """Analyze a captured image"""
+    if not SCREEN_CAPTURE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Screen capture not available")
+    
+    image_path = data.get("image_path")
+    if not image_path:
+        raise HTTPException(status_code=400, detail="Image path is required")
+    
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Image file not found")
+    
+    try:
+        analysis = screen_engine.full_analysis(image_path)
+        return analysis
+    except Exception as e:
+        logger.error(f"Image analysis error: {e}")
+        raise HTTPException(status_code=500, detail="Image analysis failed")
+
+@app.post("/start-monitoring")
+async def start_monitoring_endpoint(data: dict):
+    """Start continuous screen monitoring"""
+    if not SCREEN_CAPTURE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Screen capture not available")
+    
+    interval = data.get("interval", 30)
+    try:
+        asyncio.create_task(screen_engine.start_monitoring(interval))
+        return {"status": "monitoring_started", "interval": interval}
+    except Exception as e:
+        logger.error(f"Monitoring start error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start monitoring")
+
+@app.post("/stop-monitoring") 
+async def stop_monitoring_endpoint():
+    """Stop continuous screen monitoring"""
+    if not SCREEN_CAPTURE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Screen capture not available")
+    
+    try:
+        screen_engine.stop_monitoring()
+        return {"status": "monitoring_stopped"}
+    except Exception as e:
+        logger.error(f"Monitoring stop error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to stop monitoring")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")

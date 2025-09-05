@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Screen capture
   captureScreen: () => ipcRenderer.invoke('capture-screen'),
+  startMonitoring: (interval) => ipcRenderer.invoke('start-monitoring', interval),
+  stopMonitoring: () => ipcRenderer.invoke('stop-monitoring'),
   
   // Backend communication
   sendMessage: (message) => ipcRenderer.invoke('send-message', message),
