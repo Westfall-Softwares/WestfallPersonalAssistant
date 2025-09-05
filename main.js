@@ -14,6 +14,96 @@ if (process.env.NODE_ENV === 'development') {
 const store = new Store();
 let mainWindow;
 let backendProcess = null;
+let backendServerProcess = null;
+
+// Start the backend server
+function startBackendServer() {
+  if (backendServerProcess) {
+    console.log('Backend server already running');
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const serverPath = path.join(__dirname, 'backend', 'server.py');
+      console.log('Starting backend server:', serverPath);
+      
+      // Configure spawn options for background process
+      const spawnOptions = {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true, // Hide console window on Windows
+        detached: false
+      };
+
+      backendServerProcess = spawn('python', [serverPath], spawnOptions);
+
+      let serverReady = false;
+
+      backendServerProcess.stdout.on('data', (data) => {
+        const output = data.toString();
+        console.log(`Backend Server: ${output}`);
+        
+        // Check if server has started successfully
+        if (output.includes('Server started successfully') && !serverReady) {
+          serverReady = true;
+          console.log('Backend server is ready');
+          resolve(true);
+        }
+      });
+
+      backendServerProcess.stderr.on('data', (data) => {
+        const output = data.toString();
+        console.error(`Backend Server Error: ${output}`);
+        
+        // Also check stderr for the success message and for Uvicorn running
+        if ((output.includes('Server started successfully') || 
+             output.includes('Uvicorn running on http://127.0.0.1:8000')) && !serverReady) {
+          serverReady = true;
+          console.log('Backend server is ready');
+          resolve(true);
+        }
+      });
+
+      backendServerProcess.on('close', (code) => {
+        console.log(`Backend server process exited with code ${code}`);
+        backendServerProcess = null;
+      });
+
+      backendServerProcess.on('error', (error) => {
+        console.error(`Failed to start backend server: ${error}`);
+        backendServerProcess = null;
+        reject(error);
+      });
+
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (!serverReady) {
+          console.error('Backend server startup timeout');
+          if (backendServerProcess) {
+            backendServerProcess.kill();
+            backendServerProcess = null;
+          }
+          reject(new Error('Backend server startup timeout'));
+        }
+      }, 30000);
+
+    } catch (error) {
+      console.error(`Error starting backend server: ${error}`);
+      reject(error);
+    }
+  });
+}
+
+// Stop the backend server
+function stopBackendServer() {
+  if (backendServerProcess) {
+    console.log('Stopping backend server');
+    backendServerProcess.kill();
+    backendServerProcess = null;
+    return true;
+  }
+  return false;
+}
 
 function createWindow() {
   // Create the browser window
@@ -50,11 +140,22 @@ function createWindow() {
       backendProcess.kill();
       backendProcess = null;
     }
+    // Stop the backend server when window closes
+    stopBackendServer();
   });
 }
 
 // App event handlers
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    // Start the backend server first
+    await startBackendServer();
+    console.log('Backend server started successfully');
+  } catch (error) {
+    console.error('Failed to start backend server:', error);
+    // Continue anyway - the user can manually start the backend if needed
+  }
+  
   createWindow();
 
   app.on('activate', () => {
@@ -69,6 +170,8 @@ app.on('window-all-closed', () => {
     backendProcess.kill();
     backendProcess = null;
   }
+  // Stop the backend server when all windows are closed
+  stopBackendServer();
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -189,6 +292,14 @@ ipcMain.handle('get-settings', () => {
     autoStart: false,
     gpuLayers: 'auto'
   });
+});
+
+// Backend server status
+ipcMain.handle('get-backend-status', () => {
+  return {
+    isRunning: backendServerProcess !== null,
+    serverUrl: 'http://127.0.0.1:8000'
+  };
 });
 
 ipcMain.handle('save-settings', (event, settings) => {
