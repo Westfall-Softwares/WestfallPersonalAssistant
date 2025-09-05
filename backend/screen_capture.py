@@ -290,15 +290,61 @@ class ScreenCaptureEngine:
     
     def _detect_rectangles(self, gray_image):
         """Detect rectangular UI elements (buttons, etc.)"""
-        # This would contain OpenCV rectangle detection logic
-        # Placeholder implementation
-        return []
+        try:
+            # Use contour detection to find rectangular shapes
+            edges = cv2.Canny(gray_image, 50, 150, apertureSize=3)
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            rectangles = []
+            for contour in contours:
+                # Approximate contour to polygon
+                epsilon = 0.02 * cv2.arcLength(contour, True)
+                approx = cv2.approxPolyDP(contour, epsilon, True)
+                
+                # If polygon has 4 vertices, it might be a rectangle
+                if len(approx) == 4:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    # Filter by size to avoid noise
+                    if w > 20 and h > 10:
+                        rectangles.append({
+                            "x": int(x), "y": int(y), 
+                            "width": int(w), "height": int(h),
+                            "type": "button_candidate"
+                        })
+            
+            return rectangles
+        except Exception as e:
+            logger.error(f"Rectangle detection failed: {e}")
+            return []
     
     def _detect_windows(self, gray_image):
         """Detect window/dialog elements"""
-        # This would contain OpenCV window detection logic
-        # Placeholder implementation
-        return []
+        try:
+            # Detect window-like structures using template matching and edge detection
+            edges = cv2.Canny(gray_image, 30, 100, apertureSize=3)
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            windows = []
+            for contour in contours:
+                x, y, w, h = cv2.boundingRect(contour)
+                
+                # Windows are typically larger rectangular areas
+                if w > 100 and h > 80:
+                    aspect_ratio = w / h
+                    
+                    # Check if it has window-like proportions
+                    if 0.5 <= aspect_ratio <= 3.0:
+                        windows.append({
+                            "x": int(x), "y": int(y),
+                            "width": int(w), "height": int(h),
+                            "type": "window_candidate",
+                            "aspect_ratio": round(aspect_ratio, 2)
+                        })
+            
+            return windows
+        except Exception as e:
+            logger.error(f"Window detection failed: {e}")
+            return []
 
 # Global screen capture engine instance
 screen_engine = ScreenCaptureEngine()
