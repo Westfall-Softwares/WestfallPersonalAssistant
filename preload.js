@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   
+  // Backend server status
+  getBackendStatus: () => ipcRenderer.invoke('get-backend-status'),
+  
   // Screen capture
   captureScreen: () => ipcRenderer.invoke('capture-screen'),
   startMonitoring: (interval) => ipcRenderer.invoke('start-monitoring', interval),

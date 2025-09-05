@@ -25,12 +25,15 @@ const ModelManager = ({ onStatusChange }) => {
   const [lastModel, setLastModel] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [serverStatus, setServerStatus] = useState('stopped');
+  const [backendStatus, setBackendStatus] = useState('checking');
   const [gpuInfo, setGpuInfo] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     // Load last used model and GPU info
     loadInitialData();
+    // Check backend status
+    checkBackendStatus();
   }, []);
 
   useEffect(() => {
@@ -51,6 +54,18 @@ const ModelManager = ({ onStatusChange }) => {
         setGpuInfo(gpu);
       } catch (error) {
         console.error('Error loading initial data:', error);
+      }
+    }
+  };
+
+  const checkBackendStatus = async () => {
+    if (window.electronAPI) {
+      try {
+        const status = await window.electronAPI.getBackendStatus();
+        setBackendStatus(status.isRunning ? 'running' : 'stopped');
+      } catch (error) {
+        console.error('Error checking backend status:', error);
+        setBackendStatus('error');
       }
     }
   };
@@ -216,6 +231,49 @@ const ModelManager = ({ onStatusChange }) => {
                     </Typography>
                   </Box>
                 )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Backend Server Status */}
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Backend Server
+                </Typography>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Typography variant="body2">Status:</Typography>
+                  <Chip 
+                    label={backendStatus === 'running' ? 'Running' : 
+                           backendStatus === 'checking' ? 'Checking...' : 
+                           backendStatus === 'error' ? 'Error' : 'Stopped'}
+                    color={backendStatus === 'running' ? 'success' : 
+                           backendStatus === 'checking' ? 'warning' : 'error'}
+                    size="small"
+                  />
+                </Box>
+                
+                {backendStatus === 'running' && (
+                  <Typography variant="body2" color="textSecondary">
+                    Server auto-started and ready for requests
+                  </Typography>
+                )}
+                
+                {backendStatus === 'stopped' && (
+                  <Typography variant="body2" color="error">
+                    Backend server not running
+                  </Typography>
+                )}
+                
+                <Button
+                  size="small"
+                  onClick={checkBackendStatus}
+                  sx={{ mt: 1 }}
+                >
+                  Refresh Status
+                </Button>
               </CardContent>
             </Card>
           </Grid>
