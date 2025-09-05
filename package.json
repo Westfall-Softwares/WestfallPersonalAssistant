@@ -1,0 +1,76 @@
+{
+  "name": "westfall-personal-assistant",
+  "version": "1.0.0",
+  "description": "A personal AI assistant with local model management, screen capture, and three-tier thinking system",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run start\" \"npm run backend\"",
+    "backend": "python backend/server.py",
+    "build": "electron-builder",
+    "build-react": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "keywords": [
+    "electron",
+    "ai",
+    "assistant",
+    "local",
+    "llm",
+    "screen-capture"
+  ],
+  "author": "Westfall",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "electron-builder": "^24.0.0",
+    "concurrently": "^8.0.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "@mui/material": "^5.14.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.14.0",
+    "axios": "^1.4.0",
+    "electron-store": "^8.1.0"
+  },
+  "homepage": "./",
+  "build": {
+    "appId": "com.westfall.personal-assistant",
+    "productName": "Westfall Personal Assistant",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "main.js",
+      "backend/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "icon": "build/icon.png"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
