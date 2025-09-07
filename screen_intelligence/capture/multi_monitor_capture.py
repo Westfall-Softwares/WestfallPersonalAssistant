@@ -319,3 +319,4 @@ class MultiMonitorCapture(QWidget):
 
 # Alias for import compatibility
 LiveScreenIntelligence = MultiMonitorCapture
+LiveScreenIntelligence = MultiMonitorCapture

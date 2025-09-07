@@ -1,7 +1,7 @@
 import sys
 import os
 
-# Add the project root to Python path so imports work
+# FIX: Add project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt5.QtWidgets import *
@@ -74,30 +74,45 @@ try:
 except ImportError:
     from placeholder_windows import MusicPlayerWindow
 
-# Import YOUR EXISTING business features
-from business_intelligence.dashboard.business_dashboard import BusinessDashboard
-from business_intelligence.dashboard.kpi_tracker import KPITracker
-from business_intelligence.reports.report_generator import ReportGenerator
-from crm_system.crm_manager import CRMManager
+# Import business features
+try:
+    from business_intelligence.dashboard.business_dashboard import BusinessDashboard
+except ImportError as e:
+    print(f"Business dashboard import error: {e}")
+    class BusinessDashboard(QWidget):
+        def __init__(self):
+            super().__init__()
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel("Business Dashboard Module Error"))
+            self.setLayout(layout)
+
+try:
+    from crm_system.crm_manager import CRMManager
+except ImportError as e:
+    print(f"CRM manager import error: {e}")
+    class CRMManager(QWidget):
+        def __init__(self):
+            super().__init__()
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel("CRM Manager Module Error"))
+            self.setLayout(layout)
 
 # Import security and AI
 from security.encryption_manager import MasterPasswordDialog, EncryptionManager
 from ai_assistant.core.chat_manager import AIChatWidget
 
-# For screen intelligence, check if multi_monitor_capture exists
+# Handle screen intelligence imports
 try:
     from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
-    # Create LiveScreenIntelligence from MultiMonitorCapture if it doesn't exist separately
-    LiveScreenIntelligence = MultiMonitorCapture
-except ImportError:
-    # Only if it truly doesn't exist
-    print("Warning: Screen intelligence module not found")
+    LiveScreenIntelligence = MultiMonitorCapture  # Use MultiMonitorCapture as LiveScreenIntelligence
+except ImportError as e:
+    print(f"Screen intelligence import error: {e}")
     class LiveScreenIntelligence(QWidget):
         def __init__(self):
             super().__init__()
-            self.init_ui()
-        
-        def init_ui(self):
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel("Screen Intelligence Module Error"))
+            self.setLayout(layout)
             layout = QVBoxLayout()
             
             # At least make it look good
