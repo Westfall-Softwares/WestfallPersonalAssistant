@@ -44,6 +44,10 @@ from features.news_reader import NewsReader
 from features.music_player import MusicPlayer
 from features.browser_manager import BrowserManager
 from features.advanced_calculator import AdvancedCalculator
+from features.navigation_system import NavigationManager
+from features.shortcuts_manager import ShortcutManager
+from features.notification_manager import NotificationManager, NotificationPriority, NotificationType
+from features.reminder_system import ReminderSystem, ReminderType, ReminderPriority
 
 # Import optional modules with graceful fallback
 screen_engine = None
@@ -110,12 +114,17 @@ news_reader = None
 music_player = None
 browser_manager = None
 calculator = None
+navigation_manager = None
+shortcut_manager = None
+notification_manager = None
+reminder_system = None
 
 def initialize_security_systems():
     """Initialize security and database systems."""
     global auth_manager, secure_storage, api_key_vault, backup_manager, sync_manager
     global ai_chat, context_manager, action_executor, response_handler
     global news_reader, music_player, browser_manager, calculator
+    global navigation_manager, shortcut_manager, notification_manager, reminder_system
     
     # Set up paths
     config_dir = os.path.expanduser("~/.westfall_assistant")
@@ -144,10 +153,38 @@ def initialize_security_systems():
         music_player = MusicPlayer(config_dir)
         browser_manager = BrowserManager(config_dir)
         calculator = AdvancedCalculator(config_dir)
+        navigation_manager = NavigationManager(config_dir)
+        shortcut_manager = ShortcutManager(config_dir)
+        notification_manager = NotificationManager(config_dir)
+        reminder_system = ReminderSystem(config_dir, notification_manager=notification_manager)
         
         error_handler.log_info("Security systems initialized", "SecurityInit")
     except Exception as e:
         error_handler.log_error(f"Failed to initialize security systems: {e}", context="SecurityInit")
+
+async def startup_tasks():
+    """Perform async startup tasks."""
+    try:
+        if navigation_manager and not navigation_manager._search_index_built:
+            await navigation_manager._build_search_index()
+            navigation_manager._search_index_built = True
+        
+        if shortcut_manager and not shortcut_manager._shortcuts_loaded:
+            await shortcut_manager._load_shortcuts()
+            shortcut_manager._shortcuts_loaded = True
+        
+        if reminder_system and not reminder_system._reminder_loop_started:
+            asyncio.create_task(reminder_system._start_reminder_loop())
+            reminder_system._reminder_loop_started = True
+        
+        error_handler.log_info("Async startup tasks completed", "Startup")
+    except Exception as e:
+        error_handler.log_error(f"Failed to complete startup tasks: {e}", context="Startup")
+
+# FastAPI startup event
+@app.on_event("startup")
+async def on_startup():
+    await startup_tasks()
 
 # Initialize security on startup
 initialize_security_systems()
@@ -256,6 +293,60 @@ class UnitConversionRequest(BaseModel):
     from_unit: str
     to_unit: str
     category: Optional[str] = None
+
+# Navigation models
+class NavigationRequest(BaseModel):
+    module: str
+    path: List[str] = []
+    context: Dict[str, Any] = {}
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 50
+
+# Notification models
+class NotificationRequest(BaseModel):
+    title: str
+    message: str
+    notification_type: str = "info"
+    priority: int = 2
+    module: Optional[str] = None
+    action_data: Optional[Dict[str, Any]] = None
+    duration: Optional[int] = None
+    persistent: bool = False
+    sound_enabled: Optional[bool] = None
+
+class NotificationTemplateRequest(BaseModel):
+    template_id: str
+    title_template: str
+    message_template: str
+    notification_type: str
+    priority: int
+    module: Optional[str] = None
+    variables: List[str] = []
+
+# Reminder models
+class ReminderRequest(BaseModel):
+    title: str
+    description: str = ""
+    reminder_type: str = "one_time"
+    trigger_time: Optional[str] = None  # ISO format datetime
+    location: Optional[Dict[str, Any]] = None
+    recurrence: Optional[Dict[str, Any]] = None
+    priority: int = 2
+    tags: List[str] = []
+    metadata: Dict[str, Any] = {}
+
+class LocationUpdateRequest(BaseModel):
+    lat: float
+    lng: float
+    accuracy: Optional[float] = None
+
+class ShortcutRequest(BaseModel):
+    shortcut_key: str
+    context: str
+    action: str
+    description: str = ""
 
 # Security endpoint dependencies
 def require_auth():

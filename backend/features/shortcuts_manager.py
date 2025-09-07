@@ -123,8 +123,8 @@ class ShortcutManager:
         # Initialize database
         self._init_database()
         
-        # Load shortcuts
-        asyncio.create_task(self._load_shortcuts())
+        # Load shortcuts will be called later
+        self._shortcuts_loaded = False
     
     def _init_database(self):
         """Initialize SQLite database for shortcuts."""

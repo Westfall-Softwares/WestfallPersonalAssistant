@@ -81,8 +81,8 @@ class NavigationManager:
         # Initialize database
         self._init_database()
         
-        # Build search index
-        asyncio.create_task(self._build_search_index())
+        # Build search index will be called later
+        self._search_index_built = False
     
     def _init_database(self):
         """Initialize SQLite database for navigation data."""
@@ -263,6 +263,11 @@ class NavigationManager:
     async def global_search(self, query: str, limit: int = 50) -> List[Dict]:
         """Perform global search across all modules and content."""
         try:
+            # Build search index if not already built
+            if not self._search_index_built:
+                await self._build_search_index()
+                self._search_index_built = True
+            
             if not query.strip():
                 return []
             
