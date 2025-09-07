@@ -72,3 +72,9 @@ class RecipeWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Recipe - Placeholder")
         self.setGeometry(100, 100, 700, 600)
+
+class MusicPlayerWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Music Player - Placeholder")
+        self.setGeometry(100, 100, 800, 600)
