@@ -117,6 +117,47 @@ except ImportError:
 from security.encryption_manager import MasterPasswordDialog, EncryptionManager
 from ai_assistant.core.chat_manager import AIChatWidget
 
+# Import new business intelligence modules
+try:
+    from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
+except ImportError:
+    class MultiMonitorCapture(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("Screen Intelligence (Module not available)")
+
+try:
+    from business_intelligence.dashboard.business_dashboard import BusinessDashboard
+except ImportError:
+    class BusinessDashboard(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("Business Dashboard (Module not available)")
+
+try:
+    from business_intelligence.dashboard.kpi_tracker import KPITracker
+except ImportError:
+    class KPITracker(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("KPI Tracker (Module not available)")
+
+try:
+    from business_intelligence.reports.report_generator import ReportGenerator
+except ImportError:
+    class ReportGenerator(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("Report Generator (Module not available)")
+
+try:
+    from crm_system.crm_manager import CRMManager
+except ImportError:
+    class CRMManager(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("CRM Manager (Module not available)")
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -261,9 +302,15 @@ class MainWindow(QMainWindow):
             ("💰 Finance", self.open_finance, "Track finances", "Ctrl+Shift+F"),
             ("🍳 Recipes", self.open_recipe, "Manage recipes", "Ctrl+R"),
             ("🎵 Music", self.open_music, "Play music", "Ctrl+M"),
+            # New Business Intelligence Features
+            ("🖥️ Screen Intelligence", self.open_screen_intelligence, "Multi-monitor capture & analysis", "Ctrl+I"),
+            ("📊 Business Dashboard", self.open_business_dashboard, "Business metrics & KPIs", "Ctrl+Shift+B"),
+            ("📈 KPI Tracker", self.open_kpi_tracker, "Track key performance indicators", "Ctrl+Shift+K"),
+            ("📄 Report Generator", self.open_report_generator, "Generate business reports", "Ctrl+Shift+R"),
+            ("🤝 CRM Manager", self.open_crm_manager, "Customer relationship management", "Ctrl+Shift+M"),
         ]
         
-        positions = [(i, j) for i in range(5) for j in range(3)]
+        positions = [(i, j) for i in range(7) for j in range(3)]
         
         for position, (name, callback, tooltip, shortcut) in zip(positions, self.features):
             btn = QPushButton(name)
@@ -323,6 +370,13 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+R"), self, self.open_recipe)
         QShortcut(QKeySequence("Ctrl+M"), self, self.open_music)
         
+        # New Business Intelligence shortcuts
+        QShortcut(QKeySequence("Ctrl+I"), self, self.open_screen_intelligence)
+        QShortcut(QKeySequence("Ctrl+Shift+B"), self, self.open_business_dashboard)
+        QShortcut(QKeySequence("Ctrl+Shift+K"), self, self.open_kpi_tracker)
+        QShortcut(QKeySequence("Ctrl+Shift+R"), self, self.open_report_generator)
+        QShortcut(QKeySequence("Ctrl+Shift+M"), self, self.open_crm_manager)
+        
         # System shortcuts
         QShortcut(QKeySequence("Ctrl+K"), self, lambda: self.search_input.setFocus())
         QShortcut(QKeySequence("Ctrl+Space"), self, self.toggle_ai_chat)
@@ -332,6 +386,8 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Escape"), self, self.handle_escape)
         QShortcut(QKeySequence("F1"), self, self.show_help)
         QShortcut(QKeySequence("F11"), self, self.toggle_fullscreen)
+    
+    def init_ai(self):
         """Initialize AI assistant"""
         self.ai_chat = AIChatWidget(self)
         self.ai_chat.hide()
@@ -404,6 +460,15 @@ class MainWindow(QMainWindow):
         <tr><td><b>Ctrl+M</b></td><td>Open Music Player</td></tr>
         <tr><td><b>Ctrl+R</b></td><td>Open Recipes</td></tr>
         <tr><td><b>Ctrl+,</b></td><td>Open Settings</td></tr>
+        </table>
+        
+        <h2>Business Intelligence Shortcuts</h2>
+        <table>
+        <tr><td><b>Ctrl+I</b></td><td>Open Screen Intelligence</td></tr>
+        <tr><td><b>Ctrl+Shift+B</b></td><td>Open Business Dashboard</td></tr>
+        <tr><td><b>Ctrl+Shift+K</b></td><td>Open KPI Tracker</td></tr>
+        <tr><td><b>Ctrl+Shift+R</b></td><td>Open Report Generator</td></tr>
+        <tr><td><b>Ctrl+Shift+M</b></td><td>Open CRM Manager</td></tr>
         </table>
         
         <h2>System Shortcuts</h2>
@@ -751,6 +816,52 @@ class MainWindow(QMainWindow):
         self.windows['music'].activateWindow()
         self.ai_chat.parent_window = self.windows['music']
         self.status_bar.showMessage("Music Player opened")
+    
+    # New Business Intelligence window opening methods
+    def open_screen_intelligence(self):
+        if 'screen_intelligence' not in self.windows:
+            self.windows['screen_intelligence'] = MultiMonitorCapture()
+        self.windows['screen_intelligence'].show()
+        self.windows['screen_intelligence'].raise_()
+        self.windows['screen_intelligence'].activateWindow()
+        self.ai_chat.parent_window = self.windows['screen_intelligence']
+        self.status_bar.showMessage("Screen Intelligence opened - Multi-monitor capture & analysis")
+    
+    def open_business_dashboard(self):
+        if 'business_dashboard' not in self.windows:
+            self.windows['business_dashboard'] = BusinessDashboard()
+        self.windows['business_dashboard'].show()
+        self.windows['business_dashboard'].raise_()
+        self.windows['business_dashboard'].activateWindow()
+        self.ai_chat.parent_window = self.windows['business_dashboard']
+        self.status_bar.showMessage("Business Dashboard opened - Track your business metrics")
+    
+    def open_kpi_tracker(self):
+        if 'kpi_tracker' not in self.windows:
+            self.windows['kpi_tracker'] = KPITracker()
+        self.windows['kpi_tracker'].show()
+        self.windows['kpi_tracker'].raise_()
+        self.windows['kpi_tracker'].activateWindow()
+        self.ai_chat.parent_window = self.windows['kpi_tracker']
+        self.status_bar.showMessage("KPI Tracker opened - Monitor key performance indicators")
+    
+    def open_report_generator(self):
+        if 'report_generator' not in self.windows:
+            self.windows['report_generator'] = ReportGenerator()
+        self.windows['report_generator'].show()
+        self.windows['report_generator'].raise_()
+        self.windows['report_generator'].activateWindow()
+        self.ai_chat.parent_window = self.windows['report_generator']
+        self.status_bar.showMessage("Report Generator opened - Create automated business reports")
+    
+    def open_crm_manager(self):
+        if 'crm_manager' not in self.windows:
+            self.windows['crm_manager'] = CRMManager()
+        self.windows['crm_manager'].show()
+        self.windows['crm_manager'].raise_()
+        self.windows['crm_manager'].activateWindow()
+        self.ai_chat.parent_window = self.windows['crm_manager']
+        self.status_bar.showMessage("CRM Manager opened - Manage customer relationships & sales pipeline")
     
     def closeEvent(self, event):
         """Handle application close"""
