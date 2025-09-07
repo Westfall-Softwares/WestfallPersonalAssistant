@@ -48,3 +48,12 @@ watchdog>=3.0.0
 # Documentation
 sphinx>=7.2.6
 sphinx-rtd-theme>=2.0.0
+
+# Screen capture and AI control
+mss>=9.0.1
+pyautogui>=0.9.54
+opencv-python>=4.8.0
+pytesseract>=0.3.10
+
+# For Windows screen capture enhancements
+pywin32>=305; sys_platform == 'win32'
