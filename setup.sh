@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Westfall Personal Assistant - One-Command Setup Script
-# This script installs and updates all dependencies
-
+# Westfall Personal Assistant - Simplified Setup Script
 echo "🚀 Setting up Westfall Personal Assistant..."
 echo ""
 
@@ -22,15 +20,13 @@ echo "✅ Node.js $(node --version) detected"
 echo "✅ Python $(python3 --version | cut -d' ' -f2) detected"
 echo ""
 
-echo "📦 Installing Node.js dependencies..."
+echo "📦 Installing dependencies..."
 npm install
 if [ $? -ne 0 ]; then
     echo "❌ Failed to install Node.js dependencies"
     exit 1
 fi
 
-echo ""
-echo "📦 Installing Python dependencies..."
 pip install -r backend/requirements.txt
 if [ $? -ne 0 ]; then
     echo "❌ Failed to install Python dependencies"
@@ -38,25 +34,18 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "⬆️  Updating dependencies to latest compatible versions..."
-npm update
-
-echo ""
-echo "⬆️  Updating Python dependencies..."
-pip install --upgrade -r backend/requirements.txt || echo "⚠️  Python update may have failed due to network issues"
-
-echo ""
-echo "🔒 Checking for security issues (non-breaking fixes only)..."
-npm audit fix || echo "⚠️  Some security fixes may require manual intervention"
+echo "🏗️ Building React frontend..."
+npm run build-react
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to build React frontend"
+    exit 1
+fi
 
 echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "To start the application:"
-echo "  npm run dev    # Start both frontend and backend"
-echo "  npm start      # Start frontend only"
-echo "  npm run backend # Start backend only"
-echo ""
-echo "To update dependencies in the future:"
-echo "  npm run update-deps"
+echo "  ./run.sh           # Use the zero-dependency launcher"
+echo "  npm run dev        # Start development mode"
+echo "  npm run launch     # Use Node.js launcher"
 echo ""

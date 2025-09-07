@@ -19,29 +19,22 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Import screen capture module
+# Import dependency manager
+from dependency_manager import dependency_manager, get_dependency_status, install_dependencies_for_feature
+
+# Import optional modules with graceful fallback
+screen_engine = None
+model_manager = None
+
 try:
     from screen_capture import screen_engine
-    SCREEN_CAPTURE_AVAILABLE = True
 except ImportError:
-    SCREEN_CAPTURE_AVAILABLE = False
-    print("Warning: Screen capture module not available")
+    print("Info: Screen capture module not available. Install opencv-python, pytesseract, and pillow to enable.")
 
-# Import model handler
 try:
     from model_handler import model_manager
-    MODEL_HANDLER_AVAILABLE = True
 except ImportError:
-    MODEL_HANDLER_AVAILABLE = False
-    print("Warning: Model handler not available")
-
-# Model inference imports (these would need to be installed)
-try:
-    import torch
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
-    print("Warning: PyTorch not available. GPU acceleration disabled.")
+    print("Info: Model handler not available. Install llama-cpp-python or torch to enable AI models.")
 
 # Logging setup
 logging.basicConfig(
@@ -88,7 +81,21 @@ def detect_gpu():
     """Detect available GPU resources"""
     global gpu_info
     
-    if not TORCH_AVAILABLE:
+    # Check if PyTorch is available for GPU detection
+    torch_available = dependency_manager.available_features.get('ai_models', False)
+    if not torch_available:
+        gpu_info = {
+            "available": False,
+            "name": "No GPU (PyTorch not available)",
+            "memory_total": 0,
+            "memory_available": 0
+        }
+        return gpu_info
+    
+    # Try to import torch for GPU detection
+    try:
+        import torch
+    except ImportError:
         gpu_info = {
             "available": False,
             "name": "No GPU (PyTorch not available)",
@@ -127,7 +134,7 @@ def load_model(model_path: str) -> bool:
     global current_model
     
     try:
-        if MODEL_HANDLER_AVAILABLE:
+        if model_manager is not None:
             # Use the new model handler
             success = model_manager.load_model(model_path)
             if success:
@@ -150,7 +157,7 @@ def load_model(model_path: str) -> bool:
                     "loaded": True,
                     "format": "GGUF",
                     "inference_engine": "llama-cpp",
-                    "gpu_enabled": TORCH_AVAILABLE
+                    "gpu_enabled": dependency_manager.available_features.get('ai_models', False)
                 }
             elif model_format == "pytorch":
                 logger.info("PyTorch model detected - would use transformers when available") 
@@ -160,7 +167,7 @@ def load_model(model_path: str) -> bool:
                     "loaded": True,
                     "format": "PyTorch",
                     "inference_engine": "transformers",
-                    "gpu_enabled": TORCH_AVAILABLE
+                    "gpu_enabled": dependency_manager.available_features.get('ai_models', False)
                 }
             else:
                 logger.error(f"Unsupported model format: {model_format}")
@@ -196,7 +203,7 @@ def generate_response(message: str, thinking_mode: str) -> str:
         return "No model loaded. Please load a model first."
     
     try:
-        if MODEL_HANDLER_AVAILABLE and current_model.get("handler") == "model_manager":
+        if model_manager is not None and current_model.get("handler") == "model_manager":
             # Use the real model handler
             return model_manager.generate(message, thinking_mode)
         else:
@@ -293,7 +300,7 @@ async def unload_model():
 @app.get("/model-info")
 async def get_model_info():
     """Get information about the currently loaded model"""
-    if MODEL_HANDLER_AVAILABLE:
+    if model_manager is not None:
         return model_manager.get_model_info()
     elif current_model:
         model_file = Path(current_model["path"])
@@ -335,7 +342,7 @@ async def chat_endpoint(message: ChatMessage):
 async def capture_screen_endpoint():
     """Capture the current screen"""
     try:
-        if SCREEN_CAPTURE_AVAILABLE:
+        if screen_engine is not None:
             result = screen_engine.capture_screen()
             return result
         else:
@@ -350,7 +357,7 @@ async def capture_screen_endpoint():
 @app.post("/analyze-capture")
 async def analyze_capture_endpoint(data: dict):
     """Analyze a captured image"""
-    if not SCREEN_CAPTURE_AVAILABLE:
+    if not screen_engine is not None:
         raise HTTPException(status_code=503, detail="Screen capture not available")
     
     image_path = data.get("image_path")
@@ -370,7 +377,7 @@ async def analyze_capture_endpoint(data: dict):
 @app.post("/start-monitoring")
 async def start_monitoring_endpoint(data: dict):
     """Start continuous screen monitoring"""
-    if not SCREEN_CAPTURE_AVAILABLE:
+    if not screen_engine is not None:
         raise HTTPException(status_code=503, detail="Screen capture not available")
     
     interval = data.get("interval", 30)
@@ -384,8 +391,8 @@ async def start_monitoring_endpoint(data: dict):
 @app.post("/stop-monitoring") 
 async def stop_monitoring_endpoint():
     """Stop continuous screen monitoring"""
-    if not SCREEN_CAPTURE_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Screen capture not available")
+    if screen_engine is None:
+        raise HTTPException(status_code=503, detail="Screen capture not available - install opencv-python, pytesseract, and pillow")
     
     try:
         screen_engine.stop_monitoring()
@@ -393,6 +400,48 @@ async def stop_monitoring_endpoint():
     except Exception as e:
         logger.error(f"Monitoring stop error: {e}")
         raise HTTPException(status_code=500, detail="Failed to stop monitoring")
+
+@app.get("/dependencies")
+async def get_dependencies():
+    """Get the status of optional dependencies"""
+    return get_dependency_status()
+
+@app.post("/install-feature")
+async def install_feature_dependencies(feature_data: dict):
+    """Install dependencies for a specific feature"""
+    feature = feature_data.get("feature")
+    if not feature:
+        raise HTTPException(status_code=400, detail="Feature name is required")
+    
+    valid_features = ["screen_capture", "ai_models", "advanced_processing"]
+    if feature not in valid_features:
+        raise HTTPException(status_code=400, detail=f"Invalid feature. Valid options: {valid_features}")
+    
+    try:
+        success = install_dependencies_for_feature(feature)
+        if success:
+            return {"status": "success", "message": f"Dependencies for {feature} installed successfully"}
+        else:
+            return {"status": "failed", "message": f"Failed to install dependencies for {feature}"}
+    except Exception as e:
+        logger.error(f"Dependency installation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to install dependencies")
+
+@app.get("/system-info")
+async def get_system_info():
+    """Get comprehensive system information"""
+    import platform
+    
+    system_info = {
+        "platform": platform.system(),
+        "platform_version": platform.version(),
+        "python_version": platform.python_version(),
+        "architecture": platform.machine(),
+        "dependencies": get_dependency_status(),
+        "gpu": detect_gpu()
+    }
+    
+    return system_info
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")

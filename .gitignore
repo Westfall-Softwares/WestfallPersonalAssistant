@@ -74,3 +74,6 @@ captures/
 !westfall.png
 !build/icon.*
 !public/favicon.*
+
+# Launcher state
+.first-run-complete
