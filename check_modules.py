@@ -4,6 +4,8 @@ print("Checking for business modules in your project...\n")
 
 modules_to_check = [
     "business_intelligence/dashboard/business_dashboard.py",
+    "business_intelligence/dashboard/kpi_tracker.py",
+    "business_intelligence/reports/report_generator.py",
     "crm_system/crm_manager.py",
     "screen_intelligence/capture/multi_monitor_capture.py",
     "ai_assistant/core/chat_manager.py",
@@ -25,6 +27,7 @@ print("\nChecking for __init__.py files...")
 init_files = [
     "business_intelligence/__init__.py",
     "business_intelligence/dashboard/__init__.py",
+    "business_intelligence/reports/__init__.py",
     "crm_system/__init__.py",
     "screen_intelligence/__init__.py",
     "screen_intelligence/capture/__init__.py"

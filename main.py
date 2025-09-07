@@ -76,6 +76,8 @@ except ImportError:
 
 # Import YOUR EXISTING business features
 from business_intelligence.dashboard.business_dashboard import BusinessDashboard
+from business_intelligence.dashboard.kpi_tracker import KPITracker
+from business_intelligence.reports.report_generator import ReportGenerator
 from crm_system.crm_manager import CRMManager
 
 # Import security and AI
