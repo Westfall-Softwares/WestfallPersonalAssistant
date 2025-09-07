@@ -99,49 +99,94 @@ class ErrorHandler:
         self.original_excepthook(exc_type, exc_value, exc_traceback)
     
     def handle_network_error(self, error, message=None, parent=None, retry_func=None):
-        """Handle network errors consistently"""
+        """Handle network errors consistently with user-friendly messages"""
+        # Create user-friendly message based on error type
+        user_friendly_msg = self._get_user_friendly_network_message(error)
+        
         if message is None:
-            message = "A network error occurred"
+            message = user_friendly_msg
+        else:
+            message = f"{message}\n\n{user_friendly_msg}"
         
         # Get actual parent window
         parent = parent or self.parent
         
-        # Log the error
-        logging.error(f"Network error: {error}")
+        # Log the technical error details
+        logging.error(f"Network error: {error.__class__.__name__}: {error}")
         self.error_counts['network'] += 1
         
         # Show error dialog with retry option if provided
         if retry_func:
-            retry = QMessageBox.warning(parent, "Network Error", 
-                                      f"{message}:\n{str(error)}\n\nWould you like to retry?",
+            retry = QMessageBox.warning(parent, "Network Connection Problem", 
+                                      f"{message}\n\nWould you like to retry?",
                                       QMessageBox.Retry | QMessageBox.Cancel)
             if retry == QMessageBox.Retry:
                 return retry_func()
         else:
-            QMessageBox.warning(parent, "Network Error", 
-                              f"{message}:\n{str(error)}")
+            QMessageBox.warning(parent, "Network Connection Problem", message)
         
         return None
     
+    def _get_user_friendly_network_message(self, error):
+        """Convert technical network errors to user-friendly messages"""
+        error_str = str(error).lower()
+        
+        if 'timeout' in error_str or 'timed out' in error_str:
+            return "The request took too long to complete. Please check your internet connection and try again."
+        elif 'connection' in error_str and 'refused' in error_str:
+            return "Could not connect to the server. The service may be temporarily unavailable."
+        elif 'name resolution failed' in error_str or 'nodename nor servname provided' in error_str:
+            return "Could not find the server. Please check your internet connection."
+        elif 'ssl' in error_str or 'certificate' in error_str:
+            return "There was a problem with the secure connection. Please try again later."
+        elif 'read timeout' in error_str:
+            return "The server is taking too long to respond. Please try again."
+        elif 'connection error' in error_str:
+            return "Unable to establish a connection. Please check your internet connection."
+        else:
+            return "A network error occurred. Please check your internet connection and try again."
+    
     def handle_database_error(self, error, message=None, parent=None, critical=False):
-        """Handle database errors consistently"""
+        """Handle database errors consistently with user-friendly messages"""
+        # Create user-friendly message based on error type
+        user_friendly_msg = self._get_user_friendly_database_message(error)
+        
         if message is None:
-            message = "A database error occurred"
+            message = user_friendly_msg
+        else:
+            message = f"{message}\n\n{user_friendly_msg}"
         
         # Get actual parent window
         parent = parent or self.parent
         
-        # Log the error
-        logging.error(f"Database error: {error}")
+        # Log the technical error details
+        logging.error(f"Database error: {error.__class__.__name__}: {error}")
         self.error_counts['database'] += 1
         
         # Show appropriate message box
         if critical:
-            return QMessageBox.critical(parent, "Database Error", 
-                                     f"{message}:\n{str(error)}")
+            return QMessageBox.critical(parent, "Database Problem", message)
         else:
-            return QMessageBox.warning(parent, "Database Error", 
-                                    f"{message}:\n{str(error)}")
+            return QMessageBox.warning(parent, "Database Issue", message)
+    
+    def _get_user_friendly_database_message(self, error):
+        """Convert technical database errors to user-friendly messages"""
+        error_str = str(error).lower()
+        
+        if 'locked' in error_str:
+            return "The database is currently busy. Please wait a moment and try again."
+        elif 'permission denied' in error_str:
+            return "Unable to access the database file. Please check file permissions."
+        elif 'no such table' in error_str or 'no such column' in error_str:
+            return "The database structure appears to be damaged. Please restart the application."
+        elif 'constraint' in error_str:
+            return "This operation conflicts with existing data. Please check your input."
+        elif 'disk' in error_str and ('full' in error_str or 'space' in error_str):
+            return "Not enough disk space to complete this operation."
+        elif 'corrupt' in error_str:
+            return "The database file appears to be corrupted. A backup may need to be restored."
+        else:
+            return "A database error occurred. Your data should be safe, but please try again."
     
     def handle_file_error(self, error, message=None, parent=None, file_path=None):
         """Handle file operation errors consistently"""

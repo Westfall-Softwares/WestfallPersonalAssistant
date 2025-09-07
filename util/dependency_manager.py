@@ -38,9 +38,27 @@ class DependencyInstallWorker(QThread):
             self.finished_signal.emit(False, str(e))
 
 class DependencyManager:
-    """Manages dependencies for the application"""
+    """Manages dependencies for the application with thread safety"""
+    
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        """Singleton pattern with thread safety"""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(DependencyManager, cls).__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
     
     def __init__(self):
+        if self._initialized:
+            return
+            
+        # Thread safety lock for dependency operations
+        self._operation_lock = threading.RLock()
+        
         self.required_packages = {
             "core": [
                 "PyQt5>=5.15.0",
@@ -64,35 +82,55 @@ class DependencyManager:
                 "matplotlib>=3.4.0"
             ]
         }
+        
+        # Cache for dependency check results
+        self._cache = {}
+        self._cache_timestamp = 0
+        self._cache_timeout = 300  # 5 minutes
+        
+        self._initialized = True
     
     def check_dependencies(self):
-        """Check which dependencies are missing or outdated"""
-        missing = []
-        outdated = []
-        installed = []
-        
-        all_packages = []
-        for category, packages in self.required_packages.items():
-            all_packages.extend(packages)
-        
-        for package_spec in all_packages:
-            package_name = package_spec.split(">=")[0].split("==")[0]
+        """Check which dependencies are missing or outdated (thread-safe)"""
+        with self._operation_lock:
+            # Check cache first
+            current_time = datetime.now().timestamp()
+            if (self._cache and 
+                current_time - self._cache_timestamp < self._cache_timeout):
+                return self._cache.copy()
             
-            try:
-                # Check if package is installed
-                pkg_resources.get_distribution(package_name)
-                installed.append(package_name)
+            missing = []
+            outdated = []
+            installed = []
+            
+            all_packages = []
+            for category, packages in self.required_packages.items():
+                all_packages.extend(packages)
+            
+            for package_spec in all_packages:
+                package_name = package_spec.split(">=")[0].split("==")[0]
                 
-                # TODO: Add version checking for outdated packages
-                
-            except pkg_resources.DistributionNotFound:
-                missing.append(package_spec)
-        
-        return {
-            "missing": missing,
-            "outdated": outdated,
-            "installed": installed
-        }
+                try:
+                    # Check if package is installed
+                    pkg_resources.get_distribution(package_name)
+                    installed.append(package_name)
+                    
+                    # TODO: Add version checking for outdated packages
+                    
+                except pkg_resources.DistributionNotFound:
+                    missing.append(package_spec)
+            
+            result = {
+                "missing": missing,
+                "outdated": outdated,
+                "installed": installed
+            }
+            
+            # Update cache
+            self._cache = result.copy()
+            self._cache_timestamp = current_time
+            
+            return result
     
     def install_packages(self, packages):
         """Install packages using pip"""
