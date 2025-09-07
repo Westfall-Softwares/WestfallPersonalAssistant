@@ -316,3 +316,6 @@ class MultiMonitorCapture(QWidget):
     def show_error(self, error):
         self.results_text.append(f"❌ Error: {error}")
         QMessageBox.critical(self, "Error", f"Failed to capture screens: {error}")
+
+# Alias for import compatibility
+LiveScreenIntelligence = MultiMonitorCapture

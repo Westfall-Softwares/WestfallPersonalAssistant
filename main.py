@@ -1,43 +1,35 @@
 import sys
 import os
+
+# Add the project root to Python path so imports work
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QRect
 from PyQt5.QtGui import QIcon, QPixmap, QKeySequence, QPalette, QColor, QFont
 
-# Import all windows (will be converted to widgets)
+# Import all windows
 try:
     from email_window import EmailWindow
 except ImportError:
-    class EmailWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Email (Placeholder)")
+    from placeholder_windows import EmailWindow
 
 from password_manager import PasswordManagerWindow
 
 try:
     from notes import NotesWindow
 except ImportError:
-    class NotesWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Notes (Placeholder)")
+    from placeholder_windows import NotesWindow
 
 try:
     from calculator import CalculatorWindow
 except ImportError:
-    class CalculatorWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Calculator (Placeholder)")
+    from placeholder_windows import CalculatorWindow
 
 try:
     from calendar_window import CalendarWindow
 except ImportError:
-    class CalendarWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Calendar (Placeholder)")
+    from placeholder_windows import CalendarWindow
 
 from weather import WeatherWindow
 from news import NewsWindow
@@ -45,117 +37,97 @@ from news import NewsWindow
 try:
     from browser import BrowserWindow
 except ImportError:
-    class BrowserWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Browser (Placeholder)")
+    from placeholder_windows import BrowserWindow
 
 try:
     from file_manager import FileManagerWindow
 except ImportError:
-    class FileManagerWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("File Manager (Placeholder)")
+    from placeholder_windows import FileManagerWindow
 
 try:
     from todo import TodoWindow
 except ImportError:
-    class TodoWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Todo (Placeholder)")
+    from placeholder_windows import TodoWindow
 
 try:
     from contacts import ContactsWindow
 except ImportError:
-    class ContactsWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Contacts (Placeholder)")
+    from placeholder_windows import ContactsWindow
 
 try:
     from settings import SettingsWindow
 except ImportError:
-    class SettingsWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Settings (Placeholder)")
+    from placeholder_windows import SettingsWindow
 
 try:
     from finance import FinanceWindow
 except ImportError:
-    class FinanceWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Finance (Placeholder)")
+    from placeholder_windows import FinanceWindow
 
 try:
     from recipe import RecipeWindow
 except ImportError:
-    class RecipeWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Recipe (Placeholder)")
+    from placeholder_windows import RecipeWindow
 
 try:
     from music_player import MusicPlayerWindow
 except ImportError:
-    class MusicPlayerWindow(QMainWindow): 
-        def __init__(self): 
-            super().__init__()
-            self.setWindowTitle("Music Player (Module not available)")
+    from placeholder_windows import MusicPlayerWindow
 
-# Import business features
-try:
-    from screen_intelligence.live_screen_intelligence import LiveScreenIntelligence
-except ImportError:
-    class LiveScreenIntelligence(QWidget):
-        def __init__(self):
-            super().__init__()
-            layout = QVBoxLayout()
-            label = QLabel("Screen Intelligence module not available")
-            label.setAlignment(Qt.AlignCenter)
-            layout.addWidget(label)
-            self.setLayout(layout)
-
-try:
-    from business_intelligence.dashboard.business_dashboard import BusinessDashboard
-except ImportError:
-    class BusinessDashboard(QWidget):
-        def __init__(self):
-            super().__init__()
-            layout = QVBoxLayout()
-            label = QLabel("Business Dashboard module not available")
-            label.setAlignment(Qt.AlignCenter)
-            layout.addWidget(label)
-            self.setLayout(layout)
-
-try:
-    from crm_system.crm_manager import CRMManager
-except ImportError:
-    class CRMManager(QWidget):
-        def __init__(self):
-            super().__init__()
-            layout = QVBoxLayout()
-            label = QLabel("CRM Manager module not available")
-            label.setAlignment(Qt.AlignCenter)
-            layout.addWidget(label)
-            self.setLayout(layout)
+# Import YOUR EXISTING business features
+from business_intelligence.dashboard.business_dashboard import BusinessDashboard
+from crm_system.crm_manager import CRMManager
 
 # Import security and AI
 from security.encryption_manager import MasterPasswordDialog, EncryptionManager
+from ai_assistant.core.chat_manager import AIChatWidget
 
+# For screen intelligence, check if multi_monitor_capture exists
 try:
-    from ai_assistant.core.chat_manager import AIChatWidget
+    from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
+    # Create LiveScreenIntelligence from MultiMonitorCapture if it doesn't exist separately
+    LiveScreenIntelligence = MultiMonitorCapture
 except ImportError:
-    class AIChatWidget(QWidget):
-        def __init__(self, parent=None):
-            super().__init__(parent)
+    # Only if it truly doesn't exist
+    print("Warning: Screen intelligence module not found")
+    class LiveScreenIntelligence(QWidget):
+        def __init__(self):
+            super().__init__()
+            self.init_ui()
+        
+        def init_ui(self):
             layout = QVBoxLayout()
-            label = QLabel("AI Assistant not available")
-            label.setAlignment(Qt.AlignCenter)
-            layout.addWidget(label)
+            
+            # At least make it look good
+            header = QLabel("🖥️ Live Screen Intelligence")
+            header.setStyleSheet("""
+                QLabel {
+                    color: #ff0000;
+                    font-size: 24px;
+                    font-weight: bold;
+                    padding: 20px;
+                }
+            """)
+            header.setAlignment(Qt.AlignCenter)
+            layout.addWidget(header)
+            
+            install_btn = QPushButton("Install Dependencies")
+            install_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #ff0000;
+                    color: white;
+                    border: none;
+                    padding: 15px;
+                    font-size: 16px;
+                    font-weight: bold;
+                }
+            """)
+            install_btn.clicked.connect(lambda: QMessageBox.information(
+                self, "Install", "Run: pip install mss pyautogui opencv-python pytesseract"
+            ))
+            layout.addWidget(install_btn)
+            
+            layout.addStretch()
             self.setLayout(layout)
 
 class NavigationButton(QPushButton):
@@ -621,7 +593,14 @@ class MainWindow(QMainWindow):
         self.show_widget(CRMManager, "CRM")
     
     def show_screen_intelligence(self):
-        self.show_widget(LiveScreenIntelligence, "Screen Intelligence")
+        # Use MultiMonitorCapture which we know exists
+        try:
+            from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
+            self.show_widget(MultiMonitorCapture, "Screen Intelligence")
+        except ImportError:
+            QMessageBox.critical(self, "Module Not Found", 
+                "Screen Intelligence module not found.\n"
+                "Please ensure all files were created properly.")
     
     def toggle_ai_assistant(self):
         """Toggle AI Assistant"""
