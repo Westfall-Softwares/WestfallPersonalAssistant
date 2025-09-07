@@ -11,6 +11,10 @@ from .validation import (
     validate_ip_address, sanitize_filename, validate_json_string, validate_hex_color
 )
 from .safe_delete import SafeDeleteManager, get_safe_delete_manager, safe_delete, recover_item
+from .network import (
+    NetworkManager, NetworkError, get_network_manager, 
+    with_network_retry, safe_request_get, safe_request_post
+)
 
 __all__ = [
     'ErrorHandler', 
@@ -31,5 +35,11 @@ __all__ = [
     'SafeDeleteManager',
     'get_safe_delete_manager',
     'safe_delete',
-    'recover_item'
+    'recover_item',
+    'NetworkManager',
+    'NetworkError',
+    'get_network_manager',
+    'with_network_retry',
+    'safe_request_get',
+    'safe_request_post'
 ]

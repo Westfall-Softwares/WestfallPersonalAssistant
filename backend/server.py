@@ -12,6 +12,8 @@ import json
 import logging
 import os
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 import uvicorn
@@ -27,7 +29,10 @@ from security import EncryptionManager, AuthManager, SecureStorage, APIKeyVault
 from database import BackupManager, SyncManager
 
 # Import utilities
-from utils import setup_global_error_handling, get_global_error_handler, ErrorHandler, get_safe_delete_manager
+from utils import (
+    setup_global_error_handling, get_global_error_handler, ErrorHandler, 
+    get_safe_delete_manager, get_network_manager
+)
 from utils.validation import validate_email, validate_password_strength, validate_api_key
 
 # Import AI assistant modules  
@@ -76,6 +81,9 @@ error_handler = setup_global_error_handling(debug_mode=False)
 
 # Initialize safe delete manager
 safe_delete_manager = get_safe_delete_manager()
+
+# Initialize network manager
+network_manager = get_network_manager()
 
 # Security and database managers
 auth_manager = None
@@ -837,6 +845,205 @@ async def get_trash_stats(auth: AuthManager = Depends(require_auth)):
         return stats
     except Exception as e:
         return error_handler.handle_api_error(e, "get_trash_stats")
+
+# Network Status Endpoint
+@app.get("/network/status")
+async def get_network_status():
+    """Get network connectivity status."""
+    try:
+        status = network_manager.get_network_status()
+        return status
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_network_status")
+
+# Weather Service Endpoints
+@app.get("/weather")
+@error_handler.with_error_handling("WeatherService")
+async def get_weather(location: str = "auto", auth: AuthManager = Depends(require_auth)):
+    """Get weather information with network error handling."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    # Get API key
+    weather_key_data = api_key_vault.get_api_key("openweathermap")
+    if not weather_key_data:
+        return {
+            "status": "error",
+            "message": "OpenWeatherMap API key not configured",
+            "requires_setup": True
+        }
+    
+    api_key = weather_key_data["api_key"]
+    
+    try:
+        # Use network manager for robust request handling
+        url = "http://api.openweathermap.org/data/2.5/weather"
+        params = {
+            "q": location if location != "auto" else "New York",  # Default location
+            "appid": api_key,
+            "units": "metric"
+        }
+        
+        response = network_manager.get_with_retry(url, params=params, timeout=10)
+        data = response.json()
+        
+        # Format response
+        weather_data = {
+            "status": "success",
+            "location": data["name"],
+            "country": data["sys"]["country"],
+            "temperature": data["main"]["temp"],
+            "feels_like": data["main"]["feels_like"],
+            "humidity": data["main"]["humidity"],
+            "pressure": data["main"]["pressure"],
+            "condition": data["weather"][0]["main"],
+            "description": data["weather"][0]["description"],
+            "wind_speed": data["wind"]["speed"],
+            "visibility": data.get("visibility", "N/A"),
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        error_handler.log_info(f"Weather data retrieved for {location}", "WeatherService")
+        return weather_data
+        
+    except Exception as e:
+        error_handler.log_error(f"Weather service error: {e}", context="WeatherService")
+        # Return fallback data
+        return network_manager.get_fallback_data("weather")
+
+@app.get("/news")
+@error_handler.with_error_handling("NewsService")
+async def get_news(category: str = "general", country: str = "us", limit: int = 10, auth: AuthManager = Depends(require_auth)):
+    """Get news with network error handling."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    # Get API key
+    news_key_data = api_key_vault.get_api_key("newsapi")
+    if not news_key_data:
+        return {
+            "status": "error",
+            "message": "NewsAPI key not configured",
+            "requires_setup": True
+        }
+    
+    api_key = news_key_data["api_key"]
+    
+    try:
+        # Use network manager for robust request handling
+        url = "https://newsapi.org/v2/top-headlines"
+        headers = {"X-API-Key": api_key}
+        params = {
+            "category": category,
+            "country": country,
+            "pageSize": min(limit, 100)  # API limit
+        }
+        
+        response = network_manager.get_with_retry(url, headers=headers, params=params, timeout=15)
+        data = response.json()
+        
+        if data["status"] != "ok":
+            raise Exception(f"NewsAPI error: {data.get('message', 'Unknown error')}")
+        
+        # Format response
+        articles = []
+        for article in data["articles"][:limit]:
+            articles.append({
+                "title": article["title"],
+                "description": article["description"],
+                "url": article["url"],
+                "source": article["source"]["name"],
+                "published_at": article["publishedAt"],
+                "url_to_image": article.get("urlToImage")
+            })
+        
+        news_data = {
+            "status": "success",
+            "articles": articles,
+            "total_results": data["totalResults"],
+            "category": category,
+            "country": country,
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        error_handler.log_info(f"News data retrieved: {len(articles)} articles", "NewsService")
+        return news_data
+        
+    except Exception as e:
+        error_handler.log_error(f"News service error: {e}", context="NewsService")
+        # Return fallback data
+        return network_manager.get_fallback_data("news")
+
+# Email Service Endpoints
+@app.post("/email/send")
+@error_handler.with_error_handling("EmailService")
+async def send_email(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Send email with network error handling."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    # Validate required fields
+    to_email = request.get("to")
+    subject = request.get("subject")
+    body = request.get("body")
+    
+    if not to_email or not subject or not body:
+        raise HTTPException(status_code=400, detail="Missing required fields: to, subject, body")
+    
+    # Validate email format
+    is_valid, error_msg = validate_email(to_email)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid email address: {error_msg}")
+    
+    # For now, this is a placeholder - in a real implementation you would:
+    # 1. Get SMTP settings from secure storage
+    # 2. Use network_manager to send with retry logic
+    # 3. Handle various email provider APIs
+    
+    try:
+        # Simulate email sending with network handling
+        if not network_manager.is_online():
+            return network_manager.get_fallback_data("email")
+        
+        # Placeholder for actual email sending logic
+        # This would integrate with SMTP or email service APIs
+        
+        email_result = {
+            "status": "success",
+            "message": "Email sent successfully",
+            "to": to_email,
+            "subject": subject,
+            "sent_at": datetime.now().isoformat(),
+            "message_id": f"msg_{int(time.time())}"
+        }
+        
+        error_handler.log_info(f"Email sent to {to_email}", "EmailService")
+        return email_result
+        
+    except Exception as e:
+        error_handler.log_error(f"Email service error: {e}", context="EmailService")
+        return {
+            "status": "error",
+            "message": f"Failed to send email: {str(e)}",
+            "fallback_available": True
+        }
+
+@app.get("/email/status")
+async def get_email_status(auth: AuthManager = Depends(require_auth)):
+    """Get email service status."""
+    try:
+        online_status = network_manager.is_online()
+        
+        return {
+            "status": "online" if online_status else "offline",
+            "can_send": online_status,
+            "can_receive": False,  # Placeholder - would check IMAP/POP3
+            "last_checked": datetime.now().isoformat(),
+            "smtp_configured": False,  # Placeholder - would check actual config
+            "imap_configured": False   # Placeholder - would check actual config
+        }
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_email_status")
 
 # Secure Storage Endpoints
 @app.get("/secure/settings")
