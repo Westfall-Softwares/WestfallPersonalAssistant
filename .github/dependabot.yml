@@ -5,7 +5,31 @@
 
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Monitor npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: "every 3 hours"
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Westfall-Softwares"
+    assignees:
+      - "Westfall-Softwares"
+    commit-message:
+      prefix: "npm"
+      prefix-development: "npm-dev"
+      include: "scope"
+
+  # Monitor pip dependencies
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Westfall-Softwares"
+    assignees:
+      - "Westfall-Softwares"
+    commit-message:
+      prefix: "pip"
+      include: "scope"
