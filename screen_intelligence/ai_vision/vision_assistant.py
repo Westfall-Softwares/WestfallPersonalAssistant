@@ -3,7 +3,13 @@ Vision Assistant for AI-powered screen analysis
 """
 
 from typing import Dict, Any, List
-from PIL import Image
+
+# Optional dependencies with fallbacks
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 class VisionAssistant:
     """AI-powered vision assistant for screen analysis"""
@@ -17,7 +23,7 @@ class VisionAssistant:
             "Workflow optimization"
         ]
     
-    def analyze_image(self, image: Image.Image, context: str = "") -> Dict[str, Any]:
+    def analyze_image(self, image: "Image.Image", context: str = "") -> Dict[str, Any]:
         """
         Analyze an image and provide AI insights
         
@@ -28,6 +34,15 @@ class VisionAssistant:
         Returns:
             Dictionary with analysis results and suggestions
         """
+        if not HAS_PIL:
+            return {
+                'error': 'PIL not available for image analysis',
+                'suggestions': ['Install PIL with: pip install Pillow'],
+                'confidence': 0.0,
+                'elements_detected': [],
+                'context_analysis': {}
+            }
+        
         # This is a placeholder for AI vision analysis
         # In a full implementation, this would integrate with vision models
         

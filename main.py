@@ -77,74 +77,53 @@ except ImportError:
 # Import business features
 try:
     from business_intelligence.dashboard.business_dashboard import BusinessDashboard
+    from crm_system.crm_manager import CRMManager
+    BUSINESS_FEATURES_AVAILABLE = True
 except ImportError as e:
-    print(f"Business dashboard import error: {e}")
+    print(f"Warning: Business features import error: {e}")
+    BUSINESS_FEATURES_AVAILABLE = False
     class BusinessDashboard(QWidget):
         def __init__(self):
             super().__init__()
             layout = QVBoxLayout()
-            layout.addWidget(QLabel("Business Dashboard Module Error"))
+            label = QLabel("Business Dashboard - Import Error")
+            layout.addWidget(label)
             self.setLayout(layout)
-
-try:
-    from crm_system.crm_manager import CRMManager
-except ImportError as e:
-    print(f"CRM manager import error: {e}")
+    
     class CRMManager(QWidget):
         def __init__(self):
             super().__init__()
             layout = QVBoxLayout()
-            layout.addWidget(QLabel("CRM Manager Module Error"))
+            label = QLabel("CRM - Import Error")
+            layout.addWidget(label)
             self.setLayout(layout)
 
 # Import security and AI
 from security.encryption_manager import MasterPasswordDialog, EncryptionManager
 from ai_assistant.core.chat_manager import AIChatWidget
 
+# Import dependency manager if available
+try:
+    from util.dependency_manager import DependencyManager, DependencyManagerDialog
+    DEPENDENCY_MANAGER_AVAILABLE = True
+except ImportError:
+    DEPENDENCY_MANAGER_AVAILABLE = False
+
 # Handle screen intelligence imports
 try:
     from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
-    LiveScreenIntelligence = MultiMonitorCapture  # Use MultiMonitorCapture as LiveScreenIntelligence
+    # Use MultiMonitorCapture as LiveScreenIntelligence
+    LiveScreenIntelligence = MultiMonitorCapture
+    SCREEN_INTELLIGENCE_AVAILABLE = True
 except ImportError as e:
-    print(f"Screen intelligence import error: {e}")
+    print(f"Warning: Screen intelligence import error: {e}")
+    SCREEN_INTELLIGENCE_AVAILABLE = False
     class LiveScreenIntelligence(QWidget):
         def __init__(self):
             super().__init__()
             layout = QVBoxLayout()
-            layout.addWidget(QLabel("Screen Intelligence Module Error"))
-            self.setLayout(layout)
-            layout = QVBoxLayout()
-            
-            # At least make it look good
-            header = QLabel("🖥️ Live Screen Intelligence")
-            header.setStyleSheet("""
-                QLabel {
-                    color: #ff0000;
-                    font-size: 24px;
-                    font-weight: bold;
-                    padding: 20px;
-                }
-            """)
-            header.setAlignment(Qt.AlignCenter)
-            layout.addWidget(header)
-            
-            install_btn = QPushButton("Install Dependencies")
-            install_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #ff0000;
-                    color: white;
-                    border: none;
-                    padding: 15px;
-                    font-size: 16px;
-                    font-weight: bold;
-                }
-            """)
-            install_btn.clicked.connect(lambda: QMessageBox.information(
-                self, "Install", "Run: pip install mss pyautogui opencv-python pytesseract"
-            ))
-            layout.addWidget(install_btn)
-            
-            layout.addStretch()
+            label = QLabel("Screen Intelligence - Import Error")
+            layout.addWidget(label)
             self.setLayout(layout)
 
 class NavigationButton(QPushButton):
@@ -290,6 +269,25 @@ class MainWindow(QMainWindow):
         self.quick_access_buttons = QHBoxLayout()
         quick_access_layout.addLayout(self.quick_access_buttons)
         quick_access_layout.addStretch()
+        
+        # Dependencies check button
+        if DEPENDENCY_MANAGER_AVAILABLE:
+            self.check_deps_btn = QPushButton("📦 Check Dependencies")
+            self.check_deps_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #1a1a1a;
+                    color: #ff0000;
+                    border: 1px solid #ff0000;
+                    padding: 8px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #ff0000;
+                    color: white;
+                }
+            """)
+            self.check_deps_btn.clicked.connect(self.check_dependencies)
+            quick_access_layout.addWidget(self.check_deps_btn)
         
         # Dark mode toggle
         self.dark_mode_btn = QPushButton("🌙")
@@ -1199,6 +1197,39 @@ class MainWindow(QMainWindow):
         self.ai_chat.parent_window = self.windows['crm_manager']
         self.status_bar.showMessage("CRM Manager opened - Manage customer relationships & sales pipeline")
     
+    def check_dependencies(self):
+        """Check for missing dependencies"""
+        if DEPENDENCY_MANAGER_AVAILABLE:
+            # Quick check for missing dependencies
+            manager = DependencyManager()
+            result = manager.check_dependencies()
+            missing = result["missing"]
+            outdated = result["outdated"]
+            
+            if missing or outdated:
+                message = "Some dependencies need attention:\n\n"
+                
+                if missing:
+                    message += f"- {len(missing)} missing packages\n"
+                if outdated:
+                    message += f"- {len(outdated)} outdated packages\n"
+                
+                message += "\nWould you like to open the Dependency Manager?"
+                
+                reply = QMessageBox.question(self, "Dependencies", message, 
+                                            QMessageBox.Yes | QMessageBox.No)
+                
+                if reply == QMessageBox.Yes:
+                    dialog = DependencyManagerDialog(self)
+                    dialog.exec_()
+            else:
+                QMessageBox.information(self, "Dependencies", 
+                                      "All dependencies are installed and up to date!")
+        else:
+            QMessageBox.warning(self, "Not Available", 
+                              "Dependency manager is not available.\n"
+                              "Please check your installation.")
+    
     def closeEvent(self, event):
         """Handle application close"""
         self.save_preferences()
@@ -1373,5 +1404,4 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
-    main()
     main()
