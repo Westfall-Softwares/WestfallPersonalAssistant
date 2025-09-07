@@ -15,7 +15,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +38,16 @@ from utils.validation import validate_email, validate_password_strength, validat
 # Import AI assistant modules  
 from ai_assistant import AIChat, ContextManager, ActionExecutor, ResponseHandler
 from ai_assistant.providers import OpenAIProvider, LocalLLMProvider
+
+# Import feature modules
+from features.news_reader import NewsReader
+from features.music_player import MusicPlayer
+from features.browser_manager import BrowserManager
+from features.advanced_calculator import AdvancedCalculator
+from features.navigation_system import NavigationManager
+from features.shortcuts_manager import ShortcutManager
+from features.notification_manager import NotificationManager, NotificationPriority, NotificationType
+from features.reminder_system import ReminderSystem, ReminderType, ReminderPriority
 
 # Import optional modules with graceful fallback
 screen_engine = None
@@ -99,10 +109,22 @@ action_executor = None
 response_handler = None
 ai_providers = {}
 
+# Feature modules
+news_reader = None
+music_player = None
+browser_manager = None
+calculator = None
+navigation_manager = None
+shortcut_manager = None
+notification_manager = None
+reminder_system = None
+
 def initialize_security_systems():
     """Initialize security and database systems."""
     global auth_manager, secure_storage, api_key_vault, backup_manager, sync_manager
     global ai_chat, context_manager, action_executor, response_handler
+    global news_reader, music_player, browser_manager, calculator
+    global navigation_manager, shortcut_manager, notification_manager, reminder_system
     
     # Set up paths
     config_dir = os.path.expanduser("~/.westfall_assistant")
@@ -126,9 +148,43 @@ def initialize_security_systems():
             response_handler = ResponseHandler()
             ai_chat = AIChat(context_manager, action_executor, response_handler, secure_storage)
         
+        # Initialize feature modules (available without authentication)
+        news_reader = NewsReader(config_dir)
+        music_player = MusicPlayer(config_dir)
+        browser_manager = BrowserManager(config_dir)
+        calculator = AdvancedCalculator(config_dir)
+        navigation_manager = NavigationManager(config_dir)
+        shortcut_manager = ShortcutManager(config_dir)
+        notification_manager = NotificationManager(config_dir)
+        reminder_system = ReminderSystem(config_dir, notification_manager=notification_manager)
+        
         error_handler.log_info("Security systems initialized", "SecurityInit")
     except Exception as e:
         error_handler.log_error(f"Failed to initialize security systems: {e}", context="SecurityInit")
+
+async def startup_tasks():
+    """Perform async startup tasks."""
+    try:
+        if navigation_manager and not navigation_manager._search_index_built:
+            await navigation_manager._build_search_index()
+            navigation_manager._search_index_built = True
+        
+        if shortcut_manager and not shortcut_manager._shortcuts_loaded:
+            await shortcut_manager._load_shortcuts()
+            shortcut_manager._shortcuts_loaded = True
+        
+        if reminder_system and not reminder_system._reminder_loop_started:
+            asyncio.create_task(reminder_system._start_reminder_loop())
+            reminder_system._reminder_loop_started = True
+        
+        error_handler.log_info("Async startup tasks completed", "Startup")
+    except Exception as e:
+        error_handler.log_error(f"Failed to complete startup tasks: {e}", context="Startup")
+
+# FastAPI startup event
+@app.on_event("startup")
+async def on_startup():
+    await startup_tasks()
 
 # Initialize security on startup
 initialize_security_systems()
@@ -175,6 +231,122 @@ class ProviderConfigRequest(BaseModel):
 class ConfirmationRequest(BaseModel):
     confirm: bool = False
     confirmation_message: Optional[str] = None
+
+# News reader models
+class NewsSourceRequest(BaseModel):
+    name: str
+    url: str
+    category: str = "general"
+    source_type: str = "rss"
+    active: bool = True
+    refresh_interval: int = 3600
+
+class NewsSearchRequest(BaseModel):
+    query: str
+    category: Optional[str] = None
+    limit: int = 50
+
+# Music player models
+class MusicDirectoryRequest(BaseModel):
+    directory: str
+    recursive: bool = True
+
+class PlaylistRequest(BaseModel):
+    name: str
+    description: str = ""
+
+class PlaylistTrackRequest(BaseModel):
+    playlist_id: int
+    track_id: int
+
+class VolumeRequest(BaseModel):
+    volume: float
+
+# Browser models
+class TabRequest(BaseModel):
+    url: str = "about:blank"
+    title: str = "New Tab"
+
+class NavigateRequest(BaseModel):
+    tab_id: str
+    url: str
+
+class BookmarkRequest(BaseModel):
+    title: str
+    url: str
+    folder_path: str = ""
+    description: str = ""
+    tags: List[str] = []
+
+class DownloadRequest(BaseModel):
+    url: str
+    filename: Optional[str] = None
+    tab_id: Optional[str] = None
+
+# Calculator models
+class CalculationRequest(BaseModel):
+    expression: str
+    mode: str = "standard"
+
+class UnitConversionRequest(BaseModel):
+    value: float
+    from_unit: str
+    to_unit: str
+    category: Optional[str] = None
+
+# Navigation models
+class NavigationRequest(BaseModel):
+    module: str
+    path: List[str] = []
+    context: Dict[str, Any] = {}
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 50
+
+# Notification models
+class NotificationRequest(BaseModel):
+    title: str
+    message: str
+    notification_type: str = "info"
+    priority: int = 2
+    module: Optional[str] = None
+    action_data: Optional[Dict[str, Any]] = None
+    duration: Optional[int] = None
+    persistent: bool = False
+    sound_enabled: Optional[bool] = None
+
+class NotificationTemplateRequest(BaseModel):
+    template_id: str
+    title_template: str
+    message_template: str
+    notification_type: str
+    priority: int
+    module: Optional[str] = None
+    variables: List[str] = []
+
+# Reminder models
+class ReminderRequest(BaseModel):
+    title: str
+    description: str = ""
+    reminder_type: str = "one_time"
+    trigger_time: Optional[str] = None  # ISO format datetime
+    location: Optional[Dict[str, Any]] = None
+    recurrence: Optional[Dict[str, Any]] = None
+    priority: int = 2
+    tags: List[str] = []
+    metadata: Dict[str, Any] = {}
+
+class LocationUpdateRequest(BaseModel):
+    lat: float
+    lng: float
+    accuracy: Optional[float] = None
+
+class ShortcutRequest(BaseModel):
+    shortcut_key: str
+    context: str
+    action: str
+    description: str = ""
 
 # Security endpoint dependencies
 def require_auth():
@@ -1491,6 +1663,535 @@ async def get_ai_status_public():
         }
     
     return status
+
+# ========== NEWS READER ENDPOINTS ==========
+
+@app.post("/news/sources")
+async def add_news_source(request: NewsSourceRequest):
+    """Add a new news source."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.add_source(
+        name=request.name,
+        url=request.url,
+        category=request.category,
+        source_type=request.source_type,
+        active=request.active,
+        refresh_interval=request.refresh_interval
+    )
+    
+    if success:
+        return {"status": "success", "message": f"News source '{request.name}' added successfully"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add news source")
+
+@app.get("/news/sources")
+async def get_news_sources():
+    """Get all news sources."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    sources = await news_reader.get_sources()
+    return {"sources": sources}
+
+@app.delete("/news/sources/{source_id}")
+async def remove_news_source(source_id: int):
+    """Remove a news source."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.remove_source(source_id)
+    if success:
+        return {"status": "success", "message": f"News source {source_id} removed"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to remove news source")
+
+@app.post("/news/fetch")
+async def fetch_news_articles(source_id: Optional[int] = None, force_refresh: bool = False):
+    """Fetch articles from news sources."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    articles = await news_reader.fetch_articles(source_id, force_refresh)
+    return {"articles": articles, "count": len(articles)}
+
+@app.get("/news/articles")
+async def get_news_articles(
+    category: Optional[str] = None,
+    read_status: Optional[bool] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get news articles with optional filtering."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    articles = await news_reader.get_articles(category, read_status, limit, offset)
+    return {"articles": articles, "count": len(articles)}
+
+@app.post("/news/search")
+async def search_news_articles(request: NewsSearchRequest):
+    """Search news articles."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    articles = await news_reader.search_articles(
+        query=request.query,
+        category=request.category,
+        limit=request.limit
+    )
+    return {"articles": articles, "count": len(articles)}
+
+@app.post("/news/articles/{article_id}/read")
+async def mark_article_read(article_id: int, read: bool = True):
+    """Mark article as read/unread."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.mark_as_read(article_id, read)
+    if success:
+        status = "read" if read else "unread"
+        return {"status": "success", "message": f"Article marked as {status}"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to update article status")
+
+@app.post("/news/articles/{article_id}/archive")
+async def archive_article(article_id: int, archived: bool = True):
+    """Archive/unarchive article."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.archive_article(article_id, archived)
+    if success:
+        status = "archived" if archived else "unarchived"
+        return {"status": "success", "message": f"Article {status}"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to update article status")
+
+@app.get("/news/stats")
+async def get_news_statistics():
+    """Get news reader statistics."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    stats = await news_reader.get_statistics()
+    return stats
+
+# ========== MUSIC PLAYER ENDPOINTS ==========
+
+@app.post("/music/scan")
+async def scan_music_directory(request: MusicDirectoryRequest):
+    """Scan directory for music files."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    added_count = await music_player.scan_music_directory(request.directory, request.recursive)
+    return {"status": "success", "added_tracks": added_count}
+
+@app.get("/music/tracks")
+async def get_music_tracks(
+    limit: int = 100,
+    offset: int = 0,
+    search: Optional[str] = None,
+    genre: Optional[str] = None,
+    artist: Optional[str] = None,
+    album: Optional[str] = None
+):
+    """Get music tracks with optional filtering."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    tracks = await music_player.get_tracks(limit, offset, search, genre, artist, album)
+    return {"tracks": tracks, "count": len(tracks)}
+
+@app.get("/music/tracks/{track_id}")
+async def get_music_track(track_id: int):
+    """Get specific track information."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    track = await music_player.get_track(track_id)
+    if track:
+        return track
+    else:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+@app.post("/music/play/{track_id}")
+async def play_track(track_id: int):
+    """Play a specific track."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.play_track(track_id)
+    if success:
+        return {"status": "playing", "track_id": track_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to play track")
+
+@app.post("/music/pause")
+async def pause_playback():
+    """Pause current playback."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.pause()
+    if success:
+        return {"status": "paused"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to pause playback")
+
+@app.post("/music/resume")
+async def resume_playback():
+    """Resume playback."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.resume()
+    if success:
+        return {"status": "playing"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to resume playback")
+
+@app.post("/music/stop")
+async def stop_playback():
+    """Stop playback."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.stop()
+    if success:
+        return {"status": "stopped"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to stop playback")
+
+@app.post("/music/volume")
+async def set_volume(request: VolumeRequest):
+    """Set playback volume."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.set_volume(request.volume)
+    if success:
+        return {"status": "success", "volume": request.volume}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to set volume")
+
+@app.get("/music/status")
+async def get_playback_status():
+    """Get current playback status."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    status = await music_player.get_playback_status()
+    return status
+
+@app.post("/music/playlists")
+async def create_playlist(request: PlaylistRequest):
+    """Create a new playlist."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    playlist_id = await music_player.create_playlist(request.name, request.description)
+    if playlist_id:
+        return {"status": "success", "playlist_id": playlist_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to create playlist")
+
+@app.post("/music/playlists/add-track")
+async def add_track_to_playlist(request: PlaylistTrackRequest):
+    """Add track to playlist."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.add_track_to_playlist(request.playlist_id, request.track_id)
+    if success:
+        return {"status": "success", "message": "Track added to playlist"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add track to playlist")
+
+# ========== BROWSER ENDPOINTS ==========
+
+@app.post("/browser/tabs")
+async def create_browser_tab(request: TabRequest):
+    """Create a new browser tab."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    tab_id = await browser_manager.create_tab(request.url, request.title)
+    if tab_id:
+        return {"status": "success", "tab_id": tab_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to create tab")
+
+@app.delete("/browser/tabs/{tab_id}")
+async def close_browser_tab(tab_id: str):
+    """Close a browser tab."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.close_tab(tab_id)
+    if success:
+        return {"status": "success", "message": f"Tab {tab_id} closed"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to close tab")
+
+@app.get("/browser/tabs")
+async def get_browser_tabs():
+    """Get all browser tabs."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    tabs = await browser_manager.get_tabs()
+    return {"tabs": tabs}
+
+@app.post("/browser/tabs/{tab_id}/switch")
+async def switch_browser_tab(tab_id: str):
+    """Switch to a specific tab."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.switch_tab(tab_id)
+    if success:
+        return {"status": "success", "active_tab": tab_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to switch tab")
+
+@app.post("/browser/navigate")
+async def navigate_browser(request: NavigateRequest):
+    """Navigate tab to URL."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.navigate_to(request.tab_id, request.url)
+    if success:
+        return {"status": "success", "message": f"Navigated to {request.url}"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to navigate")
+
+@app.post("/browser/tabs/{tab_id}/back")
+async def browser_go_back(tab_id: str):
+    """Go back in tab history."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.go_back(tab_id)
+    if success:
+        return {"status": "success", "message": "Navigated back"}
+    else:
+        raise HTTPException(status_code=400, detail="Cannot go back")
+
+@app.post("/browser/tabs/{tab_id}/forward")
+async def browser_go_forward(tab_id: str):
+    """Go forward in tab history."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.go_forward(tab_id)
+    if success:
+        return {"status": "success", "message": "Navigated forward"}
+    else:
+        raise HTTPException(status_code=400, detail="Cannot go forward")
+
+@app.post("/browser/bookmarks")
+async def add_bookmark(request: BookmarkRequest):
+    """Add a bookmark."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    bookmark_id = await browser_manager.add_bookmark(
+        title=request.title,
+        url=request.url,
+        folder_path=request.folder_path,
+        description=request.description,
+        tags=request.tags
+    )
+    
+    if bookmark_id:
+        return {"status": "success", "bookmark_id": bookmark_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add bookmark")
+
+@app.get("/browser/bookmarks")
+async def get_bookmarks(folder_path: Optional[str] = None):
+    """Get bookmarks."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    bookmarks = await browser_manager.get_bookmarks(folder_path)
+    return {"bookmarks": bookmarks}
+
+@app.delete("/browser/bookmarks/{bookmark_id}")
+async def remove_bookmark(bookmark_id: int):
+    """Remove a bookmark."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.remove_bookmark(bookmark_id)
+    if success:
+        return {"status": "success", "message": f"Bookmark {bookmark_id} removed"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to remove bookmark")
+
+@app.get("/browser/history")
+async def get_browser_history(query: Optional[str] = None, limit: int = 50):
+    """Get browser history."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    if query:
+        history = await browser_manager.search_history(query, limit)
+    else:
+        history = await browser_manager.search_history("", limit)
+    
+    return {"history": history}
+
+@app.post("/browser/downloads")
+async def start_download(request: DownloadRequest):
+    """Start a file download."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    download_id = await browser_manager.start_download(
+        url=request.url,
+        filename=request.filename,
+        tab_id=request.tab_id
+    )
+    
+    if download_id:
+        return {"status": "success", "download_id": download_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to start download")
+
+@app.get("/browser/downloads")
+async def get_downloads(status: Optional[str] = None):
+    """Get download list."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    downloads = await browser_manager.get_downloads(status)
+    return {"downloads": downloads}
+
+@app.get("/browser/stats")
+async def get_browser_stats():
+    """Get browser statistics."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    stats = await browser_manager.get_browser_stats()
+    return stats
+
+# ========== CALCULATOR ENDPOINTS ==========
+
+@app.post("/calculator/calculate")
+async def calculate_expression(request: CalculationRequest):
+    """Calculate mathematical expression."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    result = await calculator.calculate(request.expression, request.mode)
+    return result
+
+@app.post("/calculator/convert")
+async def convert_units(request: UnitConversionRequest):
+    """Convert between units."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    try:
+        result = await calculator.convert_units(
+            value=request.value,
+            from_unit=request.from_unit,
+            to_unit=request.to_unit,
+            category=request.category
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/calculator/memory/store")
+async def memory_store(value: Optional[float] = None):
+    """Store value in calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_store(value)
+    if success:
+        return {"status": "success", "message": "Value stored in memory"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to store in memory")
+
+@app.get("/calculator/memory/recall")
+async def memory_recall():
+    """Recall value from calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    value = await calculator.memory_recall()
+    return {"memory_value": value}
+
+@app.post("/calculator/memory/add")
+async def memory_add(value: Optional[float] = None):
+    """Add to calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_add(value)
+    if success:
+        return {"status": "success", "message": "Added to memory"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add to memory")
+
+@app.post("/calculator/memory/subtract")
+async def memory_subtract(value: Optional[float] = None):
+    """Subtract from calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_subtract(value)
+    if success:
+        return {"status": "success", "message": "Subtracted from memory"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to subtract from memory")
+
+@app.post("/calculator/memory/clear")
+async def memory_clear():
+    """Clear calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_clear()
+    if success:
+        return {"status": "success", "message": "Memory cleared"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to clear memory")
+
+@app.get("/calculator/history")
+async def get_calculation_history(limit: int = 100):
+    """Get calculation history."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    history = await calculator.get_calculation_history(limit)
+    return {"history": history}
+
+@app.get("/calculator/units")
+async def get_available_units():
+    """Get available units for conversion."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    units = await calculator.get_available_units()
+    return {"unit_categories": units}
+
+@app.get("/calculator/stats")
+async def get_calculator_stats():
+    """Get calculator usage statistics."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    stats = await calculator.get_calculator_stats()
+    return stats
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")
