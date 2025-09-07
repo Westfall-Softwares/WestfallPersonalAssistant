@@ -32,6 +32,20 @@ def test_command_parsing():
         result = AIChatWidget.parse_and_execute(chat, "add password", {})
         assert "Password command recognized" in result["message"]
 
+def test_ai_context_extraction():
+    from ai_assistant.core.chat_manager import AIChatWidget
+    
+    # Mock the __init__ to avoid PyQt5 initialization
+    with patch.object(AIChatWidget, '__init__', lambda x: None):
+        chat = AIChatWidget.__new__(AIChatWidget)
+        chat.parent_window = None  # Initialize the attribute needed by get_window_context
+        
+        context = chat.get_window_context()
+        
+        assert isinstance(context, dict)
+        assert 'window' in context
+        assert 'data' in context
+
 def test_ai_provider_imports():
     # Test AI provider imports
     try:
