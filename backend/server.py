@@ -26,6 +26,10 @@ from dependency_manager import dependency_manager, get_dependency_status, instal
 from security import EncryptionManager, AuthManager, SecureStorage, APIKeyVault
 from database import BackupManager, SyncManager
 
+# Import AI assistant modules  
+from ai_assistant import AIChat, ContextManager, ActionExecutor, ResponseHandler
+from ai_assistant.providers import OpenAIProvider, LocalLLMProvider
+
 # Import optional modules with graceful fallback
 screen_engine = None
 model_manager = None
@@ -70,9 +74,17 @@ api_key_vault = None
 backup_manager = None
 sync_manager = None
 
+# AI assistant components
+ai_chat = None
+context_manager = None
+action_executor = None
+response_handler = None
+ai_providers = {}
+
 def initialize_security_systems():
     """Initialize security and database systems."""
     global auth_manager, secure_storage, api_key_vault, backup_manager, sync_manager
+    global ai_chat, context_manager, action_executor, response_handler
     
     # Set up paths
     config_dir = os.path.expanduser("~/.westfall_assistant")
@@ -89,6 +101,12 @@ def initialize_security_systems():
             api_key_vault = APIKeyVault(auth_manager.encryption_manager)
             backup_manager = BackupManager(db_path, backup_dir, auth_manager.encryption_manager)
             sync_manager = SyncManager(db_path)
+            
+            # Initialize AI assistant components
+            context_manager = ContextManager()
+            action_executor = ActionExecutor()
+            response_handler = ResponseHandler()
+            ai_chat = AIChat(context_manager, action_executor, response_handler, secure_storage)
         
         logger.info("Security systems initialized")
     except Exception as e:
@@ -126,6 +144,15 @@ class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
     confirm_password: str
+
+class AIChatRequest(BaseModel):
+    message: str
+    thinking_mode: str = "normal"
+    window: Optional[str] = None
+    conversation_id: Optional[str] = None
+
+class ProviderConfigRequest(BaseModel):
+    config: dict
 
 # Security endpoint dependencies
 def require_auth():
@@ -724,6 +751,243 @@ async def restore_backup(request: dict, auth: AuthManager = Depends(require_auth
         raise HTTPException(status_code=500, detail="Failed to restore backup")
     
     return {"status": "success", "message": "Backup restored successfully"}
+
+# AI Assistant Endpoints
+@app.post("/ai/chat")
+async def ai_chat_endpoint(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Process AI chat message."""
+    if not ai_chat:
+        raise HTTPException(status_code=500, detail="AI chat not available")
+    
+    message = request.get("message", "")
+    thinking_mode = request.get("thinking_mode", "normal")
+    window = request.get("window")
+    
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    try:
+        result = await ai_chat.process_message(message, window, thinking_mode)
+        return result
+    except Exception as e:
+        logger.error(f"AI chat error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process message")
+
+@app.post("/ai/conversation/start")
+async def start_conversation(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Start a new AI conversation."""
+    if not ai_chat:
+        raise HTTPException(status_code=500, detail="AI chat not available")
+    
+    title = request.get("title")
+    conversation_id = ai_chat.start_new_conversation(title)
+    
+    return {
+        "conversation_id": conversation_id,
+        "title": title,
+        "status": "started"
+    }
+
+@app.get("/ai/conversation/{conversation_id}/history")
+async def get_conversation_history(conversation_id: str, limit: int = 50, auth: AuthManager = Depends(require_auth)):
+    """Get conversation history."""
+    if not ai_chat:
+        raise HTTPException(status_code=500, detail="AI chat not available")
+    
+    # Set conversation ID and get history
+    ai_chat.current_conversation_id = conversation_id
+    history = ai_chat.get_conversation_history(limit)
+    
+    return {
+        "conversation_id": conversation_id,
+        "history": history,
+        "count": len(history)
+    }
+
+@app.get("/ai/providers")
+async def list_ai_providers(auth: AuthManager = Depends(require_auth)):
+    """List available AI providers."""
+    providers_info = {}
+    
+    for name, provider in ai_providers.items():
+        providers_info[name] = {
+            "name": provider.get_provider_name(),
+            "available": provider.is_available(),
+            "capabilities": provider.get_capabilities(),
+            "model_info": provider.get_model_info()
+        }
+    
+    return {"providers": providers_info}
+
+@app.post("/ai/providers/{provider_name}/configure")
+async def configure_ai_provider(provider_name: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Configure an AI provider."""
+    config = request.get("config", {})
+    
+    try:
+        if provider_name == "openai":
+            # Get API key from secure storage
+            api_key = config.get("api_key")
+            if api_key and api_key_vault:
+                api_key_vault.store_api_key_with_index("openai", api_key)
+                config["api_key"] = api_key
+            
+            provider = OpenAIProvider(config)
+            success = await provider.initialize()
+            
+            if success:
+                ai_providers["openai"] = provider
+                if ai_chat:
+                    ai_chat.set_ai_provider(provider)
+                
+                return {"status": "success", "message": "OpenAI provider configured"}
+            else:
+                return {"status": "failed", "message": "Failed to initialize OpenAI provider"}
+        
+        elif provider_name == "local_llm":
+            provider = LocalLLMProvider(config)
+            success = await provider.initialize()
+            
+            if success:
+                ai_providers["local_llm"] = provider
+                if ai_chat:
+                    ai_chat.set_ai_provider(provider)
+                
+                return {"status": "success", "message": "Local LLM provider configured"}
+            else:
+                return {"status": "failed", "message": "Failed to initialize Local LLM provider"}
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown provider: {provider_name}")
+    
+    except Exception as e:
+        logger.error(f"Provider configuration error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to configure provider")
+
+@app.get("/ai/providers/{provider_name}/models")
+async def get_provider_models(provider_name: str, auth: AuthManager = Depends(require_auth)):
+    """Get available models for a provider."""
+    provider = ai_providers.get(provider_name)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    try:
+        models = provider.get_available_models()
+        return {
+            "provider": provider_name,
+            "models": models
+        }
+    except Exception as e:
+        logger.error(f"Error getting models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get models")
+
+@app.post("/ai/providers/{provider_name}/test")
+async def test_ai_provider(provider_name: str, auth: AuthManager = Depends(require_auth)):
+    """Test AI provider connection."""
+    provider = ai_providers.get(provider_name)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    try:
+        result = await provider.test_connection()
+        return result
+    except Exception as e:
+        logger.error(f"Provider test error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/ai/context/{window}")
+async def get_window_context(window: str, auth: AuthManager = Depends(require_auth)):
+    """Get context information for a specific window."""
+    if not context_manager:
+        raise HTTPException(status_code=500, detail="Context manager not available")
+    
+    context = context_manager.get_context(window)
+    return context
+
+@app.post("/ai/context/{window}/update")
+async def update_window_context(window: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Update context data for a window."""
+    if not context_manager:
+        raise HTTPException(status_code=500, detail="Context manager not available")
+    
+    data = request.get("data", {})
+    context_manager.update_window_data(window, data)
+    
+    return {"status": "success", "message": f"Context updated for {window}"}
+
+@app.get("/ai/actions")
+async def get_available_actions(auth: AuthManager = Depends(require_auth)):
+    """Get list of available actions."""
+    if not action_executor:
+        raise HTTPException(status_code=500, detail="Action executor not available")
+    
+    actions = action_executor.get_available_actions()
+    action_info = {}
+    
+    for action in actions:
+        action_info[action] = action_executor.get_action_info(action)
+    
+    return {"actions": action_info}
+
+@app.post("/ai/actions/{action}/execute")
+async def execute_action(action: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Execute a specific action."""
+    if not action_executor:
+        raise HTTPException(status_code=500, detail="Action executor not available")
+    
+    context = request.get("context", {})
+    parameters = request.get("parameters", {})
+    
+    try:
+        result = await action_executor.execute_action(action, context, parameters)
+        return result
+    except Exception as e:
+        logger.error(f"Action execution error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to execute action")
+
+@app.get("/ai/status")
+async def get_ai_status(auth: AuthManager = Depends(require_auth)):
+    """Get AI assistant status."""
+    status = {
+        "ai_chat_available": ai_chat is not None,
+        "context_manager_available": context_manager is not None,
+        "action_executor_available": action_executor is not None,
+        "response_handler_available": response_handler is not None,
+        "active_providers": len(ai_providers),
+        "providers": {}
+    }
+    
+    if ai_chat:
+        status["chat_status"] = ai_chat.get_chat_status()
+    
+    for name, provider in ai_providers.items():
+        status["providers"][name] = {
+            "connected": provider.is_available(),
+            "model_info": provider.get_model_info()
+        }
+    
+@app.get("/ai/status-public")
+async def get_ai_status_public():
+    """Get AI assistant status (public endpoint for testing)."""
+    status = {
+        "ai_chat_available": ai_chat is not None,
+        "context_manager_available": context_manager is not None,
+        "action_executor_available": action_executor is not None,
+        "response_handler_available": response_handler is not None,
+        "active_providers": len(ai_providers),
+        "providers": {}
+    }
+    
+    if ai_chat:
+        status["chat_status"] = ai_chat.get_chat_status()
+    
+    for name, provider in ai_providers.items():
+        status["providers"][name] = {
+            "connected": provider.is_available(),
+            "model_info": provider.get_model_info()
+        }
+    
+    return status
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")

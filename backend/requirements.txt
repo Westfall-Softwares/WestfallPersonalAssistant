@@ -11,6 +11,9 @@ bcrypt>=3.2.0
 sqlalchemy>=2.0.0
 alembic>=1.16.0
 
+# AI Assistant dependencies for Phase 2
+psutil>=5.9.0
+
 # Development dependencies
 requests>=2.32.0
 
