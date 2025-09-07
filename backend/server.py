@@ -15,12 +15,20 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Import dependency manager
 from dependency_manager import dependency_manager, get_dependency_status, install_dependencies_for_feature
+
+# Import security modules
+from security import EncryptionManager, AuthManager, SecureStorage, APIKeyVault
+from database import BackupManager, SyncManager
+
+# Import AI assistant modules  
+from ai_assistant import AIChat, ContextManager, ActionExecutor, ResponseHandler
+from ai_assistant.providers import OpenAIProvider, LocalLLMProvider
 
 # Import optional modules with graceful fallback
 screen_engine = None
@@ -54,10 +62,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global model state
+# Global state
 current_model = None
 model_path = None
 gpu_info = None
+
+# Security and database managers
+auth_manager = None
+secure_storage = None
+api_key_vault = None
+backup_manager = None
+sync_manager = None
+
+# AI assistant components
+ai_chat = None
+context_manager = None
+action_executor = None
+response_handler = None
+ai_providers = {}
+
+def initialize_security_systems():
+    """Initialize security and database systems."""
+    global auth_manager, secure_storage, api_key_vault, backup_manager, sync_manager
+    global ai_chat, context_manager, action_executor, response_handler
+    
+    # Set up paths
+    config_dir = os.path.expanduser("~/.westfall_assistant")
+    db_path = os.path.join(config_dir, "westfall_assistant.db")
+    backup_dir = os.path.join(config_dir, "backups")
+    
+    try:
+        # Initialize encryption and auth
+        auth_manager = AuthManager(config_dir)
+        
+        # Initialize secure storage (only if authenticated)
+        if auth_manager.is_session_valid():
+            secure_storage = SecureStorage(db_path, auth_manager.encryption_manager)
+            api_key_vault = APIKeyVault(auth_manager.encryption_manager)
+            backup_manager = BackupManager(db_path, backup_dir, auth_manager.encryption_manager)
+            sync_manager = SyncManager(db_path)
+            
+            # Initialize AI assistant components
+            context_manager = ContextManager()
+            action_executor = ActionExecutor()
+            response_handler = ResponseHandler()
+            ai_chat = AIChat(context_manager, action_executor, response_handler, secure_storage)
+        
+        logger.info("Security systems initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize security systems: {e}")
+
+# Initialize security on startup
+initialize_security_systems()
 
 class ChatMessage(BaseModel):
     message: str
@@ -76,6 +132,35 @@ class ModelInfo(BaseModel):
     format: str
     size_gb: float
     loaded: bool
+
+class AuthRequest(BaseModel):
+    password: str
+
+class SetPasswordRequest(BaseModel):
+    password: str
+    confirm_password: str
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+    confirm_password: str
+
+class AIChatRequest(BaseModel):
+    message: str
+    thinking_mode: str = "normal"
+    window: Optional[str] = None
+    conversation_id: Optional[str] = None
+
+class ProviderConfigRequest(BaseModel):
+    config: dict
+
+# Security endpoint dependencies
+def require_auth():
+    """Dependency to require authentication."""
+    if not auth_manager or not auth_manager.is_session_valid():
+        raise HTTPException(status_code=401, detail="Authentication required")
+    auth_manager.update_activity()
+    return auth_manager
 
 def detect_gpu():
     """Detect available GPU resources"""
@@ -442,6 +527,467 @@ async def get_system_info():
     }
     
     return system_info
+
+# Security Endpoints
+@app.get("/auth/status")
+async def auth_status():
+    """Get authentication status."""
+    if not auth_manager:
+        return {"error": "Auth system not initialized"}
+    
+    return auth_manager.get_session_info()
+
+@app.post("/auth/setup")
+async def setup_master_password(request: SetPasswordRequest):
+    """Set up initial master password."""
+    if not auth_manager:
+        raise HTTPException(status_code=500, detail="Auth system not initialized")
+    
+    if auth_manager.has_master_password():
+        raise HTTPException(status_code=400, detail="Master password already set")
+    
+    if request.password != request.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    if len(request.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    success = auth_manager.set_master_password(request.password)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to set master password")
+    
+    # Initialize secure systems after setting password
+    if auth_manager.verify_master_password(request.password):
+        initialize_security_systems()
+        return {"status": "success", "message": "Master password set successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Password verification failed")
+
+@app.post("/auth/login")
+async def login(request: AuthRequest):
+    """Authenticate with master password."""
+    if not auth_manager:
+        raise HTTPException(status_code=500, detail="Auth system not initialized")
+    
+    if not auth_manager.has_master_password():
+        raise HTTPException(status_code=400, detail="Master password not set")
+    
+    success = auth_manager.verify_master_password(request.password)
+    if not success:
+        raise HTTPException(status_code=401, detail="Invalid password")
+    
+    # Initialize secure systems after successful login
+    initialize_security_systems()
+    
+    return {
+        "status": "success", 
+        "message": "Authentication successful",
+        "session_info": auth_manager.get_session_info()
+    }
+
+@app.post("/auth/logout")
+async def logout():
+    """Logout and clear session."""
+    if auth_manager:
+        auth_manager.logout()
+    
+    return {"status": "success", "message": "Logged out successfully"}
+
+@app.post("/auth/change-password")
+async def change_password(request: ChangePasswordRequest, auth: AuthManager = Depends(require_auth)):
+    """Change master password."""
+    if request.new_password != request.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match")
+    
+    if len(request.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    success = auth.change_master_password(request.old_password, request.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to change password")
+    
+    return {"status": "success", "message": "Password changed successfully"}
+
+# Secure Storage Endpoints
+@app.get("/secure/settings")
+async def list_secure_settings(auth: AuthManager = Depends(require_auth)):
+    """List all secure settings keys."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    return {"settings": secure_storage.list_settings()}
+
+@app.get("/secure/settings/{key}")
+async def get_secure_setting(key: str, auth: AuthManager = Depends(require_auth)):
+    """Get a secure setting value."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    value = secure_storage.get_setting(key)
+    if value is None:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    
+    return {"key": key, "value": value}
+
+@app.post("/secure/settings/{key}")
+async def set_secure_setting(key: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Set a secure setting value."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    value = request.get("value")
+    if value is None:
+        raise HTTPException(status_code=400, detail="Value is required")
+    
+    secure_storage.set_setting(key, value)
+    return {"status": "success", "message": f"Setting '{key}' saved"}
+
+@app.delete("/secure/settings/{key}")
+async def delete_secure_setting(key: str, auth: AuthManager = Depends(require_auth)):
+    """Delete a secure setting."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    secure_storage.delete_setting(key)
+    return {"status": "success", "message": f"Setting '{key}' deleted"}
+
+# API Key Management Endpoints
+@app.get("/api-keys")
+async def list_api_keys(auth: AuthManager = Depends(require_auth)):
+    """List all stored API key services."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    services = api_key_vault.list_services()
+    key_info = {}
+    
+    for service in services:
+        info = api_key_vault.get_api_key_info(service)
+        key_info[service] = info
+    
+    return {"services": key_info}
+
+@app.post("/api-keys/{service}")
+async def store_api_key(service: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Store an API key for a service."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    api_key = request.get("api_key")
+    metadata = request.get("metadata", {})
+    
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    success = api_key_vault.store_api_key_with_index(service, api_key, metadata)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to store API key")
+    
+    return {"status": "success", "message": f"API key for {service} stored successfully"}
+
+@app.get("/api-keys/{service}")
+async def get_api_key_info(service: str, auth: AuthManager = Depends(require_auth)):
+    """Get API key information (without exposing the actual key)."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    info = api_key_vault.get_api_key_info(service)
+    if not info:
+        raise HTTPException(status_code=404, detail="API key not found")
+    
+    return info
+
+@app.delete("/api-keys/{service}")
+async def delete_api_key(service: str, auth: AuthManager = Depends(require_auth)):
+    """Delete an API key."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    success = api_key_vault.delete_api_key_with_index(service)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete API key")
+    
+    return {"status": "success", "message": f"API key for {service} deleted"}
+
+# Backup Management Endpoints  
+@app.get("/backup/status")
+async def backup_status(auth: AuthManager = Depends(require_auth)):
+    """Get backup system status."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    return backup_manager.get_backup_status()
+
+@app.post("/backup/create")
+async def create_backup(auth: AuthManager = Depends(require_auth)):
+    """Create a manual backup."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    backup_path = backup_manager.create_backup()
+    return {"status": "success", "backup_path": backup_path}
+
+@app.get("/backup/list")
+async def list_backups(auth: AuthManager = Depends(require_auth)):
+    """List all available backups."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    backups = backup_manager.list_backups()
+    return {"backups": backups}
+
+@app.post("/backup/restore")
+async def restore_backup(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Restore from backup."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    backup_path = request.get("backup_path")
+    if not backup_path:
+        raise HTTPException(status_code=400, detail="Backup path is required")
+    
+    success = backup_manager.restore_backup(backup_path)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to restore backup")
+    
+    return {"status": "success", "message": "Backup restored successfully"}
+
+# AI Assistant Endpoints
+@app.post("/ai/chat")
+async def ai_chat_endpoint(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Process AI chat message."""
+    if not ai_chat:
+        raise HTTPException(status_code=500, detail="AI chat not available")
+    
+    message = request.get("message", "")
+    thinking_mode = request.get("thinking_mode", "normal")
+    window = request.get("window")
+    
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    try:
+        result = await ai_chat.process_message(message, window, thinking_mode)
+        return result
+    except Exception as e:
+        logger.error(f"AI chat error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process message")
+
+@app.post("/ai/conversation/start")
+async def start_conversation(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Start a new AI conversation."""
+    if not ai_chat:
+        raise HTTPException(status_code=500, detail="AI chat not available")
+    
+    title = request.get("title")
+    conversation_id = ai_chat.start_new_conversation(title)
+    
+    return {
+        "conversation_id": conversation_id,
+        "title": title,
+        "status": "started"
+    }
+
+@app.get("/ai/conversation/{conversation_id}/history")
+async def get_conversation_history(conversation_id: str, limit: int = 50, auth: AuthManager = Depends(require_auth)):
+    """Get conversation history."""
+    if not ai_chat:
+        raise HTTPException(status_code=500, detail="AI chat not available")
+    
+    # Set conversation ID and get history
+    ai_chat.current_conversation_id = conversation_id
+    history = ai_chat.get_conversation_history(limit)
+    
+    return {
+        "conversation_id": conversation_id,
+        "history": history,
+        "count": len(history)
+    }
+
+@app.get("/ai/providers")
+async def list_ai_providers(auth: AuthManager = Depends(require_auth)):
+    """List available AI providers."""
+    providers_info = {}
+    
+    for name, provider in ai_providers.items():
+        providers_info[name] = {
+            "name": provider.get_provider_name(),
+            "available": provider.is_available(),
+            "capabilities": provider.get_capabilities(),
+            "model_info": provider.get_model_info()
+        }
+    
+    return {"providers": providers_info}
+
+@app.post("/ai/providers/{provider_name}/configure")
+async def configure_ai_provider(provider_name: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Configure an AI provider."""
+    config = request.get("config", {})
+    
+    try:
+        if provider_name == "openai":
+            # Get API key from secure storage
+            api_key = config.get("api_key")
+            if api_key and api_key_vault:
+                api_key_vault.store_api_key_with_index("openai", api_key)
+                config["api_key"] = api_key
+            
+            provider = OpenAIProvider(config)
+            success = await provider.initialize()
+            
+            if success:
+                ai_providers["openai"] = provider
+                if ai_chat:
+                    ai_chat.set_ai_provider(provider)
+                
+                return {"status": "success", "message": "OpenAI provider configured"}
+            else:
+                return {"status": "failed", "message": "Failed to initialize OpenAI provider"}
+        
+        elif provider_name == "local_llm":
+            provider = LocalLLMProvider(config)
+            success = await provider.initialize()
+            
+            if success:
+                ai_providers["local_llm"] = provider
+                if ai_chat:
+                    ai_chat.set_ai_provider(provider)
+                
+                return {"status": "success", "message": "Local LLM provider configured"}
+            else:
+                return {"status": "failed", "message": "Failed to initialize Local LLM provider"}
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown provider: {provider_name}")
+    
+    except Exception as e:
+        logger.error(f"Provider configuration error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to configure provider")
+
+@app.get("/ai/providers/{provider_name}/models")
+async def get_provider_models(provider_name: str, auth: AuthManager = Depends(require_auth)):
+    """Get available models for a provider."""
+    provider = ai_providers.get(provider_name)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    try:
+        models = provider.get_available_models()
+        return {
+            "provider": provider_name,
+            "models": models
+        }
+    except Exception as e:
+        logger.error(f"Error getting models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get models")
+
+@app.post("/ai/providers/{provider_name}/test")
+async def test_ai_provider(provider_name: str, auth: AuthManager = Depends(require_auth)):
+    """Test AI provider connection."""
+    provider = ai_providers.get(provider_name)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    try:
+        result = await provider.test_connection()
+        return result
+    except Exception as e:
+        logger.error(f"Provider test error: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/ai/context/{window}")
+async def get_window_context(window: str, auth: AuthManager = Depends(require_auth)):
+    """Get context information for a specific window."""
+    if not context_manager:
+        raise HTTPException(status_code=500, detail="Context manager not available")
+    
+    context = context_manager.get_context(window)
+    return context
+
+@app.post("/ai/context/{window}/update")
+async def update_window_context(window: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Update context data for a window."""
+    if not context_manager:
+        raise HTTPException(status_code=500, detail="Context manager not available")
+    
+    data = request.get("data", {})
+    context_manager.update_window_data(window, data)
+    
+    return {"status": "success", "message": f"Context updated for {window}"}
+
+@app.get("/ai/actions")
+async def get_available_actions(auth: AuthManager = Depends(require_auth)):
+    """Get list of available actions."""
+    if not action_executor:
+        raise HTTPException(status_code=500, detail="Action executor not available")
+    
+    actions = action_executor.get_available_actions()
+    action_info = {}
+    
+    for action in actions:
+        action_info[action] = action_executor.get_action_info(action)
+    
+    return {"actions": action_info}
+
+@app.post("/ai/actions/{action}/execute")
+async def execute_action(action: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Execute a specific action."""
+    if not action_executor:
+        raise HTTPException(status_code=500, detail="Action executor not available")
+    
+    context = request.get("context", {})
+    parameters = request.get("parameters", {})
+    
+    try:
+        result = await action_executor.execute_action(action, context, parameters)
+        return result
+    except Exception as e:
+        logger.error(f"Action execution error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to execute action")
+
+@app.get("/ai/status")
+async def get_ai_status(auth: AuthManager = Depends(require_auth)):
+    """Get AI assistant status."""
+    status = {
+        "ai_chat_available": ai_chat is not None,
+        "context_manager_available": context_manager is not None,
+        "action_executor_available": action_executor is not None,
+        "response_handler_available": response_handler is not None,
+        "active_providers": len(ai_providers),
+        "providers": {}
+    }
+    
+    if ai_chat:
+        status["chat_status"] = ai_chat.get_chat_status()
+    
+    for name, provider in ai_providers.items():
+        status["providers"][name] = {
+            "connected": provider.is_available(),
+            "model_info": provider.get_model_info()
+        }
+    
+@app.get("/ai/status-public")
+async def get_ai_status_public():
+    """Get AI assistant status (public endpoint for testing)."""
+    status = {
+        "ai_chat_available": ai_chat is not None,
+        "context_manager_available": context_manager is not None,
+        "action_executor_available": action_executor is not None,
+        "response_handler_available": response_handler is not None,
+        "active_providers": len(ai_providers),
+        "providers": {}
+    }
+    
+    if ai_chat:
+        status["chat_status"] = ai_chat.get_chat_status()
+    
+    for name, provider in ai_providers.items():
+        status["providers"][name] = {
+            "connected": provider.is_available(),
+            "model_info": provider.get_model_info()
+        }
+    
+    return status
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")

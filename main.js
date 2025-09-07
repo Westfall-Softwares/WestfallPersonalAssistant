@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain, dialog, systemPreferences } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, systemPreferences, Tray, Menu, globalShortcut, Notification } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const Store = require('electron-store');
+const os = require('os');
 
 // Enable live reload for development
 if (process.env.NODE_ENV === 'development') {
@@ -15,6 +16,8 @@ const store = new Store();
 let mainWindow;
 let backendProcess = null;
 let backendServerProcess = null;
+let tray = null;
+let isQuitting = false;
 
 // Start the backend server
 function startBackendServer() {
@@ -94,6 +97,203 @@ function startBackendServer() {
   });
 }
 
+// Create system tray
+function createTray() {
+  const iconPath = path.join(__dirname, 'westfall.png');
+  tray = new Tray(iconPath);
+  
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show Assistant',
+      type: 'normal',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.show();
+          mainWindow.focus();
+        } else {
+          createWindow();
+        }
+      }
+    },
+    {
+      label: 'Quick Chat',
+      type: 'normal',
+      accelerator: 'CmdOrCtrl+Shift+A',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.show();
+          mainWindow.focus();
+          // Send event to focus chat input
+          mainWindow.webContents.send('focus-chat');
+        } else {
+          createWindow();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Screen Capture',
+      type: 'normal',
+      accelerator: 'CmdOrCtrl+Shift+S',
+      click: () => {
+        captureScreenFromTray();
+      }
+    },
+    {
+      label: 'Settings',
+      type: 'normal',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.show();
+          mainWindow.focus();
+          // Send event to open settings
+          mainWindow.webContents.send('open-settings');
+        } else {
+          createWindow();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      type: 'normal',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setContextMenu(contextMenu);
+  tray.setToolTip('Westfall Personal Assistant');
+  
+  // Double-click to show/hide window
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    } else {
+      createWindow();
+    }
+  });
+}
+
+// Screen capture from tray
+async function captureScreenFromTray() {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/capture-screen', {
+      method: 'POST'
+    });
+    const result = await response.json();
+    
+    if (result.success) {
+      // Show notification
+      new Notification({
+        title: 'Screen Captured',
+        body: 'Screen captured and ready for analysis',
+        icon: path.join(__dirname, 'westfall.png')
+      }).show();
+    } else {
+      new Notification({
+        title: 'Capture Failed',
+        body: result.message || 'Failed to capture screen',
+        icon: path.join(__dirname, 'westfall.png')
+      }).show();
+    }
+  } catch (error) {
+    new Notification({
+      title: 'Capture Error',
+      body: 'Backend server not available',
+      icon: path.join(__dirname, 'westfall.png')
+    }).show();
+  }
+}
+
+// Auto-start functionality
+function setupAutoStart() {
+  const settings = store.get('settings', {});
+  if (settings.autoStart) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      openAsHidden: true,
+      name: 'Westfall Personal Assistant',
+      path: process.execPath
+    });
+  } else {
+    app.setLoginItemSettings({
+      openAtLogin: false
+    });
+  }
+}
+
+// Global shortcuts setup
+function setupGlobalShortcuts() {
+  // Quick chat shortcut
+  globalShortcut.register('CmdOrCtrl+Shift+A', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.send('focus-chat');
+    } else {
+      createWindow();
+    }
+  });
+
+  // Screen capture shortcut
+  globalShortcut.register('CmdOrCtrl+Shift+S', () => {
+    captureScreenFromTray();
+  });
+
+  // Toggle window shortcut
+  globalShortcut.register('CmdOrCtrl+Shift+W', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    } else {
+      createWindow();
+    }
+  });
+}
+
+// Session persistence
+function saveSession() {
+  if (mainWindow) {
+    const bounds = mainWindow.getBounds();
+    store.set('session', {
+      bounds: bounds,
+      isMaximized: mainWindow.isMaximized(),
+      timestamp: Date.now()
+    });
+  }
+}
+
+function restoreSession() {
+  const session = store.get('session');
+  if (session && session.bounds) {
+    return {
+      ...session.bounds,
+      show: false
+    };
+  }
+  return {
+    width: 1200,
+    height: 800,
+    show: false
+  };
+}
+
 // Stop the backend server
 function stopBackendServer() {
   if (backendServerProcess) {
@@ -106,10 +306,12 @@ function stopBackendServer() {
 }
 
 function createWindow() {
+  // Get session data for window restoration
+  const windowOptions = restoreSession();
+  
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    ...windowOptions,
     icon: path.join(__dirname, 'westfall.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -117,7 +319,10 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     },
     titleBarStyle: 'default',
-    show: false
+    show: false,
+    closable: true,
+    minimizable: true,
+    maximizable: true
   });
 
   // Load the React app
@@ -130,7 +335,37 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
+    const session = store.get('session');
+    if (session && session.isMaximized) {
+      mainWindow.maximize();
+    }
     mainWindow.show();
+  });
+
+  // Handle window events for session persistence
+  mainWindow.on('resize', saveSession);
+  mainWindow.on('move', saveSession);
+  mainWindow.on('maximize', saveSession);
+  mainWindow.on('unmaximize', saveSession);
+
+  // Handle window close to tray instead of quit
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      
+      // Show notification first time
+      if (!store.get('trayNotificationShown')) {
+        new Notification({
+          title: 'Westfall Assistant',
+          body: 'Application was minimized to tray. Double-click the tray icon to restore.',
+          icon: path.join(__dirname, 'westfall.png')
+        }).show();
+        store.set('trayNotificationShown', true);
+      }
+    } else {
+      saveSession();
+    }
   });
 
   // Handle window closed
@@ -140,8 +375,10 @@ function createWindow() {
       backendProcess.kill();
       backendProcess = null;
     }
-    // Stop the backend server when window closes
-    stopBackendServer();
+    // Only stop backend server if we're actually quitting
+    if (isQuitting) {
+      stopBackendServer();
+    }
   });
 }
 
@@ -156,6 +393,11 @@ app.whenReady().then(async () => {
     // Continue anyway - the user can manually start the backend if needed
   }
   
+  // Setup system integration
+  createTray();
+  setupGlobalShortcuts();
+  setupAutoStart();
+  
   createWindow();
 
   app.on('activate', () => {
@@ -165,16 +407,31 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-    backendProcess = null;
+  // On macOS, keep app running even when all windows are closed
+  if (process.platform === 'darwin') {
+    return;
   }
-  // Stop the backend server when all windows are closed
-  stopBackendServer();
-  if (process.platform !== 'darwin') {
+  
+  // On other platforms, quit when all windows are closed only if not in tray mode
+  const settings = store.get('settings', {});
+  if (!settings.minimizeToTray) {
+    if (backendProcess) {
+      backendProcess.kill();
+      backendProcess = null;
+    }
+    stopBackendServer();
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll();
 });
 
 // IPC handlers for model management
@@ -290,7 +547,19 @@ ipcMain.handle('get-settings', () => {
     thinkingMode: 'normal',
     theme: 'dark',
     autoStart: false,
-    gpuLayers: 'auto'
+    minimizeToTray: true,
+    gpuLayers: 'auto',
+    shortcuts: {
+      quickChat: 'CmdOrCtrl+Shift+A',
+      screenCapture: 'CmdOrCtrl+Shift+S',
+      toggleWindow: 'CmdOrCtrl+Shift+W'
+    },
+    notifications: {
+      enabled: true,
+      screenCapture: true,
+      modelLoaded: true,
+      errors: true
+    }
   });
 });
 
@@ -303,8 +572,92 @@ ipcMain.handle('get-backend-status', () => {
 });
 
 ipcMain.handle('save-settings', (event, settings) => {
-  store.set('settings', settings);
+  const currentSettings = store.get('settings', {});
+  const newSettings = { ...currentSettings, ...settings };
+  store.set('settings', newSettings);
+  
+  // Update auto-start when settings change
+  if (settings.autoStart !== undefined) {
+    setupAutoStart();
+  }
+  
   return true;
+});
+
+// Conversation history management
+ipcMain.handle('save-conversation', (event, conversation) => {
+  const conversations = store.get('conversations', []);
+  const existingIndex = conversations.findIndex(c => c.id === conversation.id);
+  
+  if (existingIndex >= 0) {
+    conversations[existingIndex] = conversation;
+  } else {
+    conversations.push(conversation);
+  }
+  
+  // Keep only last 100 conversations
+  if (conversations.length > 100) {
+    conversations.splice(0, conversations.length - 100);
+  }
+  
+  store.set('conversations', conversations);
+  return true;
+});
+
+ipcMain.handle('get-conversations', () => {
+  return store.get('conversations', []);
+});
+
+ipcMain.handle('delete-conversation', (event, conversationId) => {
+  const conversations = store.get('conversations', []);
+  const filtered = conversations.filter(c => c.id !== conversationId);
+  store.set('conversations', filtered);
+  return true;
+});
+
+ipcMain.handle('search-conversations', (event, query) => {
+  const conversations = store.get('conversations', []);
+  const lowerQuery = query.toLowerCase();
+  
+  return conversations.filter(conversation => 
+    conversation.title?.toLowerCase().includes(lowerQuery) ||
+    conversation.messages?.some(msg => 
+      msg.content?.toLowerCase().includes(lowerQuery)
+    )
+  );
+});
+
+// Notification management
+ipcMain.handle('show-notification', (event, options) => {
+  const settings = store.get('settings', {});
+  if (!settings.notifications?.enabled) return false;
+  
+  // Check specific notification type
+  if (options.type && !settings.notifications?.[options.type]) return false;
+  
+  const notification = new Notification({
+    title: options.title,
+    body: options.body,
+    icon: path.join(__dirname, 'westfall.png'),
+    ...options
+  });
+  
+  notification.show();
+  return true;
+});
+
+// System information
+ipcMain.handle('get-system-info', () => {
+  return {
+    platform: os.platform(),
+    arch: os.arch(),
+    version: os.version(),
+    totalMemory: os.totalmem(),
+    freeMemory: os.freemem(),
+    cpus: os.cpus().length,
+    hostname: os.hostname(),
+    uptime: os.uptime()
+  };
 });
 
 // Screen capture (integrates with backend)

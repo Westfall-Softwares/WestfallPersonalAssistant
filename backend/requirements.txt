@@ -4,6 +4,16 @@ uvicorn>=0.30.0
 pydantic>=2.9.0
 python-multipart>=0.0.10
 
+# Security dependencies for Phase 1
+cryptography>=41.0.0
+keyring>=25.0.0
+bcrypt>=3.2.0
+sqlalchemy>=2.0.0
+alembic>=1.16.0
+
+# AI Assistant dependencies for Phase 2
+psutil>=5.9.0
+
 # Development dependencies
 requests>=2.32.0
 
