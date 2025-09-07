@@ -27,7 +27,7 @@ from security import EncryptionManager, AuthManager, SecureStorage, APIKeyVault
 from database import BackupManager, SyncManager
 
 # Import utilities
-from utils import setup_global_error_handling, get_global_error_handler, ErrorHandler
+from utils import setup_global_error_handling, get_global_error_handler, ErrorHandler, get_safe_delete_manager
 from utils.validation import validate_email, validate_password_strength, validate_api_key
 
 # Import AI assistant modules  
@@ -73,6 +73,9 @@ gpu_info = None
 
 # Initialize global error handling
 error_handler = setup_global_error_handling(debug_mode=False)
+
+# Initialize safe delete manager
+safe_delete_manager = get_safe_delete_manager()
 
 # Security and database managers
 auth_manager = None
@@ -161,6 +164,10 @@ class AIChatRequest(BaseModel):
 class ProviderConfigRequest(BaseModel):
     config: dict
 
+class ConfirmationRequest(BaseModel):
+    confirm: bool = False
+    confirmation_message: Optional[str] = None
+
 # Security endpoint dependencies
 def require_auth():
     """Dependency to require authentication."""
@@ -168,6 +175,16 @@ def require_auth():
         raise HTTPException(status_code=401, detail="Authentication required")
     auth_manager.update_activity()
     return auth_manager
+
+def require_confirmation(operation: str, target: str) -> dict:
+    """Generate confirmation requirement for dangerous operations."""
+    return {
+        "requires_confirmation": True,
+        "operation": operation,
+        "target": target,
+        "message": f"Are you sure you want to {operation} '{target}'? This action cannot be undone.",
+        "confirmation_required": True
+    }
 
 def detect_gpu():
     """Detect available GPU resources"""
@@ -644,13 +661,24 @@ async def get_error_stats(auth: AuthManager = Depends(require_auth)):
     }
 
 @app.post("/debug/errors/clear")
-async def clear_error_stats(auth: AuthManager = Depends(require_auth)):
-    """Clear error statistics."""
+@error_handler.with_error_handling("ClearErrorStats")
+async def clear_error_stats(request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Clear error statistics with confirmation."""
     if not error_handler:
         return {"error": "Error handler not available"}
     
+    # If no confirmation provided, return confirmation requirement
+    if not request or not request.confirm:
+        stats = error_handler.get_error_stats()
+        return {
+            **require_confirmation("clear", f"{stats['total_errors']} error records"),
+            "current_stats": stats
+        }
+    
+    # Perform the clearing
     error_handler.clear_error_stats()
-    return {"status": "success", "message": "Error statistics cleared"}
+    error_handler.log_info("Error statistics cleared by user", "ClearErrorStats")
+    return {"status": "success", "message": "Error statistics cleared successfully"}
 
 @app.post("/debug/mode/{mode}")
 async def set_debug_mode(mode: str, auth: AuthManager = Depends(require_auth)):
@@ -687,6 +715,129 @@ async def get_debug_status(auth: AuthManager = Depends(require_auth)):
     
     return health_info
 
+# Trash Management Endpoints
+@app.get("/trash")
+async def list_trash_items(item_type: str = None, auth: AuthManager = Depends(require_auth)):
+    """List items in trash, optionally filtered by type."""
+    try:
+        items = safe_delete_manager.list_trash_items(item_type)
+        stats = safe_delete_manager.get_trash_stats()
+        
+        return {
+            "items": [item["summary"] for item in items],  # Only return summaries for listing
+            "stats": stats,
+            "total_items": len(items)
+        }
+    except Exception as e:
+        return error_handler.handle_api_error(e, "list_trash")
+
+@app.get("/trash/{trash_id}")
+async def get_trash_item(trash_id: str, auth: AuthManager = Depends(require_auth)):
+    """Get detailed information about a specific trash item."""
+    try:
+        item = safe_delete_manager.recover_item(trash_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Trash item not found or expired")
+        
+        return item
+    except HTTPException:
+        raise
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_trash_item")
+
+@app.post("/trash/{trash_id}/restore")
+async def restore_trash_item(trash_id: str, auth: AuthManager = Depends(require_auth)):
+    """Restore an item from trash."""
+    try:
+        item = safe_delete_manager.restore_item(trash_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Trash item not found or expired")
+        
+        # Attempt to restore the actual data based on item type
+        item_type = item["item_type"]
+        item_id = item["item_id"]
+        data = item["data"]
+        
+        if item_type == "secure_setting":
+            if secure_storage:
+                secure_storage.set_setting(data["key"], data["value"])
+                error_handler.log_info(f"Restored secure setting: {item_id}", "TrashRestore")
+            else:
+                raise HTTPException(status_code=500, detail="Secure storage not available for restore")
+        
+        elif item_type == "api_key":
+            # Note: API keys cannot be fully restored for security reasons
+            error_handler.log_info(f"API key metadata restored (key itself not recoverable): {item_id}", "TrashRestore")
+            return {
+                "status": "partial_success",
+                "message": f"API key metadata restored, but actual key cannot be recovered for security reasons",
+                "item_type": item_type,
+                "item_id": item_id,
+                "note": "You will need to re-enter the API key"
+            }
+        
+        return {
+            "status": "success",
+            "message": f"Item restored successfully",
+            "item_type": item_type,
+            "item_id": item_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        return error_handler.handle_api_error(e, "restore_trash_item")
+
+@app.delete("/trash/{trash_id}")
+async def permanently_delete_trash_item(trash_id: str, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Permanently delete an item from trash."""
+    if not request or not request.confirm:
+        return require_confirmation("permanently delete", f"trash item '{trash_id}'")
+    
+    try:
+        success = safe_delete_manager.permanently_delete(trash_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Trash item not found")
+        
+        error_handler.log_info(f"Item permanently deleted from trash: {trash_id}", "TrashPermanentDelete")
+        return {"status": "success", "message": "Item permanently deleted"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        return error_handler.handle_api_error(e, "permanently_delete_trash_item")
+
+@app.post("/trash/empty")
+async def empty_trash(item_type: str = None, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Empty the trash, optionally for a specific item type."""
+    if not request or not request.confirm:
+        stats = safe_delete_manager.get_trash_stats()
+        target = f"all {stats['total_items']} items" if not item_type else f"all {stats['by_type'].get(item_type, 0)} {item_type} items"
+        return require_confirmation("permanently delete", target)
+    
+    try:
+        deleted_count = safe_delete_manager.empty_trash(item_type)
+        
+        error_handler.log_info(f"Trash emptied: {deleted_count} items deleted (type: {item_type or 'all'})", "TrashEmpty")
+        return {
+            "status": "success",
+            "message": f"Trash emptied successfully",
+            "deleted_count": deleted_count,
+            "item_type": item_type
+        }
+        
+    except Exception as e:
+        return error_handler.handle_api_error(e, "empty_trash")
+
+@app.get("/trash/stats")
+async def get_trash_stats(auth: AuthManager = Depends(require_auth)):
+    """Get statistics about trash contents."""
+    try:
+        stats = safe_delete_manager.get_trash_stats()
+        return stats
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_trash_stats")
+
 # Secure Storage Endpoints
 @app.get("/secure/settings")
 async def list_secure_settings(auth: AuthManager = Depends(require_auth)):
@@ -722,13 +873,39 @@ async def set_secure_setting(key: str, request: dict, auth: AuthManager = Depend
     return {"status": "success", "message": f"Setting '{key}' saved"}
 
 @app.delete("/secure/settings/{key}")
-async def delete_secure_setting(key: str, auth: AuthManager = Depends(require_auth)):
-    """Delete a secure setting."""
+@error_handler.with_error_handling("SecureSettingDelete")
+async def delete_secure_setting(key: str, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Delete a secure setting with confirmation and safe deletion."""
     if not secure_storage:
         raise HTTPException(status_code=500, detail="Secure storage not available")
     
+    # If no confirmation provided, return confirmation requirement
+    if not request or not request.confirm:
+        return require_confirmation("delete", f"secure setting '{key}'")
+    
+    # Check if setting exists
+    existing_value = secure_storage.get_setting(key)
+    if existing_value is None:
+        raise HTTPException(status_code=404, detail=f"Setting '{key}' not found")
+    
+    # Safe delete - store in trash before deletion
+    trash_id = safe_delete_manager.soft_delete(
+        item_type="secure_setting",
+        item_id=key,
+        data={"key": key, "value": existing_value},
+        metadata={"deleted_by": "user", "deletion_reason": "manual_delete"}
+    )
+    
+    # Perform the deletion
     secure_storage.delete_setting(key)
-    return {"status": "success", "message": f"Setting '{key}' deleted"}
+    error_handler.log_info(f"Secure setting safely deleted: {key} -> {trash_id}", "SecureSettingDelete")
+    
+    return {
+        "status": "success", 
+        "message": f"Setting '{key}' deleted successfully",
+        "trash_id": trash_id,
+        "recovery_info": "Use the trash_id to recover this item within 30 days"
+    }
 
 # API Key Management Endpoints
 @app.get("/api-keys")
@@ -784,16 +961,49 @@ async def get_api_key_info(service: str, auth: AuthManager = Depends(require_aut
     return info
 
 @app.delete("/api-keys/{service}")
-async def delete_api_key(service: str, auth: AuthManager = Depends(require_auth)):
-    """Delete an API key."""
+@error_handler.with_error_handling("APIKeyDelete")
+async def delete_api_key(service: str, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Delete an API key with confirmation and safe deletion."""
     if not api_key_vault:
         raise HTTPException(status_code=500, detail="API key vault not available")
     
+    # If no confirmation provided, return confirmation requirement  
+    if not request or not request.confirm:
+        return require_confirmation("delete", f"API key for '{service}'")
+    
+    # Check if API key exists and get its data for backup
+    key_data = api_key_vault.get_api_key(service)
+    if not key_data:
+        raise HTTPException(status_code=404, detail=f"API key for '{service}' not found")
+    
+    # Safe delete - store in trash before deletion (without exposing the actual key)
+    trash_data = {
+        "service": service,
+        "metadata": key_data.get("metadata", {}),
+        "key_length": len(key_data.get("api_key", "")),
+        "key_preview": key_data.get("api_key", "")[:8] + "..." if key_data.get("api_key") else ""
+    }
+    
+    trash_id = safe_delete_manager.soft_delete(
+        item_type="api_key",
+        item_id=service,
+        data=trash_data,
+        metadata={"deleted_by": "user", "deletion_reason": "manual_delete"}
+    )
+    
+    # Perform the deletion
     success = api_key_vault.delete_api_key_with_index(service)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete API key")
     
-    return {"status": "success", "message": f"API key for {service} deleted"}
+    error_handler.log_info(f"API key safely deleted for service: {service} -> {trash_id}", "APIKeyDelete")
+    
+    return {
+        "status": "success", 
+        "message": f"API key for '{service}' deleted successfully",
+        "trash_id": trash_id,
+        "recovery_info": "API key metadata stored in trash for recovery tracking (actual key not recoverable for security)"
+    }
 
 # Backup Management Endpoints  
 @app.get("/backup/status")
