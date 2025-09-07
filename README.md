@@ -1,33 +1,37 @@
 # Westfall Personal Assistant
 
-A local AI assistant with advanced features including screen capture, model management, and three-tier thinking modes.
+> **🚀 Zero-Dependency Installation** - Download and run with no setup required!
 
-## Features
+A powerful desktop AI assistant that runs entirely on your local machine with complete privacy. Features three thinking modes, screen analysis, and seamless model management.
 
-### Core Capabilities
-- **Three-Tier Thinking System**: Normal, Thinking, and Research modes
-- **Local Model Management**: Support for GGUF, GGML, PyTorch, and other formats
-- **Screen Capture & Analysis**: Local screen monitoring with OCR and error detection
-- **GPU Acceleration**: Optimized for RTX 2060 with smart layer offloading
+## ⚡ Quick Start
 
-### Privacy & Security
-- All processing done locally
-- No external data transmission
-- Optional sensitive information masking
-- Secure temporary storage and deletion
+### Option 1: Instant Launch (Recommended)
+1. **Download** this repository
+2. **Double-click** the launcher for your platform:
+   - **Windows**: `run.bat`
+   - **Linux/macOS**: `run.sh`
 
-## Installation
+That's it! The application will automatically install dependencies and launch.
 
-### Prerequisites
-- Node.js 16+ 
-- Python 3.8+
-- Git
+### Option 2: Node.js Direct
+```bash
+node launcher.js
+```
 
-### Setup
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/westfallt13-dot/WestfallPersonalAssistant.git
-   cd WestfallPersonalAssistant
+### Option 3: Traditional Setup
+```bash
+npm run setup-deps
+npm run dev
+```
+
+## 📋 System Requirements
+
+**Minimal Requirements** (automatically checked):
+- **Node.js 16+** - [Download here](https://nodejs.org/)
+- **Python 3.8+** - [Download here](https://python.org/)
+
+**Everything else is installed automatically!**
    ```
 
 2. Install frontend dependencies:
