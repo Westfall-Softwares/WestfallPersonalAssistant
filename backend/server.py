@@ -15,12 +15,16 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Import dependency manager
 from dependency_manager import dependency_manager, get_dependency_status, install_dependencies_for_feature
+
+# Import security modules
+from security import EncryptionManager, AuthManager, SecureStorage, APIKeyVault
+from database import BackupManager, SyncManager
 
 # Import optional modules with graceful fallback
 screen_engine = None
@@ -54,10 +58,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global model state
+# Global state
 current_model = None
 model_path = None
 gpu_info = None
+
+# Security and database managers
+auth_manager = None
+secure_storage = None
+api_key_vault = None
+backup_manager = None
+sync_manager = None
+
+def initialize_security_systems():
+    """Initialize security and database systems."""
+    global auth_manager, secure_storage, api_key_vault, backup_manager, sync_manager
+    
+    # Set up paths
+    config_dir = os.path.expanduser("~/.westfall_assistant")
+    db_path = os.path.join(config_dir, "westfall_assistant.db")
+    backup_dir = os.path.join(config_dir, "backups")
+    
+    try:
+        # Initialize encryption and auth
+        auth_manager = AuthManager(config_dir)
+        
+        # Initialize secure storage (only if authenticated)
+        if auth_manager.is_session_valid():
+            secure_storage = SecureStorage(db_path, auth_manager.encryption_manager)
+            api_key_vault = APIKeyVault(auth_manager.encryption_manager)
+            backup_manager = BackupManager(db_path, backup_dir, auth_manager.encryption_manager)
+            sync_manager = SyncManager(db_path)
+        
+        logger.info("Security systems initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize security systems: {e}")
+
+# Initialize security on startup
+initialize_security_systems()
 
 class ChatMessage(BaseModel):
     message: str
@@ -76,6 +114,26 @@ class ModelInfo(BaseModel):
     format: str
     size_gb: float
     loaded: bool
+
+class AuthRequest(BaseModel):
+    password: str
+
+class SetPasswordRequest(BaseModel):
+    password: str
+    confirm_password: str
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+    confirm_password: str
+
+# Security endpoint dependencies
+def require_auth():
+    """Dependency to require authentication."""
+    if not auth_manager or not auth_manager.is_session_valid():
+        raise HTTPException(status_code=401, detail="Authentication required")
+    auth_manager.update_activity()
+    return auth_manager
 
 def detect_gpu():
     """Detect available GPU resources"""
@@ -442,6 +500,230 @@ async def get_system_info():
     }
     
     return system_info
+
+# Security Endpoints
+@app.get("/auth/status")
+async def auth_status():
+    """Get authentication status."""
+    if not auth_manager:
+        return {"error": "Auth system not initialized"}
+    
+    return auth_manager.get_session_info()
+
+@app.post("/auth/setup")
+async def setup_master_password(request: SetPasswordRequest):
+    """Set up initial master password."""
+    if not auth_manager:
+        raise HTTPException(status_code=500, detail="Auth system not initialized")
+    
+    if auth_manager.has_master_password():
+        raise HTTPException(status_code=400, detail="Master password already set")
+    
+    if request.password != request.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    if len(request.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    success = auth_manager.set_master_password(request.password)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to set master password")
+    
+    # Initialize secure systems after setting password
+    if auth_manager.verify_master_password(request.password):
+        initialize_security_systems()
+        return {"status": "success", "message": "Master password set successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Password verification failed")
+
+@app.post("/auth/login")
+async def login(request: AuthRequest):
+    """Authenticate with master password."""
+    if not auth_manager:
+        raise HTTPException(status_code=500, detail="Auth system not initialized")
+    
+    if not auth_manager.has_master_password():
+        raise HTTPException(status_code=400, detail="Master password not set")
+    
+    success = auth_manager.verify_master_password(request.password)
+    if not success:
+        raise HTTPException(status_code=401, detail="Invalid password")
+    
+    # Initialize secure systems after successful login
+    initialize_security_systems()
+    
+    return {
+        "status": "success", 
+        "message": "Authentication successful",
+        "session_info": auth_manager.get_session_info()
+    }
+
+@app.post("/auth/logout")
+async def logout():
+    """Logout and clear session."""
+    if auth_manager:
+        auth_manager.logout()
+    
+    return {"status": "success", "message": "Logged out successfully"}
+
+@app.post("/auth/change-password")
+async def change_password(request: ChangePasswordRequest, auth: AuthManager = Depends(require_auth)):
+    """Change master password."""
+    if request.new_password != request.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match")
+    
+    if len(request.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    success = auth.change_master_password(request.old_password, request.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to change password")
+    
+    return {"status": "success", "message": "Password changed successfully"}
+
+# Secure Storage Endpoints
+@app.get("/secure/settings")
+async def list_secure_settings(auth: AuthManager = Depends(require_auth)):
+    """List all secure settings keys."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    return {"settings": secure_storage.list_settings()}
+
+@app.get("/secure/settings/{key}")
+async def get_secure_setting(key: str, auth: AuthManager = Depends(require_auth)):
+    """Get a secure setting value."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    value = secure_storage.get_setting(key)
+    if value is None:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    
+    return {"key": key, "value": value}
+
+@app.post("/secure/settings/{key}")
+async def set_secure_setting(key: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Set a secure setting value."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    value = request.get("value")
+    if value is None:
+        raise HTTPException(status_code=400, detail="Value is required")
+    
+    secure_storage.set_setting(key, value)
+    return {"status": "success", "message": f"Setting '{key}' saved"}
+
+@app.delete("/secure/settings/{key}")
+async def delete_secure_setting(key: str, auth: AuthManager = Depends(require_auth)):
+    """Delete a secure setting."""
+    if not secure_storage:
+        raise HTTPException(status_code=500, detail="Secure storage not available")
+    
+    secure_storage.delete_setting(key)
+    return {"status": "success", "message": f"Setting '{key}' deleted"}
+
+# API Key Management Endpoints
+@app.get("/api-keys")
+async def list_api_keys(auth: AuthManager = Depends(require_auth)):
+    """List all stored API key services."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    services = api_key_vault.list_services()
+    key_info = {}
+    
+    for service in services:
+        info = api_key_vault.get_api_key_info(service)
+        key_info[service] = info
+    
+    return {"services": key_info}
+
+@app.post("/api-keys/{service}")
+async def store_api_key(service: str, request: dict, auth: AuthManager = Depends(require_auth)):
+    """Store an API key for a service."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    api_key = request.get("api_key")
+    metadata = request.get("metadata", {})
+    
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    success = api_key_vault.store_api_key_with_index(service, api_key, metadata)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to store API key")
+    
+    return {"status": "success", "message": f"API key for {service} stored successfully"}
+
+@app.get("/api-keys/{service}")
+async def get_api_key_info(service: str, auth: AuthManager = Depends(require_auth)):
+    """Get API key information (without exposing the actual key)."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    info = api_key_vault.get_api_key_info(service)
+    if not info:
+        raise HTTPException(status_code=404, detail="API key not found")
+    
+    return info
+
+@app.delete("/api-keys/{service}")
+async def delete_api_key(service: str, auth: AuthManager = Depends(require_auth)):
+    """Delete an API key."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    success = api_key_vault.delete_api_key_with_index(service)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete API key")
+    
+    return {"status": "success", "message": f"API key for {service} deleted"}
+
+# Backup Management Endpoints  
+@app.get("/backup/status")
+async def backup_status(auth: AuthManager = Depends(require_auth)):
+    """Get backup system status."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    return backup_manager.get_backup_status()
+
+@app.post("/backup/create")
+async def create_backup(auth: AuthManager = Depends(require_auth)):
+    """Create a manual backup."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    backup_path = backup_manager.create_backup()
+    return {"status": "success", "backup_path": backup_path}
+
+@app.get("/backup/list")
+async def list_backups(auth: AuthManager = Depends(require_auth)):
+    """List all available backups."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    backups = backup_manager.list_backups()
+    return {"backups": backups}
+
+@app.post("/backup/restore")
+async def restore_backup(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Restore from backup."""
+    if not backup_manager:
+        raise HTTPException(status_code=500, detail="Backup manager not available")
+    
+    backup_path = request.get("backup_path")
+    if not backup_path:
+        raise HTTPException(status_code=400, detail="Backup path is required")
+    
+    success = backup_manager.restore_backup(backup_path)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to restore backup")
+    
+    return {"status": "success", "message": "Backup restored successfully"}
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")
