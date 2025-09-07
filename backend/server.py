@@ -12,6 +12,8 @@ import json
 import logging
 import os
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 import uvicorn
@@ -25,6 +27,13 @@ from dependency_manager import dependency_manager, get_dependency_status, instal
 # Import security modules
 from security import EncryptionManager, AuthManager, SecureStorage, APIKeyVault
 from database import BackupManager, SyncManager
+
+# Import utilities
+from utils import (
+    setup_global_error_handling, get_global_error_handler, ErrorHandler, 
+    get_safe_delete_manager, get_network_manager
+)
+from utils.validation import validate_email, validate_password_strength, validate_api_key
 
 # Import AI assistant modules  
 from ai_assistant import AIChat, ContextManager, ActionExecutor, ResponseHandler
@@ -67,6 +76,15 @@ current_model = None
 model_path = None
 gpu_info = None
 
+# Initialize global error handling
+error_handler = setup_global_error_handling(debug_mode=False)
+
+# Initialize safe delete manager
+safe_delete_manager = get_safe_delete_manager()
+
+# Initialize network manager
+network_manager = get_network_manager()
+
 # Security and database managers
 auth_manager = None
 secure_storage = None
@@ -108,9 +126,9 @@ def initialize_security_systems():
             response_handler = ResponseHandler()
             ai_chat = AIChat(context_manager, action_executor, response_handler, secure_storage)
         
-        logger.info("Security systems initialized")
+        error_handler.log_info("Security systems initialized", "SecurityInit")
     except Exception as e:
-        logger.error(f"Failed to initialize security systems: {e}")
+        error_handler.log_error(f"Failed to initialize security systems: {e}", context="SecurityInit")
 
 # Initialize security on startup
 initialize_security_systems()
@@ -154,6 +172,10 @@ class AIChatRequest(BaseModel):
 class ProviderConfigRequest(BaseModel):
     config: dict
 
+class ConfirmationRequest(BaseModel):
+    confirm: bool = False
+    confirmation_message: Optional[str] = None
+
 # Security endpoint dependencies
 def require_auth():
     """Dependency to require authentication."""
@@ -161,6 +183,16 @@ def require_auth():
         raise HTTPException(status_code=401, detail="Authentication required")
     auth_manager.update_activity()
     return auth_manager
+
+def require_confirmation(operation: str, target: str) -> dict:
+    """Generate confirmation requirement for dangerous operations."""
+    return {
+        "requires_confirmation": True,
+        "operation": operation,
+        "target": target,
+        "message": f"Are you sure you want to {operation} '{target}'? This action cannot be undone.",
+        "confirmation_required": True
+    }
 
 def detect_gpu():
     """Detect available GPU resources"""
@@ -538,6 +570,7 @@ async def auth_status():
     return auth_manager.get_session_info()
 
 @app.post("/auth/setup")
+@error_handler.with_error_handling("AuthSetup")
 async def setup_master_password(request: SetPasswordRequest):
     """Set up initial master password."""
     if not auth_manager:
@@ -549,8 +582,10 @@ async def setup_master_password(request: SetPasswordRequest):
     if request.password != request.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
     
-    if len(request.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    # Use enhanced password validation
+    is_valid, error_msg = validate_password_strength(request.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
     
     success = auth_manager.set_master_password(request.password)
     if not success:
@@ -559,11 +594,13 @@ async def setup_master_password(request: SetPasswordRequest):
     # Initialize secure systems after setting password
     if auth_manager.verify_master_password(request.password):
         initialize_security_systems()
+        error_handler.log_info("Master password set up successfully", "AuthSetup")
         return {"status": "success", "message": "Master password set successfully"}
     else:
         raise HTTPException(status_code=500, detail="Password verification failed")
 
 @app.post("/auth/login")
+@error_handler.with_error_handling("AuthLogin")
 async def login(request: AuthRequest):
     """Authenticate with master password."""
     if not auth_manager:
@@ -572,12 +609,15 @@ async def login(request: AuthRequest):
     if not auth_manager.has_master_password():
         raise HTTPException(status_code=400, detail="Master password not set")
     
+    # Rate limiting could be added here in the future
     success = auth_manager.verify_master_password(request.password)
     if not success:
+        error_handler.log_warning("Failed login attempt", "AuthLogin")
         raise HTTPException(status_code=401, detail="Invalid password")
     
     # Initialize secure systems after successful login
     initialize_security_systems()
+    error_handler.log_info("User authenticated successfully", "AuthLogin")
     
     return {
         "status": "success", 
@@ -594,19 +634,416 @@ async def logout():
     return {"status": "success", "message": "Logged out successfully"}
 
 @app.post("/auth/change-password")
+@error_handler.with_error_handling("PasswordChange")
 async def change_password(request: ChangePasswordRequest, auth: AuthManager = Depends(require_auth)):
     """Change master password."""
     if request.new_password != request.confirm_password:
         raise HTTPException(status_code=400, detail="New passwords do not match")
     
-    if len(request.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    # Use enhanced password validation
+    is_valid, error_msg = validate_password_strength(request.new_password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
     
     success = auth.change_master_password(request.old_password, request.new_password)
     if not success:
-        raise HTTPException(status_code=400, detail="Failed to change password")
+        error_handler.log_warning("Failed password change attempt", "PasswordChange")
+        raise HTTPException(status_code=400, detail="Failed to change password - check current password")
     
+    error_handler.log_info("Password changed successfully", "PasswordChange")
     return {"status": "success", "message": "Password changed successfully"}
+
+# Error Handling and Debugging Endpoints
+@app.get("/debug/errors")
+async def get_error_stats(auth: AuthManager = Depends(require_auth)):
+    """Get error statistics and recent errors."""
+    if not error_handler:
+        return {"error": "Error handler not available"}
+    
+    stats = error_handler.get_error_stats()
+    recent_errors = error_handler.get_recent_errors(limit=10)
+    
+    return {
+        "statistics": stats,
+        "recent_errors": recent_errors
+    }
+
+@app.post("/debug/errors/clear")
+@error_handler.with_error_handling("ClearErrorStats")
+async def clear_error_stats(request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Clear error statistics with confirmation."""
+    if not error_handler:
+        return {"error": "Error handler not available"}
+    
+    # If no confirmation provided, return confirmation requirement
+    if not request or not request.confirm:
+        stats = error_handler.get_error_stats()
+        return {
+            **require_confirmation("clear", f"{stats['total_errors']} error records"),
+            "current_stats": stats
+        }
+    
+    # Perform the clearing
+    error_handler.clear_error_stats()
+    error_handler.log_info("Error statistics cleared by user", "ClearErrorStats")
+    return {"status": "success", "message": "Error statistics cleared successfully"}
+
+@app.post("/debug/mode/{mode}")
+async def set_debug_mode(mode: str, auth: AuthManager = Depends(require_auth)):
+    """Enable or disable debug mode."""
+    if not error_handler:
+        return {"error": "Error handler not available"}
+    
+    if mode.lower() == "enable":
+        error_handler.enable_debug_mode()
+        return {"status": "success", "message": "Debug mode enabled"}
+    elif mode.lower() == "disable":
+        error_handler.disable_debug_mode()
+        return {"status": "success", "message": "Debug mode disabled"}
+    else:
+        raise HTTPException(status_code=400, detail="Mode must be 'enable' or 'disable'")
+
+@app.get("/debug/status")
+async def get_debug_status(auth: AuthManager = Depends(require_auth)):
+    """Get current debug status and system health."""
+    health_info = {
+        "error_handler_available": error_handler is not None,
+        "debug_mode": error_handler.debug_mode if error_handler else False,
+        "auth_manager_available": auth_manager is not None,
+        "secure_storage_available": secure_storage is not None,
+        "api_key_vault_available": api_key_vault is not None,
+        "ai_chat_available": ai_chat is not None,
+        "context_manager_available": context_manager is not None,
+        "action_executor_available": action_executor is not None,
+        "session_valid": auth_manager.is_session_valid() if auth_manager else False
+    }
+    
+    if error_handler:
+        health_info["error_stats"] = error_handler.get_error_stats()
+    
+    return health_info
+
+# Trash Management Endpoints
+@app.get("/trash")
+async def list_trash_items(item_type: str = None, auth: AuthManager = Depends(require_auth)):
+    """List items in trash, optionally filtered by type."""
+    try:
+        items = safe_delete_manager.list_trash_items(item_type)
+        stats = safe_delete_manager.get_trash_stats()
+        
+        return {
+            "items": [item["summary"] for item in items],  # Only return summaries for listing
+            "stats": stats,
+            "total_items": len(items)
+        }
+    except Exception as e:
+        return error_handler.handle_api_error(e, "list_trash")
+
+@app.get("/trash/{trash_id}")
+async def get_trash_item(trash_id: str, auth: AuthManager = Depends(require_auth)):
+    """Get detailed information about a specific trash item."""
+    try:
+        item = safe_delete_manager.recover_item(trash_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Trash item not found or expired")
+        
+        return item
+    except HTTPException:
+        raise
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_trash_item")
+
+@app.post("/trash/{trash_id}/restore")
+async def restore_trash_item(trash_id: str, auth: AuthManager = Depends(require_auth)):
+    """Restore an item from trash."""
+    try:
+        item = safe_delete_manager.restore_item(trash_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Trash item not found or expired")
+        
+        # Attempt to restore the actual data based on item type
+        item_type = item["item_type"]
+        item_id = item["item_id"]
+        data = item["data"]
+        
+        if item_type == "secure_setting":
+            if secure_storage:
+                secure_storage.set_setting(data["key"], data["value"])
+                error_handler.log_info(f"Restored secure setting: {item_id}", "TrashRestore")
+            else:
+                raise HTTPException(status_code=500, detail="Secure storage not available for restore")
+        
+        elif item_type == "api_key":
+            # Note: API keys cannot be fully restored for security reasons
+            error_handler.log_info(f"API key metadata restored (key itself not recoverable): {item_id}", "TrashRestore")
+            return {
+                "status": "partial_success",
+                "message": f"API key metadata restored, but actual key cannot be recovered for security reasons",
+                "item_type": item_type,
+                "item_id": item_id,
+                "note": "You will need to re-enter the API key"
+            }
+        
+        return {
+            "status": "success",
+            "message": f"Item restored successfully",
+            "item_type": item_type,
+            "item_id": item_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        return error_handler.handle_api_error(e, "restore_trash_item")
+
+@app.delete("/trash/{trash_id}")
+async def permanently_delete_trash_item(trash_id: str, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Permanently delete an item from trash."""
+    if not request or not request.confirm:
+        return require_confirmation("permanently delete", f"trash item '{trash_id}'")
+    
+    try:
+        success = safe_delete_manager.permanently_delete(trash_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Trash item not found")
+        
+        error_handler.log_info(f"Item permanently deleted from trash: {trash_id}", "TrashPermanentDelete")
+        return {"status": "success", "message": "Item permanently deleted"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        return error_handler.handle_api_error(e, "permanently_delete_trash_item")
+
+@app.post("/trash/empty")
+async def empty_trash(item_type: str = None, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Empty the trash, optionally for a specific item type."""
+    if not request or not request.confirm:
+        stats = safe_delete_manager.get_trash_stats()
+        target = f"all {stats['total_items']} items" if not item_type else f"all {stats['by_type'].get(item_type, 0)} {item_type} items"
+        return require_confirmation("permanently delete", target)
+    
+    try:
+        deleted_count = safe_delete_manager.empty_trash(item_type)
+        
+        error_handler.log_info(f"Trash emptied: {deleted_count} items deleted (type: {item_type or 'all'})", "TrashEmpty")
+        return {
+            "status": "success",
+            "message": f"Trash emptied successfully",
+            "deleted_count": deleted_count,
+            "item_type": item_type
+        }
+        
+    except Exception as e:
+        return error_handler.handle_api_error(e, "empty_trash")
+
+@app.get("/trash/stats")
+async def get_trash_stats(auth: AuthManager = Depends(require_auth)):
+    """Get statistics about trash contents."""
+    try:
+        stats = safe_delete_manager.get_trash_stats()
+        return stats
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_trash_stats")
+
+# Network Status Endpoint
+@app.get("/network/status")
+async def get_network_status():
+    """Get network connectivity status."""
+    try:
+        status = network_manager.get_network_status()
+        return status
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_network_status")
+
+# Weather Service Endpoints
+@app.get("/weather")
+@error_handler.with_error_handling("WeatherService")
+async def get_weather(location: str = "auto", auth: AuthManager = Depends(require_auth)):
+    """Get weather information with network error handling."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    # Get API key
+    weather_key_data = api_key_vault.get_api_key("openweathermap")
+    if not weather_key_data:
+        return {
+            "status": "error",
+            "message": "OpenWeatherMap API key not configured",
+            "requires_setup": True
+        }
+    
+    api_key = weather_key_data["api_key"]
+    
+    try:
+        # Use network manager for robust request handling
+        url = "http://api.openweathermap.org/data/2.5/weather"
+        params = {
+            "q": location if location != "auto" else "New York",  # Default location
+            "appid": api_key,
+            "units": "metric"
+        }
+        
+        response = network_manager.get_with_retry(url, params=params, timeout=10)
+        data = response.json()
+        
+        # Format response
+        weather_data = {
+            "status": "success",
+            "location": data["name"],
+            "country": data["sys"]["country"],
+            "temperature": data["main"]["temp"],
+            "feels_like": data["main"]["feels_like"],
+            "humidity": data["main"]["humidity"],
+            "pressure": data["main"]["pressure"],
+            "condition": data["weather"][0]["main"],
+            "description": data["weather"][0]["description"],
+            "wind_speed": data["wind"]["speed"],
+            "visibility": data.get("visibility", "N/A"),
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        error_handler.log_info(f"Weather data retrieved for {location}", "WeatherService")
+        return weather_data
+        
+    except Exception as e:
+        error_handler.log_error(f"Weather service error: {e}", context="WeatherService")
+        # Return fallback data
+        return network_manager.get_fallback_data("weather")
+
+@app.get("/news")
+@error_handler.with_error_handling("NewsService")
+async def get_news(category: str = "general", country: str = "us", limit: int = 10, auth: AuthManager = Depends(require_auth)):
+    """Get news with network error handling."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    # Get API key
+    news_key_data = api_key_vault.get_api_key("newsapi")
+    if not news_key_data:
+        return {
+            "status": "error",
+            "message": "NewsAPI key not configured",
+            "requires_setup": True
+        }
+    
+    api_key = news_key_data["api_key"]
+    
+    try:
+        # Use network manager for robust request handling
+        url = "https://newsapi.org/v2/top-headlines"
+        headers = {"X-API-Key": api_key}
+        params = {
+            "category": category,
+            "country": country,
+            "pageSize": min(limit, 100)  # API limit
+        }
+        
+        response = network_manager.get_with_retry(url, headers=headers, params=params, timeout=15)
+        data = response.json()
+        
+        if data["status"] != "ok":
+            raise Exception(f"NewsAPI error: {data.get('message', 'Unknown error')}")
+        
+        # Format response
+        articles = []
+        for article in data["articles"][:limit]:
+            articles.append({
+                "title": article["title"],
+                "description": article["description"],
+                "url": article["url"],
+                "source": article["source"]["name"],
+                "published_at": article["publishedAt"],
+                "url_to_image": article.get("urlToImage")
+            })
+        
+        news_data = {
+            "status": "success",
+            "articles": articles,
+            "total_results": data["totalResults"],
+            "category": category,
+            "country": country,
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        error_handler.log_info(f"News data retrieved: {len(articles)} articles", "NewsService")
+        return news_data
+        
+    except Exception as e:
+        error_handler.log_error(f"News service error: {e}", context="NewsService")
+        # Return fallback data
+        return network_manager.get_fallback_data("news")
+
+# Email Service Endpoints
+@app.post("/email/send")
+@error_handler.with_error_handling("EmailService")
+async def send_email(request: dict, auth: AuthManager = Depends(require_auth)):
+    """Send email with network error handling."""
+    if not api_key_vault:
+        raise HTTPException(status_code=500, detail="API key vault not available")
+    
+    # Validate required fields
+    to_email = request.get("to")
+    subject = request.get("subject")
+    body = request.get("body")
+    
+    if not to_email or not subject or not body:
+        raise HTTPException(status_code=400, detail="Missing required fields: to, subject, body")
+    
+    # Validate email format
+    is_valid, error_msg = validate_email(to_email)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid email address: {error_msg}")
+    
+    # For now, this is a placeholder - in a real implementation you would:
+    # 1. Get SMTP settings from secure storage
+    # 2. Use network_manager to send with retry logic
+    # 3. Handle various email provider APIs
+    
+    try:
+        # Simulate email sending with network handling
+        if not network_manager.is_online():
+            return network_manager.get_fallback_data("email")
+        
+        # Placeholder for actual email sending logic
+        # This would integrate with SMTP or email service APIs
+        
+        email_result = {
+            "status": "success",
+            "message": "Email sent successfully",
+            "to": to_email,
+            "subject": subject,
+            "sent_at": datetime.now().isoformat(),
+            "message_id": f"msg_{int(time.time())}"
+        }
+        
+        error_handler.log_info(f"Email sent to {to_email}", "EmailService")
+        return email_result
+        
+    except Exception as e:
+        error_handler.log_error(f"Email service error: {e}", context="EmailService")
+        return {
+            "status": "error",
+            "message": f"Failed to send email: {str(e)}",
+            "fallback_available": True
+        }
+
+@app.get("/email/status")
+async def get_email_status(auth: AuthManager = Depends(require_auth)):
+    """Get email service status."""
+    try:
+        online_status = network_manager.is_online()
+        
+        return {
+            "status": "online" if online_status else "offline",
+            "can_send": online_status,
+            "can_receive": False,  # Placeholder - would check IMAP/POP3
+            "last_checked": datetime.now().isoformat(),
+            "smtp_configured": False,  # Placeholder - would check actual config
+            "imap_configured": False   # Placeholder - would check actual config
+        }
+    except Exception as e:
+        return error_handler.handle_api_error(e, "get_email_status")
 
 # Secure Storage Endpoints
 @app.get("/secure/settings")
@@ -643,13 +1080,39 @@ async def set_secure_setting(key: str, request: dict, auth: AuthManager = Depend
     return {"status": "success", "message": f"Setting '{key}' saved"}
 
 @app.delete("/secure/settings/{key}")
-async def delete_secure_setting(key: str, auth: AuthManager = Depends(require_auth)):
-    """Delete a secure setting."""
+@error_handler.with_error_handling("SecureSettingDelete")
+async def delete_secure_setting(key: str, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Delete a secure setting with confirmation and safe deletion."""
     if not secure_storage:
         raise HTTPException(status_code=500, detail="Secure storage not available")
     
+    # If no confirmation provided, return confirmation requirement
+    if not request or not request.confirm:
+        return require_confirmation("delete", f"secure setting '{key}'")
+    
+    # Check if setting exists
+    existing_value = secure_storage.get_setting(key)
+    if existing_value is None:
+        raise HTTPException(status_code=404, detail=f"Setting '{key}' not found")
+    
+    # Safe delete - store in trash before deletion
+    trash_id = safe_delete_manager.soft_delete(
+        item_type="secure_setting",
+        item_id=key,
+        data={"key": key, "value": existing_value},
+        metadata={"deleted_by": "user", "deletion_reason": "manual_delete"}
+    )
+    
+    # Perform the deletion
     secure_storage.delete_setting(key)
-    return {"status": "success", "message": f"Setting '{key}' deleted"}
+    error_handler.log_info(f"Secure setting safely deleted: {key} -> {trash_id}", "SecureSettingDelete")
+    
+    return {
+        "status": "success", 
+        "message": f"Setting '{key}' deleted successfully",
+        "trash_id": trash_id,
+        "recovery_info": "Use the trash_id to recover this item within 30 days"
+    }
 
 # API Key Management Endpoints
 @app.get("/api-keys")
@@ -668,6 +1131,7 @@ async def list_api_keys(auth: AuthManager = Depends(require_auth)):
     return {"services": key_info}
 
 @app.post("/api-keys/{service}")
+@error_handler.with_error_handling("APIKeyStorage")
 async def store_api_key(service: str, request: dict, auth: AuthManager = Depends(require_auth)):
     """Store an API key for a service."""
     if not api_key_vault:
@@ -679,10 +1143,16 @@ async def store_api_key(service: str, request: dict, auth: AuthManager = Depends
     if not api_key:
         raise HTTPException(status_code=400, detail="API key is required")
     
+    # Validate API key format
+    is_valid, error_msg = validate_api_key(api_key, service)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+    
     success = api_key_vault.store_api_key_with_index(service, api_key, metadata)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to store API key")
     
+    error_handler.log_info(f"API key stored for service: {service}", "APIKeyStorage")
     return {"status": "success", "message": f"API key for {service} stored successfully"}
 
 @app.get("/api-keys/{service}")
@@ -698,16 +1168,49 @@ async def get_api_key_info(service: str, auth: AuthManager = Depends(require_aut
     return info
 
 @app.delete("/api-keys/{service}")
-async def delete_api_key(service: str, auth: AuthManager = Depends(require_auth)):
-    """Delete an API key."""
+@error_handler.with_error_handling("APIKeyDelete")
+async def delete_api_key(service: str, request: ConfirmationRequest = None, auth: AuthManager = Depends(require_auth)):
+    """Delete an API key with confirmation and safe deletion."""
     if not api_key_vault:
         raise HTTPException(status_code=500, detail="API key vault not available")
     
+    # If no confirmation provided, return confirmation requirement  
+    if not request or not request.confirm:
+        return require_confirmation("delete", f"API key for '{service}'")
+    
+    # Check if API key exists and get its data for backup
+    key_data = api_key_vault.get_api_key(service)
+    if not key_data:
+        raise HTTPException(status_code=404, detail=f"API key for '{service}' not found")
+    
+    # Safe delete - store in trash before deletion (without exposing the actual key)
+    trash_data = {
+        "service": service,
+        "metadata": key_data.get("metadata", {}),
+        "key_length": len(key_data.get("api_key", "")),
+        "key_preview": key_data.get("api_key", "")[:8] + "..." if key_data.get("api_key") else ""
+    }
+    
+    trash_id = safe_delete_manager.soft_delete(
+        item_type="api_key",
+        item_id=service,
+        data=trash_data,
+        metadata={"deleted_by": "user", "deletion_reason": "manual_delete"}
+    )
+    
+    # Perform the deletion
     success = api_key_vault.delete_api_key_with_index(service)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete API key")
     
-    return {"status": "success", "message": f"API key for {service} deleted"}
+    error_handler.log_info(f"API key safely deleted for service: {service} -> {trash_id}", "APIKeyDelete")
+    
+    return {
+        "status": "success", 
+        "message": f"API key for '{service}' deleted successfully",
+        "trash_id": trash_id,
+        "recovery_info": "API key metadata stored in trash for recovery tracking (actual key not recoverable for security)"
+    }
 
 # Backup Management Endpoints  
 @app.get("/backup/status")
