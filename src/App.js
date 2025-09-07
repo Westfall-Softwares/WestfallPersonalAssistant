@@ -37,13 +37,38 @@ function App() {
     thinkingMode: 'normal',
     theme: 'dark',
     autoStart: false,
-    gpuLayers: 'auto'
+    minimizeToTray: true,
+    gpuLayers: 'auto',
+    shortcuts: {
+      quickChat: 'CmdOrCtrl+Shift+A',
+      screenCapture: 'CmdOrCtrl+Shift+S',
+      toggleWindow: 'CmdOrCtrl+Shift+W'
+    },
+    notifications: {
+      enabled: true,
+      screenCapture: true,
+      modelLoaded: true,
+      errors: true
+    }
   });
 
   useEffect(() => {
     // Load settings on startup
     if (window.electronAPI) {
       window.electronAPI.getSettings().then(setSettings);
+    }
+
+    // Listen for IPC events
+    if (window.electronAPI) {
+      const handleOpenSettings = () => {
+        setCurrentView('settings');
+      };
+
+      window.electronAPI.ipcRenderer?.on('open-settings', handleOpenSettings);
+
+      return () => {
+        window.electronAPI.ipcRenderer?.removeListener('open-settings', handleOpenSettings);
+      };
     }
   }, []);
 

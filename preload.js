@@ -24,10 +24,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startMonitoring: (interval) => ipcRenderer.invoke('start-monitoring', interval),
   stopMonitoring: () => ipcRenderer.invoke('stop-monitoring'),
   
+  // Conversation management
+  saveConversation: (conversation) => ipcRenderer.invoke('save-conversation', conversation),
+  getConversations: () => ipcRenderer.invoke('get-conversations'),
+  deleteConversation: (conversationId) => ipcRenderer.invoke('delete-conversation', conversationId),
+  searchConversations: (query) => ipcRenderer.invoke('search-conversations', query),
+  
+  // Notifications
+  showNotification: (options) => ipcRenderer.invoke('show-notification', options),
+  
+  // System information
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
+  
   // Backend communication
   sendMessage: (message) => ipcRenderer.invoke('send-message', message),
   
-  // Event listeners
-  onBackendMessage: (callback) => ipcRenderer.on('backend-message', callback),
-  removeBackendMessage: (callback) => ipcRenderer.removeListener('backend-message', callback)
+  // IPC Renderer for event listeners (limited exposure)
+  ipcRenderer: {
+    on: (channel, callback) => {
+      const validChannels = ['focus-chat', 'open-settings', 'backend-message'];
+      if (validChannels.includes(channel)) {
+        ipcRenderer.on(channel, callback);
+      }
+    },
+    removeListener: (channel, callback) => {
+      const validChannels = ['focus-chat', 'open-settings', 'backend-message'];
+      if (validChannels.includes(channel)) {
+        ipcRenderer.removeListener(channel, callback);
+      }
+    }
+  }
 });
