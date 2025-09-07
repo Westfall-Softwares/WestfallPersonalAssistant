@@ -15,7 +15,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,6 +42,8 @@ from ai_assistant.providers import OpenAIProvider, LocalLLMProvider
 # Import feature modules
 from features.news_reader import NewsReader
 from features.music_player import MusicPlayer
+from features.browser_manager import BrowserManager
+from features.advanced_calculator import AdvancedCalculator
 
 # Import optional modules with graceful fallback
 screen_engine = None
@@ -106,12 +108,14 @@ ai_providers = {}
 # Feature modules
 news_reader = None
 music_player = None
+browser_manager = None
+calculator = None
 
 def initialize_security_systems():
     """Initialize security and database systems."""
     global auth_manager, secure_storage, api_key_vault, backup_manager, sync_manager
     global ai_chat, context_manager, action_executor, response_handler
-    global news_reader, music_player
+    global news_reader, music_player, browser_manager, calculator
     
     # Set up paths
     config_dir = os.path.expanduser("~/.westfall_assistant")
@@ -138,6 +142,8 @@ def initialize_security_systems():
         # Initialize feature modules (available without authentication)
         news_reader = NewsReader(config_dir)
         music_player = MusicPlayer(config_dir)
+        browser_manager = BrowserManager(config_dir)
+        calculator = AdvancedCalculator(config_dir)
         
         error_handler.log_info("Security systems initialized", "SecurityInit")
     except Exception as e:
@@ -218,6 +224,38 @@ class PlaylistTrackRequest(BaseModel):
 
 class VolumeRequest(BaseModel):
     volume: float
+
+# Browser models
+class TabRequest(BaseModel):
+    url: str = "about:blank"
+    title: str = "New Tab"
+
+class NavigateRequest(BaseModel):
+    tab_id: str
+    url: str
+
+class BookmarkRequest(BaseModel):
+    title: str
+    url: str
+    folder_path: str = ""
+    description: str = ""
+    tags: List[str] = []
+
+class DownloadRequest(BaseModel):
+    url: str
+    filename: Optional[str] = None
+    tab_id: Optional[str] = None
+
+# Calculator models
+class CalculationRequest(BaseModel):
+    expression: str
+    mode: str = "standard"
+
+class UnitConversionRequest(BaseModel):
+    value: float
+    from_unit: str
+    to_unit: str
+    category: Optional[str] = None
 
 # Security endpoint dependencies
 def require_auth():
@@ -1780,6 +1818,289 @@ async def add_track_to_playlist(request: PlaylistTrackRequest):
         return {"status": "success", "message": "Track added to playlist"}
     else:
         raise HTTPException(status_code=400, detail="Failed to add track to playlist")
+
+# ========== BROWSER ENDPOINTS ==========
+
+@app.post("/browser/tabs")
+async def create_browser_tab(request: TabRequest):
+    """Create a new browser tab."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    tab_id = await browser_manager.create_tab(request.url, request.title)
+    if tab_id:
+        return {"status": "success", "tab_id": tab_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to create tab")
+
+@app.delete("/browser/tabs/{tab_id}")
+async def close_browser_tab(tab_id: str):
+    """Close a browser tab."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.close_tab(tab_id)
+    if success:
+        return {"status": "success", "message": f"Tab {tab_id} closed"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to close tab")
+
+@app.get("/browser/tabs")
+async def get_browser_tabs():
+    """Get all browser tabs."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    tabs = await browser_manager.get_tabs()
+    return {"tabs": tabs}
+
+@app.post("/browser/tabs/{tab_id}/switch")
+async def switch_browser_tab(tab_id: str):
+    """Switch to a specific tab."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.switch_tab(tab_id)
+    if success:
+        return {"status": "success", "active_tab": tab_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to switch tab")
+
+@app.post("/browser/navigate")
+async def navigate_browser(request: NavigateRequest):
+    """Navigate tab to URL."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.navigate_to(request.tab_id, request.url)
+    if success:
+        return {"status": "success", "message": f"Navigated to {request.url}"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to navigate")
+
+@app.post("/browser/tabs/{tab_id}/back")
+async def browser_go_back(tab_id: str):
+    """Go back in tab history."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.go_back(tab_id)
+    if success:
+        return {"status": "success", "message": "Navigated back"}
+    else:
+        raise HTTPException(status_code=400, detail="Cannot go back")
+
+@app.post("/browser/tabs/{tab_id}/forward")
+async def browser_go_forward(tab_id: str):
+    """Go forward in tab history."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.go_forward(tab_id)
+    if success:
+        return {"status": "success", "message": "Navigated forward"}
+    else:
+        raise HTTPException(status_code=400, detail="Cannot go forward")
+
+@app.post("/browser/bookmarks")
+async def add_bookmark(request: BookmarkRequest):
+    """Add a bookmark."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    bookmark_id = await browser_manager.add_bookmark(
+        title=request.title,
+        url=request.url,
+        folder_path=request.folder_path,
+        description=request.description,
+        tags=request.tags
+    )
+    
+    if bookmark_id:
+        return {"status": "success", "bookmark_id": bookmark_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add bookmark")
+
+@app.get("/browser/bookmarks")
+async def get_bookmarks(folder_path: Optional[str] = None):
+    """Get bookmarks."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    bookmarks = await browser_manager.get_bookmarks(folder_path)
+    return {"bookmarks": bookmarks}
+
+@app.delete("/browser/bookmarks/{bookmark_id}")
+async def remove_bookmark(bookmark_id: int):
+    """Remove a bookmark."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    success = await browser_manager.remove_bookmark(bookmark_id)
+    if success:
+        return {"status": "success", "message": f"Bookmark {bookmark_id} removed"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to remove bookmark")
+
+@app.get("/browser/history")
+async def get_browser_history(query: Optional[str] = None, limit: int = 50):
+    """Get browser history."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    if query:
+        history = await browser_manager.search_history(query, limit)
+    else:
+        history = await browser_manager.search_history("", limit)
+    
+    return {"history": history}
+
+@app.post("/browser/downloads")
+async def start_download(request: DownloadRequest):
+    """Start a file download."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    download_id = await browser_manager.start_download(
+        url=request.url,
+        filename=request.filename,
+        tab_id=request.tab_id
+    )
+    
+    if download_id:
+        return {"status": "success", "download_id": download_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to start download")
+
+@app.get("/browser/downloads")
+async def get_downloads(status: Optional[str] = None):
+    """Get download list."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    downloads = await browser_manager.get_downloads(status)
+    return {"downloads": downloads}
+
+@app.get("/browser/stats")
+async def get_browser_stats():
+    """Get browser statistics."""
+    if not browser_manager:
+        raise HTTPException(status_code=503, detail="Browser manager not available")
+    
+    stats = await browser_manager.get_browser_stats()
+    return stats
+
+# ========== CALCULATOR ENDPOINTS ==========
+
+@app.post("/calculator/calculate")
+async def calculate_expression(request: CalculationRequest):
+    """Calculate mathematical expression."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    result = await calculator.calculate(request.expression, request.mode)
+    return result
+
+@app.post("/calculator/convert")
+async def convert_units(request: UnitConversionRequest):
+    """Convert between units."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    try:
+        result = await calculator.convert_units(
+            value=request.value,
+            from_unit=request.from_unit,
+            to_unit=request.to_unit,
+            category=request.category
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/calculator/memory/store")
+async def memory_store(value: Optional[float] = None):
+    """Store value in calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_store(value)
+    if success:
+        return {"status": "success", "message": "Value stored in memory"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to store in memory")
+
+@app.get("/calculator/memory/recall")
+async def memory_recall():
+    """Recall value from calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    value = await calculator.memory_recall()
+    return {"memory_value": value}
+
+@app.post("/calculator/memory/add")
+async def memory_add(value: Optional[float] = None):
+    """Add to calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_add(value)
+    if success:
+        return {"status": "success", "message": "Added to memory"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add to memory")
+
+@app.post("/calculator/memory/subtract")
+async def memory_subtract(value: Optional[float] = None):
+    """Subtract from calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_subtract(value)
+    if success:
+        return {"status": "success", "message": "Subtracted from memory"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to subtract from memory")
+
+@app.post("/calculator/memory/clear")
+async def memory_clear():
+    """Clear calculator memory."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    success = await calculator.memory_clear()
+    if success:
+        return {"status": "success", "message": "Memory cleared"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to clear memory")
+
+@app.get("/calculator/history")
+async def get_calculation_history(limit: int = 100):
+    """Get calculation history."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    history = await calculator.get_calculation_history(limit)
+    return {"history": history}
+
+@app.get("/calculator/units")
+async def get_available_units():
+    """Get available units for conversion."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    units = await calculator.get_available_units()
+    return {"unit_categories": units}
+
+@app.get("/calculator/stats")
+async def get_calculator_stats():
+    """Get calculator usage statistics."""
+    if not calculator:
+        raise HTTPException(status_code=503, detail="Calculator not available")
+    
+    stats = await calculator.get_calculator_stats()
+    return stats
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")
