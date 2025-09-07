@@ -17,6 +17,10 @@ psutil>=5.9.0
 # Development dependencies
 requests>=2.32.0
 
+# News reader dependencies
+aiohttp>=3.8.0
+feedparser>=6.0.10
+
 # Optional AI/ML dependencies (install based on needs)
 # Uncomment the lines below to enable full functionality:
 
@@ -31,6 +35,13 @@ requests>=2.32.0
 # opencv-python>=4.10.0
 # pytesseract>=0.3.10
 # pillow>=10.4.0
+
+# For music player (optional)
+# pygame>=2.5.0
+# mutagen>=1.47.0
+# python-vlc>=3.0.0
+# pydub>=0.25.0
+# simpleaudio>=1.0.4
 
 # Additional utilities
 # numpy>=2.0.0

@@ -39,6 +39,10 @@ from utils.validation import validate_email, validate_password_strength, validat
 from ai_assistant import AIChat, ContextManager, ActionExecutor, ResponseHandler
 from ai_assistant.providers import OpenAIProvider, LocalLLMProvider
 
+# Import feature modules
+from features.news_reader import NewsReader
+from features.music_player import MusicPlayer
+
 # Import optional modules with graceful fallback
 screen_engine = None
 model_manager = None
@@ -99,10 +103,15 @@ action_executor = None
 response_handler = None
 ai_providers = {}
 
+# Feature modules
+news_reader = None
+music_player = None
+
 def initialize_security_systems():
     """Initialize security and database systems."""
     global auth_manager, secure_storage, api_key_vault, backup_manager, sync_manager
     global ai_chat, context_manager, action_executor, response_handler
+    global news_reader, music_player
     
     # Set up paths
     config_dir = os.path.expanduser("~/.westfall_assistant")
@@ -125,6 +134,10 @@ def initialize_security_systems():
             action_executor = ActionExecutor()
             response_handler = ResponseHandler()
             ai_chat = AIChat(context_manager, action_executor, response_handler, secure_storage)
+        
+        # Initialize feature modules (available without authentication)
+        news_reader = NewsReader(config_dir)
+        music_player = MusicPlayer(config_dir)
         
         error_handler.log_info("Security systems initialized", "SecurityInit")
     except Exception as e:
@@ -175,6 +188,36 @@ class ProviderConfigRequest(BaseModel):
 class ConfirmationRequest(BaseModel):
     confirm: bool = False
     confirmation_message: Optional[str] = None
+
+# News reader models
+class NewsSourceRequest(BaseModel):
+    name: str
+    url: str
+    category: str = "general"
+    source_type: str = "rss"
+    active: bool = True
+    refresh_interval: int = 3600
+
+class NewsSearchRequest(BaseModel):
+    query: str
+    category: Optional[str] = None
+    limit: int = 50
+
+# Music player models
+class MusicDirectoryRequest(BaseModel):
+    directory: str
+    recursive: bool = True
+
+class PlaylistRequest(BaseModel):
+    name: str
+    description: str = ""
+
+class PlaylistTrackRequest(BaseModel):
+    playlist_id: int
+    track_id: int
+
+class VolumeRequest(BaseModel):
+    volume: float
 
 # Security endpoint dependencies
 def require_auth():
@@ -1491,6 +1534,252 @@ async def get_ai_status_public():
         }
     
     return status
+
+# ========== NEWS READER ENDPOINTS ==========
+
+@app.post("/news/sources")
+async def add_news_source(request: NewsSourceRequest):
+    """Add a new news source."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.add_source(
+        name=request.name,
+        url=request.url,
+        category=request.category,
+        source_type=request.source_type,
+        active=request.active,
+        refresh_interval=request.refresh_interval
+    )
+    
+    if success:
+        return {"status": "success", "message": f"News source '{request.name}' added successfully"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add news source")
+
+@app.get("/news/sources")
+async def get_news_sources():
+    """Get all news sources."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    sources = await news_reader.get_sources()
+    return {"sources": sources}
+
+@app.delete("/news/sources/{source_id}")
+async def remove_news_source(source_id: int):
+    """Remove a news source."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.remove_source(source_id)
+    if success:
+        return {"status": "success", "message": f"News source {source_id} removed"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to remove news source")
+
+@app.post("/news/fetch")
+async def fetch_news_articles(source_id: Optional[int] = None, force_refresh: bool = False):
+    """Fetch articles from news sources."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    articles = await news_reader.fetch_articles(source_id, force_refresh)
+    return {"articles": articles, "count": len(articles)}
+
+@app.get("/news/articles")
+async def get_news_articles(
+    category: Optional[str] = None,
+    read_status: Optional[bool] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get news articles with optional filtering."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    articles = await news_reader.get_articles(category, read_status, limit, offset)
+    return {"articles": articles, "count": len(articles)}
+
+@app.post("/news/search")
+async def search_news_articles(request: NewsSearchRequest):
+    """Search news articles."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    articles = await news_reader.search_articles(
+        query=request.query,
+        category=request.category,
+        limit=request.limit
+    )
+    return {"articles": articles, "count": len(articles)}
+
+@app.post("/news/articles/{article_id}/read")
+async def mark_article_read(article_id: int, read: bool = True):
+    """Mark article as read/unread."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.mark_as_read(article_id, read)
+    if success:
+        status = "read" if read else "unread"
+        return {"status": "success", "message": f"Article marked as {status}"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to update article status")
+
+@app.post("/news/articles/{article_id}/archive")
+async def archive_article(article_id: int, archived: bool = True):
+    """Archive/unarchive article."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    success = await news_reader.archive_article(article_id, archived)
+    if success:
+        status = "archived" if archived else "unarchived"
+        return {"status": "success", "message": f"Article {status}"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to update article status")
+
+@app.get("/news/stats")
+async def get_news_statistics():
+    """Get news reader statistics."""
+    if not news_reader:
+        raise HTTPException(status_code=503, detail="News reader not available")
+    
+    stats = await news_reader.get_statistics()
+    return stats
+
+# ========== MUSIC PLAYER ENDPOINTS ==========
+
+@app.post("/music/scan")
+async def scan_music_directory(request: MusicDirectoryRequest):
+    """Scan directory for music files."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    added_count = await music_player.scan_music_directory(request.directory, request.recursive)
+    return {"status": "success", "added_tracks": added_count}
+
+@app.get("/music/tracks")
+async def get_music_tracks(
+    limit: int = 100,
+    offset: int = 0,
+    search: Optional[str] = None,
+    genre: Optional[str] = None,
+    artist: Optional[str] = None,
+    album: Optional[str] = None
+):
+    """Get music tracks with optional filtering."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    tracks = await music_player.get_tracks(limit, offset, search, genre, artist, album)
+    return {"tracks": tracks, "count": len(tracks)}
+
+@app.get("/music/tracks/{track_id}")
+async def get_music_track(track_id: int):
+    """Get specific track information."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    track = await music_player.get_track(track_id)
+    if track:
+        return track
+    else:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+@app.post("/music/play/{track_id}")
+async def play_track(track_id: int):
+    """Play a specific track."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.play_track(track_id)
+    if success:
+        return {"status": "playing", "track_id": track_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to play track")
+
+@app.post("/music/pause")
+async def pause_playback():
+    """Pause current playback."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.pause()
+    if success:
+        return {"status": "paused"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to pause playback")
+
+@app.post("/music/resume")
+async def resume_playback():
+    """Resume playback."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.resume()
+    if success:
+        return {"status": "playing"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to resume playback")
+
+@app.post("/music/stop")
+async def stop_playback():
+    """Stop playback."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.stop()
+    if success:
+        return {"status": "stopped"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to stop playback")
+
+@app.post("/music/volume")
+async def set_volume(request: VolumeRequest):
+    """Set playback volume."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.set_volume(request.volume)
+    if success:
+        return {"status": "success", "volume": request.volume}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to set volume")
+
+@app.get("/music/status")
+async def get_playback_status():
+    """Get current playback status."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    status = await music_player.get_playback_status()
+    return status
+
+@app.post("/music/playlists")
+async def create_playlist(request: PlaylistRequest):
+    """Create a new playlist."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    playlist_id = await music_player.create_playlist(request.name, request.description)
+    if playlist_id:
+        return {"status": "success", "playlist_id": playlist_id}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to create playlist")
+
+@app.post("/music/playlists/add-track")
+async def add_track_to_playlist(request: PlaylistTrackRequest):
+    """Add track to playlist."""
+    if not music_player:
+        raise HTTPException(status_code=503, detail="Music player not available")
+    
+    success = await music_player.add_track_to_playlist(request.playlist_id, request.track_id)
+    if success:
+        return {"status": "success", "message": "Track added to playlist"}
+    else:
+        raise HTTPException(status_code=400, detail="Failed to add track to playlist")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")
