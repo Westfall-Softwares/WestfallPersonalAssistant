@@ -26,6 +26,10 @@ from dependency_manager import dependency_manager, get_dependency_status, instal
 from security import EncryptionManager, AuthManager, SecureStorage, APIKeyVault
 from database import BackupManager, SyncManager
 
+# Import utilities
+from utils import setup_global_error_handling, get_global_error_handler, ErrorHandler
+from utils.validation import validate_email, validate_password_strength, validate_api_key
+
 # Import AI assistant modules  
 from ai_assistant import AIChat, ContextManager, ActionExecutor, ResponseHandler
 from ai_assistant.providers import OpenAIProvider, LocalLLMProvider
@@ -66,6 +70,9 @@ app.add_middleware(
 current_model = None
 model_path = None
 gpu_info = None
+
+# Initialize global error handling
+error_handler = setup_global_error_handling(debug_mode=False)
 
 # Security and database managers
 auth_manager = None
@@ -108,9 +115,9 @@ def initialize_security_systems():
             response_handler = ResponseHandler()
             ai_chat = AIChat(context_manager, action_executor, response_handler, secure_storage)
         
-        logger.info("Security systems initialized")
+        error_handler.log_info("Security systems initialized", "SecurityInit")
     except Exception as e:
-        logger.error(f"Failed to initialize security systems: {e}")
+        error_handler.log_error(f"Failed to initialize security systems: {e}", context="SecurityInit")
 
 # Initialize security on startup
 initialize_security_systems()
@@ -538,6 +545,7 @@ async def auth_status():
     return auth_manager.get_session_info()
 
 @app.post("/auth/setup")
+@error_handler.with_error_handling("AuthSetup")
 async def setup_master_password(request: SetPasswordRequest):
     """Set up initial master password."""
     if not auth_manager:
@@ -549,8 +557,10 @@ async def setup_master_password(request: SetPasswordRequest):
     if request.password != request.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
     
-    if len(request.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    # Use enhanced password validation
+    is_valid, error_msg = validate_password_strength(request.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
     
     success = auth_manager.set_master_password(request.password)
     if not success:
@@ -559,11 +569,13 @@ async def setup_master_password(request: SetPasswordRequest):
     # Initialize secure systems after setting password
     if auth_manager.verify_master_password(request.password):
         initialize_security_systems()
+        error_handler.log_info("Master password set up successfully", "AuthSetup")
         return {"status": "success", "message": "Master password set successfully"}
     else:
         raise HTTPException(status_code=500, detail="Password verification failed")
 
 @app.post("/auth/login")
+@error_handler.with_error_handling("AuthLogin")
 async def login(request: AuthRequest):
     """Authenticate with master password."""
     if not auth_manager:
@@ -572,12 +584,15 @@ async def login(request: AuthRequest):
     if not auth_manager.has_master_password():
         raise HTTPException(status_code=400, detail="Master password not set")
     
+    # Rate limiting could be added here in the future
     success = auth_manager.verify_master_password(request.password)
     if not success:
+        error_handler.log_warning("Failed login attempt", "AuthLogin")
         raise HTTPException(status_code=401, detail="Invalid password")
     
     # Initialize secure systems after successful login
     initialize_security_systems()
+    error_handler.log_info("User authenticated successfully", "AuthLogin")
     
     return {
         "status": "success", 
@@ -594,19 +609,83 @@ async def logout():
     return {"status": "success", "message": "Logged out successfully"}
 
 @app.post("/auth/change-password")
+@error_handler.with_error_handling("PasswordChange")
 async def change_password(request: ChangePasswordRequest, auth: AuthManager = Depends(require_auth)):
     """Change master password."""
     if request.new_password != request.confirm_password:
         raise HTTPException(status_code=400, detail="New passwords do not match")
     
-    if len(request.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    # Use enhanced password validation
+    is_valid, error_msg = validate_password_strength(request.new_password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
     
     success = auth.change_master_password(request.old_password, request.new_password)
     if not success:
-        raise HTTPException(status_code=400, detail="Failed to change password")
+        error_handler.log_warning("Failed password change attempt", "PasswordChange")
+        raise HTTPException(status_code=400, detail="Failed to change password - check current password")
     
+    error_handler.log_info("Password changed successfully", "PasswordChange")
     return {"status": "success", "message": "Password changed successfully"}
+
+# Error Handling and Debugging Endpoints
+@app.get("/debug/errors")
+async def get_error_stats(auth: AuthManager = Depends(require_auth)):
+    """Get error statistics and recent errors."""
+    if not error_handler:
+        return {"error": "Error handler not available"}
+    
+    stats = error_handler.get_error_stats()
+    recent_errors = error_handler.get_recent_errors(limit=10)
+    
+    return {
+        "statistics": stats,
+        "recent_errors": recent_errors
+    }
+
+@app.post("/debug/errors/clear")
+async def clear_error_stats(auth: AuthManager = Depends(require_auth)):
+    """Clear error statistics."""
+    if not error_handler:
+        return {"error": "Error handler not available"}
+    
+    error_handler.clear_error_stats()
+    return {"status": "success", "message": "Error statistics cleared"}
+
+@app.post("/debug/mode/{mode}")
+async def set_debug_mode(mode: str, auth: AuthManager = Depends(require_auth)):
+    """Enable or disable debug mode."""
+    if not error_handler:
+        return {"error": "Error handler not available"}
+    
+    if mode.lower() == "enable":
+        error_handler.enable_debug_mode()
+        return {"status": "success", "message": "Debug mode enabled"}
+    elif mode.lower() == "disable":
+        error_handler.disable_debug_mode()
+        return {"status": "success", "message": "Debug mode disabled"}
+    else:
+        raise HTTPException(status_code=400, detail="Mode must be 'enable' or 'disable'")
+
+@app.get("/debug/status")
+async def get_debug_status(auth: AuthManager = Depends(require_auth)):
+    """Get current debug status and system health."""
+    health_info = {
+        "error_handler_available": error_handler is not None,
+        "debug_mode": error_handler.debug_mode if error_handler else False,
+        "auth_manager_available": auth_manager is not None,
+        "secure_storage_available": secure_storage is not None,
+        "api_key_vault_available": api_key_vault is not None,
+        "ai_chat_available": ai_chat is not None,
+        "context_manager_available": context_manager is not None,
+        "action_executor_available": action_executor is not None,
+        "session_valid": auth_manager.is_session_valid() if auth_manager else False
+    }
+    
+    if error_handler:
+        health_info["error_stats"] = error_handler.get_error_stats()
+    
+    return health_info
 
 # Secure Storage Endpoints
 @app.get("/secure/settings")
@@ -668,6 +747,7 @@ async def list_api_keys(auth: AuthManager = Depends(require_auth)):
     return {"services": key_info}
 
 @app.post("/api-keys/{service}")
+@error_handler.with_error_handling("APIKeyStorage")
 async def store_api_key(service: str, request: dict, auth: AuthManager = Depends(require_auth)):
     """Store an API key for a service."""
     if not api_key_vault:
@@ -679,10 +759,16 @@ async def store_api_key(service: str, request: dict, auth: AuthManager = Depends
     if not api_key:
         raise HTTPException(status_code=400, detail="API key is required")
     
+    # Validate API key format
+    is_valid, error_msg = validate_api_key(api_key, service)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+    
     success = api_key_vault.store_api_key_with_index(service, api_key, metadata)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to store API key")
     
+    error_handler.log_info(f"API key stored for service: {service}", "APIKeyStorage")
     return {"status": "success", "message": f"API key for {service} stored successfully"}
 
 @app.get("/api-keys/{service}")
