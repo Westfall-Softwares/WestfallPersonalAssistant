@@ -77,24 +77,25 @@ except ImportError:
 # Import business features
 try:
     from business_intelligence.dashboard.business_dashboard import BusinessDashboard
+    from crm_system.crm_manager import CRMManager
+    BUSINESS_FEATURES_AVAILABLE = True
 except ImportError as e:
-    print(f"Business dashboard import error: {e}")
+    print(f"Warning: Business features import error: {e}")
+    BUSINESS_FEATURES_AVAILABLE = False
     class BusinessDashboard(QWidget):
         def __init__(self):
             super().__init__()
             layout = QVBoxLayout()
-            layout.addWidget(QLabel("Business Dashboard Module Error"))
+            label = QLabel("Business Dashboard - Import Error")
+            layout.addWidget(label)
             self.setLayout(layout)
-
-try:
-    from crm_system.crm_manager import CRMManager
-except ImportError as e:
-    print(f"CRM manager import error: {e}")
+    
     class CRMManager(QWidget):
         def __init__(self):
             super().__init__()
             layout = QVBoxLayout()
-            layout.addWidget(QLabel("CRM Manager Module Error"))
+            label = QLabel("CRM - Import Error")
+            layout.addWidget(label)
             self.setLayout(layout)
 
 # Import security and AI
@@ -111,47 +112,18 @@ except ImportError:
 # Handle screen intelligence imports
 try:
     from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
-    LiveScreenIntelligence = MultiMonitorCapture  # Use MultiMonitorCapture as LiveScreenIntelligence
+    # Use MultiMonitorCapture as LiveScreenIntelligence
+    LiveScreenIntelligence = MultiMonitorCapture
+    SCREEN_INTELLIGENCE_AVAILABLE = True
 except ImportError as e:
-    print(f"Screen intelligence import error: {e}")
+    print(f"Warning: Screen intelligence import error: {e}")
+    SCREEN_INTELLIGENCE_AVAILABLE = False
     class LiveScreenIntelligence(QWidget):
         def __init__(self):
             super().__init__()
             layout = QVBoxLayout()
-            layout.addWidget(QLabel("Screen Intelligence Module Error"))
-            self.setLayout(layout)
-            layout = QVBoxLayout()
-            
-            # At least make it look good
-            header = QLabel("🖥️ Live Screen Intelligence")
-            header.setStyleSheet("""
-                QLabel {
-                    color: #ff0000;
-                    font-size: 24px;
-                    font-weight: bold;
-                    padding: 20px;
-                }
-            """)
-            header.setAlignment(Qt.AlignCenter)
-            layout.addWidget(header)
-            
-            install_btn = QPushButton("Install Dependencies")
-            install_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #ff0000;
-                    color: white;
-                    border: none;
-                    padding: 15px;
-                    font-size: 16px;
-                    font-weight: bold;
-                }
-            """)
-            install_btn.clicked.connect(lambda: QMessageBox.information(
-                self, "Install", "Run: pip install mss pyautogui opencv-python pytesseract"
-            ))
-            layout.addWidget(install_btn)
-            
-            layout.addStretch()
+            label = QLabel("Screen Intelligence - Import Error")
+            layout.addWidget(label)
             self.setLayout(layout)
 
 class NavigationButton(QPushButton):

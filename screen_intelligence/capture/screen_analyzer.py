@@ -1,5 +1,16 @@
-import numpy as np
-from PIL import Image
+# Optional dependencies with fallbacks
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
 import re
 from typing import List, Dict, Tuple
 
@@ -40,7 +51,7 @@ class ScreenAnalyzer:
             'unreal': ['Unreal Engine', 'UE4', 'UE5']
         }
     
-    def detect_code_on_screen(self, image: Image.Image) -> Dict:
+    def detect_code_on_screen(self, image: "Image.Image") -> Dict:
         """Detect and extract code from screenshot"""
         if not HAS_PYTESSERACT:
             return {
@@ -88,7 +99,7 @@ class ScreenAnalyzer:
             'has_code': len(code_blocks) > 0
         }
     
-    def detect_ide(self, image: Image.Image) -> Dict:
+    def detect_ide(self, image: "Image.Image") -> Dict:
         """Detect which IDE or editor is visible"""
         if not HAS_PYTESSERACT:
             return {
@@ -115,7 +126,7 @@ class ScreenAnalyzer:
             'is_development_environment': len(detected_ides) > 0
         }
     
-    def detect_ui_elements(self, image: Image.Image) -> Dict:
+    def detect_ui_elements(self, image: "Image.Image") -> Dict:
         """Detect UI elements like buttons, dialogs, error messages"""
         if not HAS_CV2:
             return {
@@ -124,6 +135,24 @@ class ScreenAnalyzer:
                 'error_messages': [],
                 'forms': [],
                 'error': 'OpenCV not available'
+            }
+        
+        if not HAS_NUMPY:
+            return {
+                'buttons': [],
+                'dialogs': [],
+                'error_messages': [],
+                'forms': [],
+                'error': 'NumPy not available'
+            }
+        
+        if not HAS_PIL:
+            return {
+                'buttons': [],
+                'dialogs': [],
+                'error_messages': [],
+                'forms': [],
+                'error': 'PIL not available'
             }
             
         # Convert PIL Image to OpenCV format
@@ -169,7 +198,7 @@ class ScreenAnalyzer:
         
         return ui_elements
     
-    def analyze_screen_context(self, image: Image.Image) -> Dict:
+    def analyze_screen_context(self, image: "Image.Image") -> Dict:
         """Comprehensive screen analysis"""
         analysis = {
             'code_analysis': self.detect_code_on_screen(image),

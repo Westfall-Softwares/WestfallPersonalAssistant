@@ -1,5 +1,16 @@
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+# Optional dependencies with fallbacks
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
 import base64
 from io import BytesIO
 from datetime import datetime
@@ -39,6 +50,10 @@ class ScreenCaptureWorker(QThread):
         try:
             if not HAS_MSS:
                 self.error_occurred.emit("MSS library not available. Install with: pip install mss")
+                return
+            
+            if not HAS_PIL:
+                self.error_occurred.emit("PIL library not available. Install with: pip install Pillow")
                 return
                 
             captures = []
@@ -134,6 +149,11 @@ class MultiMonitorCapture(QWidget):
         if not HAS_MSS:
             QMessageBox.warning(self, "Missing Dependency", 
                               "MSS library not available. Please install with:\npip install mss")
+            return
+        
+        if not HAS_PIL:
+            QMessageBox.warning(self, "Missing Dependency", 
+                              "PIL library not available. Please install with:\npip install Pillow")
             return
             
         self.worker = ScreenCaptureWorker()
