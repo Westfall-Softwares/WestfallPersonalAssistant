@@ -98,6 +98,21 @@ except ImportError as e:
             layout.addWidget(label)
             self.setLayout(layout)
 
+# Import time tracking module
+try:
+    from time_tracking import TimeTrackingWidget
+    TIME_TRACKING_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Time tracking import error: {e}")
+    TIME_TRACKING_AVAILABLE = False
+    class TimeTrackingWidget(QWidget):
+        def __init__(self):
+            super().__init__()
+            layout = QVBoxLayout()
+            label = QLabel("Time Tracking - Import Error")
+            layout.addWidget(label)
+            self.setLayout(layout)
+
 # Import security and AI
 from security.encryption_manager import MasterPasswordDialog, EncryptionManager
 from ai_assistant.core.chat_manager import AIChatWidget
@@ -338,6 +353,7 @@ class MainWindow(QMainWindow):
             ("👥 Contacts", self.open_contacts, "Manage contacts", "Ctrl+Shift+O"),
             ("⚙️ Settings", self.open_settings, "Configure application", "Ctrl+,"),
             ("💰 Finance", self.open_finance, "Track finances", "Ctrl+Shift+F"),
+            ("⏱️ Time Tracking", self.open_time_tracking, "Track billable hours", "Ctrl+Shift+T"),
             ("🍳 Recipes", self.open_recipe, "Manage recipes", "Ctrl+R"),
             ("🎵 Music", self.open_music, "Play music", "Ctrl+M"),
             # New Business Intelligence Features
@@ -592,6 +608,9 @@ class MainWindow(QMainWindow):
     def show_finance(self):
         self.show_widget(FinanceWidget, "Finance")
     
+    def show_time_tracking(self):
+        self.show_widget(TimeTrackingWidget, "Time Tracking")
+    
     def show_recipes(self):
         self.show_widget(RecipeWidget, "Recipes")
     
@@ -668,6 +687,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+Shift+O"), self, self.open_contacts)
         QShortcut(QKeySequence("Ctrl+,"), self, self.open_settings)
         QShortcut(QKeySequence("Ctrl+Shift+F"), self, self.open_finance)
+        QShortcut(QKeySequence("Ctrl+Shift+T"), self, self.open_time_tracking)
         QShortcut(QKeySequence("Ctrl+R"), self, self.open_recipe)
         QShortcut(QKeySequence("Ctrl+M"), self, self.open_music)
         
@@ -1133,6 +1153,9 @@ class MainWindow(QMainWindow):
         self.windows['finance'].raise_()
         self.windows['finance'].activateWindow()
         self.status_bar.showMessage("Finance Tracker opened")
+    
+    def open_time_tracking(self):
+        self.show_time_tracking()
     
     def open_recipe(self):
         if 'recipe' not in self.windows:
