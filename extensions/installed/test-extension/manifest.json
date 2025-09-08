@@ -1,0 +1,14 @@
+{
+  "id": "test-extension",
+  "name": "Test Extension",
+  "version": "1.0.0",
+  "author": "mock-author",
+  "description": "Mock extension for test-extension",
+  "category": "productivity",
+  "enabled": true,
+  "install_date": "2025-09-08T03:46:29.493412",
+  "permissions": [
+    "ui_integration"
+  ],
+  "dependencies": []
+}
