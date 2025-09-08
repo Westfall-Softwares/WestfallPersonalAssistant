@@ -1,0 +1,38 @@
+{
+  "id": "test-invoice-template-3",
+  "name": "Test Invoice Template",
+  "category": "business",
+  "description": "A simple invoice template",
+  "author": "Imported",
+  "version": "1.0.0",
+  "created_date": "2025-09-08T03:46:27.453332",
+  "modified_date": "2025-09-08T03:46:27.453336",
+  "content": "Invoice for {{client_name}}\nAmount: {{amount}}\nDate: {{date}}",
+  "variables": [
+    {
+      "name": "client_name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "amount",
+      "type": "currency",
+      "required": true
+    },
+    {
+      "name": "date",
+      "type": "date",
+      "required": true
+    }
+  ],
+  "tags": [
+    "invoice",
+    "business",
+    "billing"
+  ],
+  "is_public": false,
+  "is_forked": false,
+  "parent_template": null,
+  "rating": 0.0,
+  "download_count": 0
+}
