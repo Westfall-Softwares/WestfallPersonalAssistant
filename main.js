@@ -168,7 +168,7 @@ function createTray() {
   ]);
 
   tray.setContextMenu(contextMenu);
-  tray.setToolTip('Westfall Personal Assistant');
+  tray.setToolTip('Entrepreneur Assistant');
   
   // Double-click to show/hide window
   tray.on('double-click', () => {
@@ -223,7 +223,7 @@ function setupAutoStart() {
     app.setLoginItemSettings({
       openAtLogin: true,
       openAsHidden: true,
-      name: 'Westfall Personal Assistant',
+      name: 'Entrepreneur Assistant',
       path: process.execPath
     });
   } else {
@@ -357,7 +357,7 @@ function createWindow() {
       // Show notification first time
       if (!store.get('trayNotificationShown')) {
         new Notification({
-          title: 'Westfall Assistant',
+          title: 'Entrepreneur Assistant',
           body: 'Application was minimized to tray. Double-click the tray icon to restore.',
           icon: path.join(__dirname, 'westfall.png')
         }).show();

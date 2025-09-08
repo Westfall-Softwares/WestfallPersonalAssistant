@@ -55,7 +55,7 @@ except ImportError:
     from placeholder_windows import ContactsWindow
 
 try:
-    from settings import SettingsWindow
+    from util.entrepreneur_config import SettingsWindow
 except ImportError:
     from placeholder_windows import SettingsWindow
 
@@ -362,34 +362,47 @@ class MainWindow(QMainWindow):
         grid.setSpacing(10)
         
         self.features = [
-            ("📧 Email", self.open_email, "Manage your emails", "Ctrl+E"),
-            ("🔐 Passwords", self.open_password_manager, "Secure password storage", "Ctrl+P"),
-            ("📝 Notes", self.open_notes, "Create and organize notes", "Ctrl+N"),
-            ("🧮 Calculator", self.open_calculator, "Perform calculations", "Ctrl+Shift+C"),
-            ("📅 Calendar", self.open_calendar, "Manage events and appointments", "Ctrl+Shift+D"),
-            ("🌤️ Weather", self.open_weather, "Check weather conditions", "Ctrl+W"),
-            ("📰 News", self.open_news, "Read latest news", "Ctrl+Shift+N"),
-            ("🌐 Browser", self.open_browser, "Browse the web", "Ctrl+B"),
-            ("📁 Files", self.open_file_manager, "Manage your files", "Ctrl+F"),
-            ("✅ Todo", self.open_todo, "Track your tasks", "Ctrl+T"),
-            ("👥 Contacts", self.open_contacts, "Manage contacts", "Ctrl+Shift+O"),
-            ("⚙️ Settings", self.open_settings, "Configure application", "Ctrl+,"),
-            ("💰 Finance", self.open_finance, "Track finances", "Ctrl+Shift+F"),
-            ("⏱️ Time Tracking", self.open_time_tracking, "Track billable hours", "Ctrl+Shift+T"),
-            ("🍳 Recipes", self.open_recipe, "Manage recipes", "Ctrl+R"),
-            ("🎵 Music", self.open_music, "Play music", "Ctrl+M"),
-            # New Business Intelligence Features
-            ("🖥️ Screen Intelligence", self.open_screen_intelligence, "Multi-monitor capture & analysis", "Ctrl+I"),
+            # Core Business Features
             ("📊 Business Dashboard", self.open_business_dashboard, "Business metrics & KPIs", "Ctrl+Shift+B"),
+            ("🤝 CRM Manager", self.open_crm_manager, "Customer relationship management", "Ctrl+Shift+M"),
+            ("💰 Finance Tracker", self.open_finance, "Track business finances", "Ctrl+Shift+F"),
+            ("⏱️ Time Tracking", self.open_time_tracking, "Track billable hours", "Ctrl+Shift+T"),
             ("📈 KPI Tracker", self.open_kpi_tracker, "Track key performance indicators", "Ctrl+Shift+K"),
             ("📄 Report Generator", self.open_report_generator, "Generate business reports", "Ctrl+Shift+R"),
-            ("🤝 CRM Manager", self.open_crm_manager, "Customer relationship management", "Ctrl+Shift+M"),
-            # Advanced Features (Phase 1)
-            ("🎤 Voice Control", self.open_voice_control, "Voice commands and recognition", "Ctrl+V"),
-            ("🛍️ Extensions", self.open_marketplace, "Browse and install extensions", "Ctrl+X"),
+            
+            # Essential Productivity Tools
+            ("📧 Email", self.open_email, "Manage business communications", "Ctrl+E"),
+            ("📝 Notes", self.open_notes, "Business notes and ideas", "Ctrl+N"),
+            ("📅 Calendar", self.open_calendar, "Schedule meetings and appointments", "Ctrl+Shift+D"),
+            ("✅ Todo", self.open_todo, "Track business tasks", "Ctrl+T"),
+            ("👥 Contacts", self.open_contacts, "Manage business contacts", "Ctrl+Shift+O"),
+            ("📁 Files", self.open_file_manager, "Organize business documents", "Ctrl+F"),
+            
+            # Core Tools
+            ("🔐 Passwords", self.open_password_manager, "Secure business credentials", "Ctrl+P"),
+            ("🧮 Calculator", self.open_calculator, "Business calculations", "Ctrl+Shift+C"),
+            ("🌐 Browser", self.open_browser, "Research and web browsing", "Ctrl+B"),
+            ("🖥️ Screen Intelligence", self.open_screen_intelligence, "Screen capture & analysis", "Ctrl+I"),
+            
+            # Tailor Pack System
             ("📦 Tailor Packs", self.open_tailor_pack_manager, "Manage business feature packs", "Ctrl+Alt+T"),
-            ("📋 Templates", self.open_templates, "Manage document templates", "Ctrl+J"),
-            ("🌐 API Gateway", self.open_api_gateway, "Monitor API connections", "Ctrl+G"),
+            ("📋 Templates", self.open_templates, "Business document templates", "Ctrl+J"),
+            
+            # Information & Tools
+            ("🌤️ Weather", self.open_weather, "Weather for business travel", "Ctrl+W"),
+            ("📰 News", self.open_news, "Business and industry news", "Ctrl+Shift+N"),
+            
+            # Advanced Features
+            ("🎤 Voice Control", self.open_voice_control, "Voice commands for productivity", "Ctrl+V"),
+            ("🛍️ Extensions", self.open_marketplace, "Browse business extensions", "Ctrl+X"),
+            ("🌐 API Gateway", self.open_api_gateway, "Monitor business integrations", "Ctrl+G"),
+            
+            # Settings & Configuration
+            ("⚙️ Settings", self.open_settings, "Configure business assistant", "Ctrl+,"),
+            
+            # Optional Features (Available via Tailor Packs)
+            ("🎵 Music", self.open_music, "Background music (via Entertainment Pack)", "Ctrl+M"),
+            ("🍳 Recipes", self.open_recipe, "Meal planning (via Lifestyle Pack)", "Ctrl+R"),
         ]
         
         positions = [(i, j) for i in range(9) for j in range(3)]

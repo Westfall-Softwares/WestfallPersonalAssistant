@@ -16,6 +16,7 @@ import zipfile
 import importlib.util
 from datetime import datetime
 from .marketplace_manager import MarketplaceManager, ExtensionInfo
+from .licensing_system import get_license_manager
 
 
 @dataclass
@@ -68,7 +69,7 @@ class TailorPackManager(MarketplaceManager):
         self.installed_packs = {}
         self.active_packs = {}
         self.pack_conflicts = {}
-        self.license_validator = None
+        self.license_manager = get_license_manager()
         
         # Create directory structure
         self._create_directory_structure()
@@ -336,8 +337,8 @@ class TailorPackManager(MarketplaceManager):
     
     def _validate_license(self, pack_id: str) -> bool:
         """Validate license for a pack"""
-        # TODO: Implement license validation
-        return True
+        license_check = self.license_manager.check_pack_license(pack_id, require_license=True)
+        return license_check.get("allowed", False)
     
     def _is_pack_enabled(self, pack_id: str) -> bool:
         """Check if a pack is enabled"""
