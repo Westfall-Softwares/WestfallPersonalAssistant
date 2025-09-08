@@ -901,7 +901,7 @@ class PlatformManager:
         }
     
     def setup_application_directories(self, app_name: str) -> Dict[str, Path]:
-        """Set up all application directories."""
+        """Set up all application directories for the entrepreneur assistant."""
         directories = {
             'config': self.paths.get_app_config_dir(app_name),
             'data': self.paths.get_app_data_dir(app_name),
@@ -909,7 +909,28 @@ class PlatformManager:
             'logs': self.paths.get_app_log_dir(app_name)
         }
         
-        logger.info(f"Application directories set up for {app_name}")
+        # Create entrepreneur-specific directories
+        data_dir = directories['data']
+        directories.update({
+            'tailor_packs': data_dir / 'tailor_packs',
+            'tailor_packs_installed': data_dir / 'tailor_packs' / 'installed',
+            'tailor_packs_cache': data_dir / 'tailor_packs' / 'cache',
+            'business_data': data_dir / 'business',
+            'business_reports': data_dir / 'business' / 'reports',
+            'business_exports': data_dir / 'business' / 'exports',
+            'templates': data_dir / 'templates',
+            'backups': data_dir / 'backups'
+        })
+        
+        # Create directories if they don't exist
+        for dir_path in directories.values():
+            try:
+                dir_path.mkdir(parents=True, exist_ok=True)
+                logger.debug(f"Created directory: {dir_path}")
+            except Exception as e:
+                logger.error(f"Failed to create directory {dir_path}: {e}")
+        
+        logger.info(f"Entrepreneur application directories set up for {app_name}")
         return directories
     
     def open_file_with_default_app(self, file_path: Union[str, Path]) -> bool:
@@ -948,6 +969,48 @@ class PlatformManager:
         except Exception as e:
             logger.error(f"Failed to get disk space for {path}: {e}")
             return None
+    
+    def get_tailor_pack_directories(self, app_name: str = "westfall-assistant") -> Dict[str, Path]:
+        """Get Tailor Pack specific directories."""
+        app_dirs = self.setup_application_directories(app_name)
+        return {
+            'packs_root': app_dirs['tailor_packs'],
+            'installed': app_dirs['tailor_packs_installed'],
+            'cache': app_dirs['tailor_packs_cache'],
+            'temp': app_dirs['cache'] / 'pack_temp'
+        }
+    
+    def get_business_data_directories(self, app_name: str = "westfall-assistant") -> Dict[str, Path]:
+        """Get business data specific directories."""
+        app_dirs = self.setup_application_directories(app_name)
+        return {
+            'business_root': app_dirs['business_data'],
+            'reports': app_dirs['business_reports'],
+            'exports': app_dirs['business_exports'],
+            'templates': app_dirs['templates'],
+            'backups': app_dirs['backups']
+        }
+    
+    def ensure_tailor_pack_safety(self, pack_path: Union[str, Path]) -> bool:
+        """Ensure Tailor Pack path is safe and within allowed directories."""
+        try:
+            tailor_dirs = self.get_tailor_pack_directories()
+            normalized_path = self.paths.normalize_path(pack_path)
+            
+            # Check if path is within any of the allowed Tailor Pack directories
+            for allowed_dir in tailor_dirs.values():
+                try:
+                    normalized_path.relative_to(allowed_dir)
+                    return True
+                except ValueError:
+                    continue
+            
+            logger.warning(f"Tailor Pack path {pack_path} is outside allowed directories")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error checking Tailor Pack path safety: {e}")
+            return False
 
 
 # Global platform manager instance

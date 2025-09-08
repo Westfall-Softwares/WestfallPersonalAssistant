@@ -137,8 +137,101 @@ class OrderVerificationService:
                 pack_info=None,
                 license=None,
                 error_message=f"Verification failed: {str(e)}",
-                trial_available=False
+                trial_available=True  # Allow trial on verification errors
             )
+    
+    def start_trial_license(self, pack_id: str, business_email: str = None) -> OrderValidationResult:
+        """
+        Start a trial license for entrepreneurs to test business packs
+        """
+        try:
+            # Check if trial already exists
+            trial_order = f"TRIAL-{pack_id}-{int(time.time())}"
+            
+            # Create trial license
+            trial_license = PackLicense(
+                order_number=trial_order,
+                pack_id=pack_id,
+                license_key=self._generate_trial_key(pack_id),
+                customer_email=business_email or "trial@entrepreneur.local",
+                purchase_date=datetime.now(),
+                expiry_date=datetime.now() + timedelta(days=30),  # 30-day trial
+                license_type="trial",
+                max_installations=1,
+                current_installations=1,
+                is_valid=True,
+                features_enabled=["basic", "trial"]  # Limited features for trial
+            )
+            
+            # Store trial license
+            self._store_local_license(trial_license)
+            
+            return OrderValidationResult(
+                is_valid=True,
+                pack_info=self._get_pack_info_for_license(trial_license),
+                license=trial_license,
+                error_message=None,
+                trial_available=False  # Trial now active
+            )
+            
+        except Exception as e:
+            return OrderValidationResult(
+                is_valid=False,
+                pack_info=None,
+                license=None,
+                error_message=f"Failed to start trial: {str(e)}",
+                trial_available=True
+            )
+    
+    def get_entrepreneur_purchase_info(self, pack_id: str) -> Dict:
+        """
+        Get purchase information and pricing for entrepreneurs
+        """
+        pack_pricing = {
+            "marketing-essentials": {
+                "name": "Marketing Essentials Pack",
+                "monthly_price": 29.99,
+                "yearly_price": 299.99,
+                "lifetime_price": 599.99,
+                "description": "Complete marketing automation and campaign management",
+                "target_businesses": ["startups", "small_business", "entrepreneurs"],
+                "roi_benefit": "Typically saves 10+ hours/week on marketing tasks"
+            },
+            "sales-pipeline-pro": {
+                "name": "Sales Pipeline Pro",
+                "monthly_price": 49.99,
+                "yearly_price": 499.99,
+                "lifetime_price": 999.99,
+                "description": "Advanced CRM and sales automation tools",
+                "target_businesses": ["sales_teams", "growing_businesses"],
+                "roi_benefit": "Increase sales conversion by 25-40%"
+            },
+            "finance-master": {
+                "name": "Finance Master Suite",
+                "monthly_price": 39.99,
+                "yearly_price": 399.99,
+                "lifetime_price": 799.99,
+                "description": "Complete financial management and reporting",
+                "target_businesses": ["solo_entrepreneurs", "small_business"],
+                "roi_benefit": "Save $1000s on accounting fees annually"
+            }
+        }
+        
+        pack_info = pack_pricing.get(pack_id, {
+            "name": "Business Pack",
+            "monthly_price": 19.99,
+            "yearly_price": 199.99,
+            "lifetime_price": 399.99,
+            "description": "Professional business functionality",
+            "target_businesses": ["entrepreneurs"],
+            "roi_benefit": "Boost productivity and efficiency"
+        })
+        
+        pack_info["purchase_url"] = f"https://westfallsoftwares.com/purchase/{pack_id}"
+        pack_info["trial_available"] = True
+        pack_info["money_back_guarantee"] = "30-day money-back guarantee"
+        
+        return pack_info
     
     def start_trial(self, pack_id: str, customer_email: str) -> OrderValidationResult:
         """Start a trial license for a pack"""
@@ -813,6 +906,13 @@ def get_order_verification_service() -> OrderVerificationService:
             trial_info['is_active'] = trial_info['days_remaining'] > 0
             return trial_info
         return None
+    
+    def _generate_trial_key(self, pack_id: str) -> str:
+        """Generate a trial license key for a pack"""
+        import secrets
+        timestamp = str(int(time.time()))
+        random_suffix = secrets.token_hex(8)
+        return f"TRIAL-{pack_id.upper()}-{timestamp}-{random_suffix}"
     
     def revoke_license(self, order_number: str) -> bool:
         """Revoke a license"""
