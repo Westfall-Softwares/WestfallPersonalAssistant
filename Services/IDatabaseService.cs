@@ -18,7 +18,7 @@ namespace WestfallPersonalAssistant.Services
         /// <summary>
         /// Execute a scalar SQL command
         /// </summary>
-        Task<T?> ExecuteScalarAsync<T>(string sql, params object[] parameters);
+        Task<T?> ExecuteScalarAsync<T>(string sql, params object[] parameters) where T : struct;
         
         /// <summary>
         /// Execute a query and return results
