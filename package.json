@@ -1,7 +1,7 @@
 {
-  "name": "westfall-personal-assistant",
+  "name": "entrepreneur-assistant",
   "version": "1.0.0",
-  "description": "A personal AI assistant with local model management, screen capture, and three-tier thinking system",
+  "description": "A business-focused AI assistant with Tailor Pack support for entrepreneurs and small businesses",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -17,9 +17,9 @@
     "electron",
     "ai",
     "assistant",
-    "local",
-    "llm",
-    "screen-capture"
+    "business",
+    "entrepreneur",
+    "tailor-packs"
   ],
   "author": "Westfall",
   "license": "MIT",
@@ -47,8 +47,8 @@
   },
   "homepage": "./",
   "build": {
-    "appId": "com.westfall.personal-assistant",
-    "productName": "Westfall Personal Assistant",
+    "appId": "com.westfall.entrepreneur-assistant",
+    "productName": "Entrepreneur Assistant",
     "directories": {
       "output": "dist"
     },
