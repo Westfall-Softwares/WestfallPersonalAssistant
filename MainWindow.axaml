@@ -8,6 +8,9 @@
         <TabItem Header="Dashboard">
             <views:DashboardView/>
         </TabItem>
+        <TabItem Header="Analytics">
+            <views:AnalyticsDashboardView/>
+        </TabItem>
         <TabItem Header="Tailor Packs">
             <views:PackManagementView/>
         </TabItem>

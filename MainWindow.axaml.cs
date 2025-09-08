@@ -12,6 +12,7 @@ namespace WestfallPersonalAssistant
         private readonly ISettingsManager _settingsManager;
         private readonly IDatabaseService _databaseService;
         private readonly IBusinessTaskService _businessTaskService;
+        private readonly IBusinessGoalService _businessGoalService;
         
         public MainWindow()
         {
@@ -23,6 +24,7 @@ namespace WestfallPersonalAssistant
             _settingsManager = new SettingsManager(_fileSystemService);
             _databaseService = new DatabaseService(_fileSystemService);
             _businessTaskService = new DatabaseBusinessTaskService(_databaseService);
+            _businessGoalService = new DatabaseBusinessGoalService(_databaseService);
             
             InitializeServices();
         }
@@ -145,6 +147,55 @@ namespace WestfallPersonalAssistant
                 foreach (var task in sampleTasks)
                 {
                     await _businessTaskService.CreateTaskAsync(task);
+                }
+                
+                // Create sample business goals
+                var sampleGoals = new[]
+                {
+                    new Models.BusinessGoal
+                    {
+                        Title = "Reach $100K Annual Revenue",
+                        Description = "Achieve $100,000 in annual recurring revenue through product sales and services",
+                        TargetValue = 100000,
+                        CurrentValue = 45000,
+                        Unit = "USD",
+                        Category = "Revenue",
+                        GoalType = Models.BusinessGoalType.Revenue,
+                        Priority = Models.GoalPriority.Critical,
+                        StartDate = DateTime.Now.AddMonths(-6),
+                        TargetDate = DateTime.Now.AddMonths(6)
+                    },
+                    new Models.BusinessGoal
+                    {
+                        Title = "Acquire 500 New Customers",
+                        Description = "Grow customer base to 500 active paying customers",
+                        TargetValue = 500,
+                        CurrentValue = 247,
+                        Unit = "customers",
+                        Category = "Growth",
+                        GoalType = Models.BusinessGoalType.Customers,
+                        Priority = Models.GoalPriority.High,
+                        StartDate = DateTime.Now.AddMonths(-3),
+                        TargetDate = DateTime.Now.AddMonths(9)
+                    },
+                    new Models.BusinessGoal
+                    {
+                        Title = "Launch Marketing Campaign",
+                        Description = "Execute comprehensive digital marketing campaign with 5% conversion rate",
+                        TargetValue = 5,
+                        CurrentValue = 2.8m,
+                        Unit = "percent",
+                        Category = "Marketing",
+                        GoalType = Models.BusinessGoalType.Marketing,
+                        Priority = Models.GoalPriority.Medium,
+                        StartDate = DateTime.Now.AddDays(-30),
+                        TargetDate = DateTime.Now.AddDays(60)
+                    }
+                };
+                
+                foreach (var goal in sampleGoals)
+                {
+                    await _businessGoalService.CreateGoalAsync(goal);
                 }
                 
                 Console.WriteLine("Sample data initialized successfully");

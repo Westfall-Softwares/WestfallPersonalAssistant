@@ -100,14 +100,17 @@ namespace WestfallPersonalAssistant.Services
                     Id TEXT PRIMARY KEY,
                     Title TEXT NOT NULL,
                     Description TEXT,
-                    TargetValue REAL,
+                    TargetValue REAL NOT NULL,
                     CurrentValue REAL DEFAULT 0,
                     Unit TEXT,
                     Category TEXT,
                     StartDate TEXT,
                     TargetDate TEXT,
                     IsCompleted INTEGER DEFAULT 0,
-                    CreatedDate TEXT
+                    CreatedDate TEXT,
+                    CompletedDate TEXT,
+                    GoalType INTEGER DEFAULT 0,
+                    Priority INTEGER DEFAULT 2
                 )",
                 
                 // Analytics data table
