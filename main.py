@@ -325,6 +325,26 @@ class MainWindow(QMainWindow):
             self.check_deps_btn.clicked.connect(self.check_dependencies)
             quick_access_layout.addWidget(self.check_deps_btn)
         
+        # Import Tailor Pack button (prominent placement)
+        self.import_pack_btn = QPushButton("📦 Import Pack")
+        self.import_pack_btn.setToolTip("Import a new Tailor Pack to extend functionality")
+        self.import_pack_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        self.import_pack_btn.clicked.connect(self.quick_import_pack)
+        quick_access_layout.addWidget(self.import_pack_btn)
+        
         # Dark mode toggle
         self.dark_mode_btn = QPushButton("🌙")
         self.dark_mode_btn.setToolTip("Toggle Dark Mode (Ctrl+D)")
@@ -393,7 +413,7 @@ class MainWindow(QMainWindow):
             
             # Advanced Features
             ("🎤 Voice Control", self.open_voice_control, "Voice commands for productivity", "Ctrl+V"),
-            ("🛍️ Extensions", self.open_marketplace, "Browse business extensions", "Ctrl+X"),
+            ("🛍️ Get More Packs", self.open_pack_marketplace, "Browse and download Tailor Packs", "Ctrl+X"),
             ("🌐 API Gateway", self.open_api_gateway, "Monitor business integrations", "Ctrl+G"),
             
             # Settings & Configuration
@@ -1617,17 +1637,129 @@ class MainWindow(QMainWindow):
                                   "Voice control requires additional dependencies.\n"
                                   "Please install: speech_recognition, pyttsx3")
     
-    def open_marketplace(self):
-        """Open extension marketplace"""
+    def open_pack_marketplace(self):
+        """Open Tailor Pack Marketplace"""
         if ADVANCED_FEATURES_AVAILABLE:
-            if 'marketplace' not in self.windows:
-                self.windows['marketplace'] = MarketplaceWidget()
-            self.windows['marketplace'].show()
-            self.windows['marketplace'].raise_()
-            self.windows['marketplace'].activateWindow()
+            # For now, show a marketplace preview dialog with available pack categories
+            from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QTextEdit
+            
+            marketplace_dialog = QDialog(self)
+            marketplace_dialog.setWindowTitle("Tailor Pack Marketplace")
+            marketplace_dialog.setGeometry(300, 300, 600, 500)
+            
+            layout = QVBoxLayout(marketplace_dialog)
+            
+            # Header
+            header = QLabel("🛍️ Tailor Pack Marketplace")
+            header.setStyleSheet("font-size: 18px; font-weight: bold; color: #2196F3; padding: 10px;")
+            layout.addWidget(header)
+            
+            # Description
+            desc = QLabel("Extend your entrepreneur assistant with specialized business functionality packs.")
+            desc.setWordWrap(True)
+            desc.setStyleSheet("color: #666; padding: 5px 10px;")
+            layout.addWidget(desc)
+            
+            # Pack categories
+            categories_layout = QHBoxLayout()
+            
+            # Categories list
+            categories_widget = QVBoxLayout()
+            categories_label = QLabel("Pack Categories:")
+            categories_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+            categories_widget.addWidget(categories_label)
+            
+            categories_list = QListWidget()
+            categories_list.setMaximumWidth(200)
+            
+            pack_categories = [
+                "📊 Marketing Essentials",
+                "💼 Sales & CRM",
+                "💰 Advanced Finance",
+                "📈 Analytics & BI", 
+                "🤝 Team Collaboration",
+                "🔧 Operations & PM",
+                "⚖️ Legal & Compliance",
+                "🏥 Healthcare/Medical",
+                "🏠 Real Estate",
+                "🛒 E-commerce",
+                "🎓 Education/Training",
+                "🔧 Developer Tools"
+            ]
+            
+            for category in pack_categories:
+                item = QListWidgetItem(category)
+                categories_list.addItem(item)
+            
+            categories_widget.addWidget(categories_list)
+            categories_layout.addLayout(categories_widget)
+            
+            # Pack details
+            details_widget = QVBoxLayout()
+            details_label = QLabel("Featured Packs:")
+            details_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+            details_widget.addWidget(details_label)
+            
+            details_text = QTextEdit()
+            details_text.setReadOnly(True)
+            details_text.setHtml("""
+            <h3>🚀 Coming Soon!</h3>
+            <p>The Tailor Pack Marketplace is under development. Featured packs will include:</p>
+            <ul>
+                <li><b>Marketing Automation Pack</b> - Advanced campaign management, A/B testing, conversion tracking</li>
+                <li><b>Sales Pipeline Pro</b> - Advanced CRM, proposal generation, contract management</li>
+                <li><b>Financial Analytics Plus</b> - Advanced reporting, forecasting, budget optimization</li>
+                <li><b>E-commerce Toolkit</b> - Inventory management, order processing, customer analytics</li>
+                <li><b>Legal Assistant Pack</b> - Contract templates, compliance tracking, document automation</li>
+            </ul>
+            
+            <h4>For Now:</h4>
+            <p>• Use the <b>"Import Pack"</b> button to install pack files (.zip)</p>
+            <p>• Check our website for available pack downloads</p>
+            <p>• Contact support for custom pack development</p>
+            
+            <p><i>The marketplace will support one-click installation, automatic updates, and pack ratings when launched.</i></p>
+            """)
+            details_widget.addWidget(details_text)
+            categories_layout.addLayout(details_widget)
+            
+            layout.addLayout(categories_layout)
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            
+            visit_website_btn = QPushButton("🌐 Visit Website")
+            visit_website_btn.clicked.connect(lambda: self.open_url("https://westfallsoftwares.com/tailor-packs"))
+            button_layout.addWidget(visit_website_btn)
+            
+            import_pack_btn = QPushButton("📦 Import Pack File")
+            import_pack_btn.clicked.connect(lambda: (marketplace_dialog.close(), self.quick_import_pack()))
+            button_layout.addWidget(import_pack_btn)
+            
+            button_layout.addStretch()
+            
+            close_btn = QPushButton("Close")
+            close_btn.clicked.connect(marketplace_dialog.close)
+            button_layout.addWidget(close_btn)
+            
+            layout.addLayout(button_layout)
+            
+            marketplace_dialog.exec_()
         else:
-            QMessageBox.information(self, "Advanced Features", 
-                                  "Extension marketplace is not available.")
+            QMessageBox.information(self, "Marketplace", 
+                                  "Tailor Pack marketplace is not available.")
+    
+    def open_url(self, url):
+        """Open URL in default browser"""
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception as e:
+            QMessageBox.information(self, "Browser", f"Could not open URL: {url}\n\nError: {str(e)}")
+    
+    def open_marketplace(self):
+        """Legacy method - redirect to pack marketplace"""
+        self.open_pack_marketplace()
     
     def open_tailor_pack_manager(self):
         """Open Tailor Pack Manager"""
@@ -1640,6 +1772,52 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.information(self, "Tailor Packs", 
                                   "Tailor Pack management is not available.")
+    
+    def quick_import_pack(self):
+        """Quick import of a Tailor Pack from the main interface"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            from PyQt5.QtWidgets import QFileDialog
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Import Tailor Pack",
+                "",
+                "Tailor Pack Files (*.zip);;All Files (*.*)"
+            )
+            
+            if file_path:
+                # Show import progress
+                self.status_bar.showMessage("Importing Tailor Pack...")
+                
+                from util.tailor_pack_manager import get_tailor_pack_manager
+                manager = get_tailor_pack_manager()
+                
+                try:
+                    result = manager.import_tailor_pack(file_path)
+                    if result["success"]:
+                        QMessageBox.information(
+                            self, 
+                            "Import Successful", 
+                            f"Successfully imported Tailor Pack!\n\n{result['message']}\n\nThe pack is now available in the Tailor Pack Manager."
+                        )
+                        self.status_bar.showMessage("Tailor Pack imported successfully")
+                        self.update_business_status_bar()  # Refresh pack status
+                    else:
+                        QMessageBox.warning(
+                            self,
+                            "Import Failed",
+                            f"Failed to import Tailor Pack:\n\n{result['error']}"
+                        )
+                        self.status_bar.showMessage("Tailor Pack import failed")
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Import Error",
+                        f"An error occurred while importing the Tailor Pack:\n\n{str(e)}"
+                    )
+                    self.status_bar.showMessage("Tailor Pack import error")
+        else:
+            QMessageBox.information(self, "Tailor Packs", 
+                                  "Tailor Pack import is not available.\n\nPlease ensure all dependencies are installed.")
     
     def open_templates(self):
         """Open template exchange"""
