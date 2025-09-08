@@ -209,20 +209,49 @@ class TailorPackManager(MarketplaceManager):
             'target_audience', 'business_category', 'features'
         ]
         
+        # Check required fields
         for field in required_fields:
             if field not in manifest:
                 return {"valid": False, "error": f"Missing required field: {field}"}
         
+        # Validate pack_id format (alphanumeric with hyphens/underscores)
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', manifest['pack_id']):
+            return {"valid": False, "error": "Invalid pack_id format. Use alphanumeric characters, hyphens, and underscores only"}
+        
+        # Validate version format (semantic versioning)
+        if not re.match(r'^\d+\.\d+\.\d+(-\w+)?$', manifest['version']):
+            return {"valid": False, "error": "Invalid version format. Use semantic versioning (e.g., 1.0.0)"}
+        
+        # Validate target_audience
+        valid_audiences = ['entrepreneur', 'small_business', 'freelancer', 'enterprise', 'any']
+        if manifest['target_audience'] not in valid_audiences:
+            return {"valid": False, "error": f"Invalid target_audience. Must be one of: {valid_audiences}"}
+        
+        # Validate business_category
+        valid_categories = ['marketing', 'sales', 'finance', 'operations', 'legal', 'hr', 'analytics', 'productivity', 'integration', 'other']
+        if manifest['business_category'] not in valid_categories:
+            return {"valid": False, "error": f"Invalid business_category. Must be one of: {valid_categories}"}
+        
+        # Validate features list
+        if not isinstance(manifest['features'], list) or not manifest['features']:
+            return {"valid": False, "error": "Features must be a non-empty list"}
+        
         # Validate version compatibility
         if 'min_app_version' in manifest:
             if not self._is_version_compatible(manifest['min_app_version']):
-                return {"valid": False, "error": "Incompatible application version"}
+                return {"valid": False, "error": f"Requires application version {manifest['min_app_version']} or higher"}
         
         # Validate platform compatibility if specified
         if 'platform_compatibility' in manifest:
             platform_info = manifest['platform_compatibility']
             if not self._is_platform_compatible(platform_info):
                 return {"valid": False, "error": "Pack not compatible with current platform"}
+        
+        # Validate license information if required
+        if manifest.get('license_required', False):
+            if 'license_type' not in manifest:
+                return {"valid": False, "error": "license_type required when license_required is true"}
         
         return {"valid": True}
     
@@ -233,7 +262,14 @@ class TailorPackManager(MarketplaceManager):
         
         # Check for ID conflicts
         if pack_id in self.installed_packs:
-            conflicts.append(f"Pack ID {pack_id} already exists")
+            existing_pack = self.installed_packs[pack_id]
+            conflicts.append(f"Pack ID '{pack_id}' already exists (version {existing_pack.version})")
+        
+        # Check for name conflicts (similar names)
+        new_name = manifest['name'].lower()
+        for installed_pack in self.installed_packs.values():
+            if installed_pack.name.lower() == new_name:
+                conflicts.append(f"Pack name '{manifest['name']}' conflicts with existing pack")
         
         # Check for feature conflicts
         new_features = set(manifest.get('features', []))
@@ -242,7 +278,25 @@ class TailorPackManager(MarketplaceManager):
                 existing_features = set(installed_pack.feature_list or [])
                 feature_overlap = new_features.intersection(existing_features)
                 if feature_overlap:
-                    conflicts.append(f"Feature conflict with {installed_pack.name}: {feature_overlap}")
+                    conflicts.append(f"Feature conflict with '{installed_pack.name}': {', '.join(feature_overlap)}")
+        
+        # Check for UI component conflicts
+        new_ui_components = set(manifest.get('ui_components', []))
+        for installed_pack in self.installed_packs.values():
+            if installed_pack.enabled:
+                existing_ui = set(installed_pack.ui_extensions or [])
+                ui_overlap = new_ui_components.intersection(existing_ui)
+                if ui_overlap:
+                    conflicts.append(f"UI component conflict with '{installed_pack.name}': {', '.join(ui_overlap)}")
+        
+        # Check for API endpoint conflicts
+        new_endpoints = set(manifest.get('api_endpoints', []))
+        for installed_pack in self.installed_packs.values():
+            if installed_pack.enabled and hasattr(installed_pack, 'api_endpoints'):
+                existing_endpoints = set(getattr(installed_pack, 'api_endpoints', []))
+                endpoint_overlap = new_endpoints.intersection(existing_endpoints)
+                if endpoint_overlap:
+                    conflicts.append(f"API endpoint conflict with '{installed_pack.name}': {', '.join(endpoint_overlap)}")
         
         return conflicts
     
@@ -251,12 +305,145 @@ class TailorPackManager(MarketplaceManager):
         missing = []
         
         for dep in dependencies:
-            if dep not in self.installed_packs:
+            # Handle version-specific dependencies (e.g., "pack-id@1.0.0")
+            if '@' in dep:
+                pack_id, required_version = dep.split('@', 1)
+            else:
+                pack_id = dep
+                required_version = None
+            
+            if pack_id not in self.installed_packs:
                 missing.append(dep)
-            elif not self.installed_packs[dep].enabled:
-                missing.append(f"{dep} (disabled)")
+            elif not self.installed_packs[pack_id].enabled:
+                missing.append(f"{pack_id} (disabled)")
+            elif required_version and not self._is_dependency_version_compatible(pack_id, required_version):
+                missing.append(f"{pack_id} (version {required_version} required, have {self.installed_packs[pack_id].version})")
         
         return missing
+    
+    def _is_dependency_version_compatible(self, pack_id: str, required_version: str) -> bool:
+        """Check if installed pack version satisfies dependency requirement"""
+        if pack_id not in self.installed_packs:
+            return False
+        
+        installed_version = self.installed_packs[pack_id].version
+        
+        try:
+            # Handle version range specifiers (>=, >, <, <=, =, ^, ~)
+            if required_version.startswith('>='):
+                return self._compare_versions(installed_version, required_version[2:]) >= 0
+            elif required_version.startswith('>'):
+                return self._compare_versions(installed_version, required_version[1:]) > 0
+            elif required_version.startswith('<='):
+                return self._compare_versions(installed_version, required_version[2:]) <= 0
+            elif required_version.startswith('<'):
+                return self._compare_versions(installed_version, required_version[1:]) < 0
+            elif required_version.startswith('^'):
+                # Caret range: compatible within same major version
+                return self._is_caret_compatible(installed_version, required_version[1:])
+            elif required_version.startswith('~'):
+                # Tilde range: compatible within same minor version
+                return self._is_tilde_compatible(installed_version, required_version[1:])
+            else:
+                # Exact match
+                return installed_version == required_version
+        except:
+            return False
+    
+    def _compare_versions(self, version1: str, version2: str) -> int:
+        """Compare two versions. Returns -1, 0, or 1"""
+        v1_parts = [int(x) for x in version1.split('.')]
+        v2_parts = [int(x) for x in version2.split('.')]
+        
+        # Pad with zeros if needed
+        max_len = max(len(v1_parts), len(v2_parts))
+        v1_parts.extend([0] * (max_len - len(v1_parts)))
+        v2_parts.extend([0] * (max_len - len(v2_parts)))
+        
+        for i in range(max_len):
+            if v1_parts[i] < v2_parts[i]:
+                return -1
+            elif v1_parts[i] > v2_parts[i]:
+                return 1
+        
+        return 0
+    
+    def _is_caret_compatible(self, installed: str, required: str) -> bool:
+        """Check if versions are compatible using caret range (^1.2.3)"""
+        installed_parts = [int(x) for x in installed.split('.')]
+        required_parts = [int(x) for x in required.split('.')]
+        
+        # Same major version required
+        if installed_parts[0] != required_parts[0]:
+            return False
+        
+        # Installed version must be >= required
+        return self._compare_versions(installed, required) >= 0
+    
+    def _is_tilde_compatible(self, installed: str, required: str) -> bool:
+        """Check if versions are compatible using tilde range (~1.2.3)"""
+        installed_parts = [int(x) for x in installed.split('.')]
+        required_parts = [int(x) for x in required.split('.')]
+        
+        # Same major and minor version required
+        if installed_parts[0] != required_parts[0] or installed_parts[1] != required_parts[1]:
+            return False
+        
+        # Installed version must be >= required
+        return self._compare_versions(installed, required) >= 0
+    
+    def resolve_dependencies(self, pack_id: str) -> Dict[str, Any]:
+        """Resolve all dependencies for a pack and return installation plan"""
+        if pack_id not in self.installed_packs:
+            return {"success": False, "error": "Pack not found"}
+        
+        pack = self.installed_packs[pack_id]
+        dependencies = pack.dependencies or []
+        
+        # Build dependency graph
+        resolution_plan = []
+        visited = set()
+        
+        def resolve_recursive(dep_pack_id, dep_list, depth=0):
+            if depth > 10:  # Prevent infinite recursion
+                return {"success": False, "error": "Circular dependency detected"}
+            
+            for dep in dep_list:
+                if '@' in dep:
+                    dep_id, _ = dep.split('@', 1)
+                else:
+                    dep_id = dep
+                
+                if dep_id not in visited:
+                    visited.add(dep_id)
+                    
+                    if dep_id not in self.installed_packs:
+                        resolution_plan.append({
+                            "action": "install",
+                            "pack_id": dep_id,
+                            "dependency": dep,
+                            "required_by": dep_pack_id
+                        })
+                    else:
+                        # Check if dependency's dependencies are resolved
+                        dep_pack = self.installed_packs[dep_id]
+                        if dep_pack.dependencies:
+                            resolve_recursive(dep_id, dep_pack.dependencies, depth + 1)
+                        
+                        if not dep_pack.enabled:
+                            resolution_plan.append({
+                                "action": "enable",
+                                "pack_id": dep_id,
+                                "required_by": dep_pack_id
+                            })
+        
+        resolve_recursive(pack_id, dependencies)
+        
+        return {
+            "success": True,
+            "plan": resolution_plan,
+            "total_actions": len(resolution_plan)
+        }
     
     def _is_platform_compatible(self, platform_info: Dict[str, Any]) -> bool:
         """Check if pack is compatible with current platform"""
@@ -436,6 +623,188 @@ class TailorPackManager(MarketplaceManager):
     def get_active_packs(self) -> List[TailorPackInfo]:
         """Get list of currently active Tailor Packs"""
         return list(self.active_packs.values())
+    
+    def export_tailor_pack(self, pack_id: str, export_path: str = None) -> Dict[str, Any]:
+        """Export a Tailor Pack to a ZIP file"""
+        if pack_id not in self.installed_packs:
+            return {"success": False, "error": "Pack not found"}
+        
+        pack = self.installed_packs[pack_id]
+        pack_dir = os.path.join(self.extensions_dir, 'installed', pack_id)
+        
+        if not os.path.exists(pack_dir):
+            return {"success": False, "error": "Pack directory not found"}
+        
+        # Default export path
+        if not export_path:
+            export_path = os.path.join(self.extensions_dir, 'exports', f"{pack_id}-{pack.version}.zip")
+            os.makedirs(os.path.dirname(export_path), exist_ok=True)
+        
+        try:
+            with zipfile.ZipFile(export_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Add all files from pack directory
+                for root, dirs, files in os.walk(pack_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arc_path = os.path.relpath(file_path, pack_dir)
+                        zip_file.write(file_path, arc_path)
+                
+                # Add export metadata
+                export_metadata = {
+                    "exported_at": datetime.now().isoformat(),
+                    "exported_by": "TailorPackManager",
+                    "pack_id": pack_id,
+                    "pack_version": pack.version,
+                    "pack_name": pack.name,
+                    "checksum": self._calculate_pack_checksum(pack_dir)
+                }
+                
+                zip_file.writestr("export_metadata.json", json.dumps(export_metadata, indent=2))
+            
+            return {
+                "success": True,
+                "export_path": export_path,
+                "pack_name": pack.name,
+                "pack_version": pack.version
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Export failed: {str(e)}"}
+    
+    def backup_all_packs(self, backup_path: str = None) -> Dict[str, Any]:
+        """Create a backup of all installed packs"""
+        if not backup_path:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = os.path.join(self.extensions_dir, 'backups', f"pack_backup_{timestamp}.zip")
+            os.makedirs(os.path.dirname(backup_path), exist_ok=True)
+        
+        try:
+            backup_manifest = {
+                "backup_created": datetime.now().isoformat(),
+                "total_packs": len(self.installed_packs),
+                "packs": []
+            }
+            
+            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for pack_id, pack in self.installed_packs.items():
+                    pack_dir = os.path.join(self.extensions_dir, 'installed', pack_id)
+                    
+                    if os.path.exists(pack_dir):
+                        # Add pack files
+                        for root, dirs, files in os.walk(pack_dir):
+                            for file in files:
+                                file_path = os.path.join(root, file)
+                                arc_path = os.path.join(pack_id, os.path.relpath(file_path, pack_dir))
+                                zip_file.write(file_path, arc_path)
+                        
+                        # Add pack to manifest
+                        backup_manifest["packs"].append({
+                            "pack_id": pack_id,
+                            "name": pack.name,
+                            "version": pack.version,
+                            "enabled": pack.enabled,
+                            "backup_size": self._get_directory_size(pack_dir)
+                        })
+                
+                # Add backup manifest
+                zip_file.writestr("backup_manifest.json", json.dumps(backup_manifest, indent=2))
+            
+            return {
+                "success": True,
+                "backup_path": backup_path,
+                "total_packs": len(self.installed_packs),
+                "backup_size": os.path.getsize(backup_path)
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Backup failed: {str(e)}"}
+    
+    def restore_from_backup(self, backup_path: str) -> Dict[str, Any]:
+        """Restore packs from a backup file"""
+        if not os.path.exists(backup_path):
+            return {"success": False, "error": "Backup file not found"}
+        
+        try:
+            restored_packs = []
+            failed_packs = []
+            
+            with zipfile.ZipFile(backup_path, 'r') as zip_file:
+                # Read backup manifest
+                manifest_content = zip_file.read("backup_manifest.json")
+                manifest = json.loads(manifest_content.decode())
+                
+                for pack_info in manifest["packs"]:
+                    pack_id = pack_info["pack_id"]
+                    
+                    try:
+                        # Extract pack to temporary directory
+                        temp_dir = tempfile.mkdtemp()
+                        
+                        # Extract pack files
+                        for file_info in zip_file.infolist():
+                            if file_info.filename.startswith(f"{pack_id}/"):
+                                zip_file.extract(file_info, temp_dir)
+                        
+                        # Move to installed directory
+                        pack_temp_dir = os.path.join(temp_dir, pack_id)
+                        pack_install_dir = os.path.join(self.extensions_dir, 'installed', pack_id)
+                        
+                        if os.path.exists(pack_install_dir):
+                            shutil.rmtree(pack_install_dir)
+                        
+                        shutil.move(pack_temp_dir, pack_install_dir)
+                        
+                        restored_packs.append(pack_id)
+                        
+                        # Clean up temp directory
+                        shutil.rmtree(temp_dir)
+                        
+                    except Exception as e:
+                        failed_packs.append(f"{pack_id}: {str(e)}")
+            
+            # Reload installed packs
+            self._load_installed_packs()
+            
+            return {
+                "success": True,
+                "restored_packs": restored_packs,
+                "failed_packs": failed_packs,
+                "total_restored": len(restored_packs)
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": f"Restore failed: {str(e)}"}
+    
+    def get_pack_statistics(self) -> Dict[str, Any]:
+        """Get statistics about installed Tailor Packs"""
+        stats = {
+            "total_installed": len(self.installed_packs),
+            "total_active": len(self.active_packs),
+            "categories": {},
+            "target_audiences": {},
+            "licensed_packs": 0,
+            "total_size": 0
+        }
+        
+        for pack in self.installed_packs.values():
+            # Category statistics
+            category = pack.business_category
+            stats["categories"][category] = stats["categories"].get(category, 0) + 1
+            
+            # Target audience statistics
+            audience = pack.target_audience
+            stats["target_audiences"][audience] = stats["target_audiences"].get(audience, 0) + 1
+            
+            # License statistics
+            if pack.license_required:
+                stats["licensed_packs"] += 1
+            
+            # Size calculation
+            pack_dir = os.path.join(self.extensions_dir, 'installed', pack.pack_id)
+            if os.path.exists(pack_dir):
+                stats["total_size"] += self._get_directory_size(pack_dir)
+        
+        return stats
 
 
 # Global instance
