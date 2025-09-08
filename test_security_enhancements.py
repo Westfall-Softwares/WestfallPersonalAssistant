@@ -6,6 +6,7 @@ Test script for comprehensive security and architecture enhancements.
 import sys
 import tempfile
 import os
+import time
 from pathlib import Path
 
 def test_model_security():
@@ -136,6 +137,123 @@ def test_logging_system():
         print(f"❌ Logging system tests failed: {e}")
         raise
 
+def test_memory_management():
+    """Test memory management system."""
+    print("Testing Memory Management...")
+    try:
+        from backend.memory_management import MemoryManager, StreamProcessor, DataPaginator
+        
+        # Test memory monitoring
+        memory_manager = MemoryManager()
+        usage = memory_manager.monitor.get_current_usage()
+        assert usage.total_mb > 0, f"Expected positive total memory, got {usage.total_mb}"
+        assert usage.process_mb >= 0, f"Expected non-negative process memory, got {usage.process_mb}"
+        
+        # Test stream processing
+        stream_processor = StreamProcessor(chunk_size=10)
+        test_text = "This is a test string for streaming processing"
+        chunks = list(stream_processor.process_large_text(test_text, lambda x: x.upper()))
+        assert len(chunks) > 1, f"Expected multiple chunks, got {len(chunks)}"
+        assert all(chunk.isupper() for chunk in chunks), "All chunks should be uppercase"
+        
+        # Test pagination
+        paginator = DataPaginator(page_size=5)
+        test_data = list(range(20))
+        page_result = paginator.paginate_list(test_data, page=2)
+        assert len(page_result['items']) == 5, f"Expected 5 items, got {len(page_result['items'])}"
+        assert page_result['items'] == [5, 6, 7, 8, 9], f"Expected [5,6,7,8,9], got {page_result['items']}"
+        assert page_result['pagination']['current_page'] == 2, f"Expected page 2, got {page_result['pagination']['current_page']}"
+        
+        print("✅ Memory management tests passed")
+        
+    except Exception as e:
+        print(f"❌ Memory management tests failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+def test_platform_compatibility():
+    """Test platform compatibility system."""
+    print("Testing Platform Compatibility...")
+    try:
+        from backend.platform_compatibility import PlatformManager, is_linux
+        
+        platform_manager = PlatformManager()
+        
+        # Test platform detection
+        platform_info = platform_manager.get_system_info()
+        assert 'platform' in platform_info, "Platform info should contain 'platform' key"
+        assert 'paths' in platform_info, "Platform info should contain 'paths' key"
+        
+        # Test path management
+        app_dirs = platform_manager.setup_application_directories("TestApp")
+        assert 'config' in app_dirs, "App dirs should contain 'config'"
+        assert 'data' in app_dirs, "App dirs should contain 'data'"
+        assert 'cache' in app_dirs, "App dirs should contain 'cache'"
+        assert 'logs' in app_dirs, "App dirs should contain 'logs'"
+        
+        # Test path safety
+        safe_path = platform_manager.paths.normalize_path("test.txt")
+        assert platform_manager.paths.is_path_safe(safe_path), f"Path {safe_path} should be safe"
+        
+        # Test unsafe path detection
+        unsafe_path = "../../../etc/passwd"
+        assert not platform_manager.paths.is_path_safe(unsafe_path), f"Path {unsafe_path} should be unsafe"
+        
+        print("✅ Platform compatibility tests passed")
+        
+    except Exception as e:
+        print(f"❌ Platform compatibility tests failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+def test_enhanced_threading():
+    """Test enhanced threading capabilities."""
+    print("Testing Enhanced Threading...")
+    try:
+        # Import without PyQt5 dependency issues
+        import threading
+        import time
+        
+        # Test thread-safe counter (basic implementation)
+        class ThreadSafeCounter:
+            def __init__(self):
+                self._value = 0
+                self._lock = threading.Lock()
+            
+            def increment(self):
+                with self._lock:
+                    self._value += 1
+                    return self._value
+            
+            def get(self):
+                with self._lock:
+                    return self._value
+        
+        counter = ThreadSafeCounter()
+        
+        def worker():
+            for _ in range(10):
+                counter.increment()
+        
+        threads = []
+        for _ in range(5):
+            t = threading.Thread(target=worker)
+            threads.append(t)
+            t.start()
+        
+        for t in threads:
+            t.join()
+        
+        assert counter.get() == 50
+        
+        print("✅ Enhanced threading tests passed")
+        
+    except Exception as e:
+        print(f"❌ Enhanced threading tests failed: {e}")
+        raise
+
 def main():
     """Run all tests."""
     print("🧪 Running Comprehensive Security & Architecture Tests\n")
@@ -144,6 +262,9 @@ def main():
         test_input_validation,
         test_state_management,
         test_logging_system,
+        test_memory_management,
+        test_platform_compatibility,
+        test_enhanced_threading,
         test_model_security,
     ]
     

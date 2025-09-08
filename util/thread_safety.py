@@ -139,6 +139,121 @@ class ThreadSafetyManager(QObject):
         # Note: Using weak references, so thread might already be gone
         logging.debug(f"Thread finished: {thread}")
     
+    def submit_background_task(self, task_func: Callable, *args, **kwargs) -> str:
+        """Submit a background task to the thread pool."""
+        from PyQt5.QtCore import QRunnable
+        import time
+        
+        task_id = f"task_{self.task_counter}_{int(time.time() * 1000)}"
+        self.task_counter += 1
+        
+        class TaskWorker(QRunnable):
+            def __init__(self, task_id, func, args, kwargs, manager):
+                super().__init__()
+                self.task_id = task_id
+                self.func = func
+                self.args = args
+                self.kwargs = kwargs
+                self.manager = manager
+                
+            def run(self):
+                try:
+                    self.manager.active_tasks[self.task_id] = {
+                        'start_time': time.time(),
+                        'status': 'running'
+                    }
+                    
+                    result = self.func(*self.args, **self.kwargs)
+                    
+                    self.manager.task_results[self.task_id] = {
+                        'success': True,
+                        'result': result,
+                        'completed_at': time.time()
+                    }
+                    
+                    # Emit completion signal
+                    self.manager.background_task_completed.emit(self.task_id, True, result)
+                    
+                except Exception as e:
+                    self.manager.task_results[self.task_id] = {
+                        'success': False,
+                        'error': str(e),
+                        'completed_at': time.time()
+                    }
+                    
+                    # Emit completion signal with error
+                    self.manager.background_task_completed.emit(self.task_id, False, str(e))
+                    
+                finally:
+                    # Remove from active tasks
+                    self.manager.active_tasks.pop(self.task_id, None)
+        
+        worker = TaskWorker(task_id, task_func, args, kwargs, self)
+        self.thread_pool.start(worker)
+        
+        return task_id
+    
+    def get_task_status(self, task_id: str) -> Dict:
+        """Get status of a background task."""
+        if task_id in self.active_tasks:
+            task_info = self.active_tasks[task_id]
+            return {
+                'status': 'running',
+                'start_time': task_info['start_time'],
+                'elapsed_time': time.time() - task_info['start_time']
+            }
+        elif task_id in self.task_results:
+            return {
+                'status': 'completed',
+                **self.task_results[task_id]
+            }
+        else:
+            return {'status': 'unknown'}
+    
+    def get_active_tasks(self) -> Dict:
+        """Get all active background tasks."""
+        import time
+        current_time = time.time()
+        return {
+            task_id: {
+                **task_info,
+                'elapsed_time': current_time - task_info['start_time']
+            }
+            for task_id, task_info in self.active_tasks.items()
+        }
+    
+    def cancel_task(self, task_id: str) -> bool:
+        """Attempt to cancel a background task."""
+        # Note: QRunnable doesn't support cancellation directly
+        # This is a limitation we'd need to work around with custom signaling
+        if task_id in self.active_tasks:
+            # Mark task as cancelled (would need cooperation from task function)
+            self.active_tasks[task_id]['status'] = 'cancelled'
+            return True
+        return False
+    
+    def cleanup_completed_tasks(self, max_age_seconds: int = 3600):
+        """Clean up old completed task results."""
+        import time
+        current_time = time.time()
+        to_remove = []
+        
+        for task_id, result in self.task_results.items():
+            if current_time - result['completed_at'] > max_age_seconds:
+                to_remove.append(task_id)
+        
+        for task_id in to_remove:
+            self.task_results.pop(task_id, None)
+    
+    def get_thread_pool_status(self) -> Dict:
+        """Get thread pool status information."""
+        return {
+            'max_threads': self.thread_pool.maxThreadCount(),
+            'active_threads': self.thread_pool.activeThreadCount(),
+            'queued_tasks': len(self.active_tasks),
+            'completed_tasks': len(self.task_results)
+        }
+    
     def start_background_task(self, task_id: str, worker_func: Callable, 
                             callback: Optional[Callable] = None, 
                             error_callback: Optional[Callable] = None,
