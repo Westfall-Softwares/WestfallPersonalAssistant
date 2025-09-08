@@ -8,6 +8,10 @@ yarn-error.log*
 build/
 dist/
 
+# .NET build artifacts
+bin/
+obj/
+
 # Environment variables
 .env
 .env.local
