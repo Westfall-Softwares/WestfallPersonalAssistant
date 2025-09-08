@@ -2204,7 +2204,7 @@ Description:
         layout.addWidget(name_input)
         
         category_combo = QComboBox()
-        category_combo.addItems(["business", "personal", "legal", "marketing", "technical"])
+        category_combo.addItems(["business", "operations", "legal", "marketing", "technical"])
         layout.addWidget(QLabel("Category:"))
         layout.addWidget(category_combo)
         

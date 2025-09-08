@@ -17,6 +17,7 @@ import importlib.util
 from datetime import datetime
 from .marketplace_manager import MarketplaceManager, ExtensionInfo
 from .licensing_system import get_license_manager
+from backend.platform_compatibility import PlatformManager
 
 
 @dataclass
@@ -60,9 +61,11 @@ class TailorPackManager(MarketplaceManager):
     """
     
     def __init__(self, packs_dir: str = None, base_app_version: str = "1.0.0"):
-        # Initialize with tailor-specific directory structure
+        # Initialize with platform-specific tailor pack directory
         if packs_dir is None:
-            packs_dir = os.path.join(os.getcwd(), "tailor_packs")
+            platform_manager = PlatformManager()
+            app_dirs = platform_manager.setup_application_directories("westfall-assistant")
+            packs_dir = str(app_dirs['data'] / "tailor_packs")
         
         super().__init__(packs_dir)
         self.base_app_version = base_app_version
@@ -215,6 +218,12 @@ class TailorPackManager(MarketplaceManager):
             if not self._is_version_compatible(manifest['min_app_version']):
                 return {"valid": False, "error": "Incompatible application version"}
         
+        # Validate platform compatibility if specified
+        if 'platform_compatibility' in manifest:
+            platform_info = manifest['platform_compatibility']
+            if not self._is_platform_compatible(platform_info):
+                return {"valid": False, "error": "Pack not compatible with current platform"}
+        
         return {"valid": True}
     
     def _check_pack_conflicts(self, manifest: Dict[str, Any]) -> List[str]:
@@ -248,6 +257,43 @@ class TailorPackManager(MarketplaceManager):
                 missing.append(f"{dep} (disabled)")
         
         return missing
+    
+    def _is_platform_compatible(self, platform_info: Dict[str, Any]) -> bool:
+        """Check if pack is compatible with current platform"""
+        try:
+            platform_manager = PlatformManager()
+            current_platform = platform_manager.platform_info
+            
+            # Check supported platforms
+            if 'supported_platforms' in platform_info:
+                supported = platform_info['supported_platforms']
+                current_platform_name = current_platform.platform.value
+                if current_platform_name not in supported:
+                    return False
+            
+            # Check architecture requirements
+            if 'required_architecture' in platform_info:
+                required_arch = platform_info['required_architecture']
+                current_arch = current_platform.architecture.value
+                if current_arch not in required_arch:
+                    return False
+            
+            # Check platform-specific requirements
+            platform_reqs = platform_info.get('platform_requirements', {})
+            current_platform_name = current_platform.platform.value
+            
+            if current_platform_name in platform_reqs:
+                reqs = platform_reqs[current_platform_name]
+                # Check minimum OS version if specified
+                if 'min_version' in reqs:
+                    # This would need more sophisticated version comparison
+                    # for each platform type
+                    pass
+            
+            return True
+        except Exception as e:
+            logger.warning(f"Error checking platform compatibility: {e}")
+            return True  # Default to compatible if check fails
     
     def _is_version_compatible(self, min_version: str) -> bool:
         """Check if the minimum version requirement is met"""

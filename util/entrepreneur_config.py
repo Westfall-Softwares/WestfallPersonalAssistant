@@ -70,7 +70,14 @@ class EntrepreneurConfig:
     """Main configuration manager for Entrepreneur Assistant"""
     
     def __init__(self, config_dir: str = None):
-        self.config_dir = config_dir or os.path.join(os.getcwd(), "data", "config")
+        # Use platform-specific configuration directory
+        if config_dir is None:
+            platform_manager = PlatformManager()
+            app_dirs = platform_manager.setup_application_directories("westfall-assistant")
+            self.config_dir = str(app_dirs['config'])
+        else:
+            self.config_dir = config_dir
+        
         os.makedirs(self.config_dir, exist_ok=True)
         
         # Initialize settings

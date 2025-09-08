@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Cross-Platform Compatibility Module for Westfall Personal Assistant
+Cross-Platform Compatibility Module for Westfall Assistant
 
 Provides platform detection, path handling, and platform-specific implementations
 to ensure consistent behavior across Windows, macOS, and Linux.
