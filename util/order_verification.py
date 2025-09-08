@@ -48,6 +48,404 @@ class OrderVerificationService:
     Handles order number verification and license management for Tailor Packs
     """
     
+    def __init__(self, license_server_url: str = None):
+        self.license_server_url = license_server_url or "https://licensing.westfall-software.com"
+        self.local_license_file = "data/licenses.json"
+        self.encryption_key = self._get_or_create_encryption_key()
+        self.cipher_suite = Fernet(self.encryption_key)
+        
+        # Ensure data directory exists
+        os.makedirs(os.path.dirname(self.local_license_file), exist_ok=True)
+        
+        # Load existing licenses
+        self.licenses: Dict[str, PackLicense] = self._load_local_licenses()
+    
+    def _get_or_create_encryption_key(self) -> bytes:
+        """Get or create encryption key for local license storage"""
+        key_file = "data/.license_key"
+        
+        if os.path.exists(key_file):
+            with open(key_file, 'rb') as f:
+                return f.read()
+        else:
+            # Create new key
+            key = Fernet.generate_key()
+            with open(key_file, 'wb') as f:
+                f.write(key)
+            return key
+    
+    def verify_order(self, order_number: str) -> OrderValidationResult:
+        """
+        Verify an order number and return validation result
+        """
+        try:
+            # Clean and validate format
+            order_number = order_number.strip().upper()
+            if not self._is_valid_order_format(order_number):
+                return OrderValidationResult(
+                    is_valid=False,
+                    pack_info=None,
+                    license=None,
+                    error_message="Invalid order number format",
+                    trial_available=False
+                )
+            
+            # Check if already licensed locally
+            existing_license = self._get_local_license(order_number)
+            if existing_license and existing_license.is_valid:
+                # Verify license is still valid
+                if self._is_license_expired(existing_license):
+                    existing_license.is_valid = False
+                    self._save_local_licenses()
+                    return OrderValidationResult(
+                        is_valid=False,
+                        pack_info=None,
+                        license=existing_license,
+                        error_message="License has expired",
+                        trial_available=False
+                    )
+                
+                return OrderValidationResult(
+                    is_valid=True,
+                    pack_info=self._get_pack_info_for_license(existing_license),
+                    license=existing_license,
+                    error_message=None,
+                    trial_available=False
+                )
+            
+            # Verify with remote server
+            remote_result = self._verify_with_server(order_number)
+            if remote_result.is_valid and remote_result.license:
+                # Store license locally
+                self._store_local_license(remote_result.license)
+                return remote_result
+            
+            # Check if trial is available
+            trial_available = self._is_trial_available(order_number)
+            
+            return OrderValidationResult(
+                is_valid=False,
+                pack_info=None,
+                license=None,
+                error_message=remote_result.error_message or "Order not found",
+                trial_available=trial_available
+            )
+            
+        except Exception as e:
+            return OrderValidationResult(
+                is_valid=False,
+                pack_info=None,
+                license=None,
+                error_message=f"Verification failed: {str(e)}",
+                trial_available=False
+            )
+    
+    def start_trial(self, pack_id: str, customer_email: str) -> OrderValidationResult:
+        """Start a trial license for a pack"""
+        try:
+            # Check if trial already used
+            if self._has_used_trial(pack_id, customer_email):
+                return OrderValidationResult(
+                    is_valid=False,
+                    pack_info=None,
+                    license=None,
+                    error_message="Trial already used for this pack",
+                    trial_available=False
+                )
+            
+            # Create trial license
+            trial_order = f"TRIAL-{pack_id}-{int(time.time())}"
+            trial_license = PackLicense(
+                order_number=trial_order,
+                pack_id=pack_id,
+                license_key=self._generate_trial_key(pack_id),
+                customer_email=customer_email,
+                purchase_date=datetime.now(),
+                expiry_date=datetime.now() + timedelta(days=30),
+                license_type="trial",
+                max_installations=1,
+                current_installations=1,
+                is_valid=True,
+                features_enabled=self._get_trial_features(pack_id)
+            )
+            
+            # Store trial license
+            self._store_local_license(trial_license)
+            
+            return OrderValidationResult(
+                is_valid=True,
+                pack_info=self._get_pack_info_for_license(trial_license),
+                license=trial_license,
+                error_message=None,
+                trial_available=False  # Already used
+            )
+            
+        except Exception as e:
+            return OrderValidationResult(
+                is_valid=False,
+                pack_info=None,
+                license=None,
+                error_message=f"Trial activation failed: {str(e)}",
+                trial_available=True
+            )
+    
+    def get_license_status(self, pack_id: str) -> Dict[str, any]:
+        """Get current license status for a pack"""
+        pack_licenses = [lic for lic in self.licenses.values() if lic.pack_id == pack_id]
+        
+        if not pack_licenses:
+            return {
+                "licensed": False,
+                "license_type": None,
+                "days_remaining": None,
+                "trial_available": self._is_trial_available_for_pack(pack_id)
+            }
+        
+        # Get most recent valid license
+        valid_licenses = [lic for lic in pack_licenses if lic.is_valid and not self._is_license_expired(lic)]
+        
+        if not valid_licenses:
+            return {
+                "licensed": False,
+                "license_type": None,
+                "days_remaining": None,
+                "trial_available": self._is_trial_available_for_pack(pack_id),
+                "expired_licenses": len(pack_licenses)
+            }
+        
+        current_license = max(valid_licenses, key=lambda x: x.purchase_date)
+        days_remaining = None
+        
+        if current_license.expiry_date:
+            days_remaining = (current_license.expiry_date - datetime.now()).days
+            if days_remaining < 0:
+                days_remaining = 0
+        
+        return {
+            "licensed": True,
+            "license_type": current_license.license_type,
+            "days_remaining": days_remaining,
+            "order_number": current_license.order_number,
+            "features_enabled": current_license.features_enabled,
+            "max_installations": current_license.max_installations,
+            "current_installations": current_license.current_installations
+        }
+    
+    def _is_valid_order_format(self, order_number: str) -> bool:
+        """Validate order number format"""
+        # Basic format validation
+        if len(order_number) < 6:
+            return False
+        
+        # Check for common patterns
+        if order_number.startswith("WF-") and len(order_number) >= 10:
+            return True
+        if order_number.startswith("TRIAL-") and len(order_number) >= 15:
+            return True
+        if order_number.isalnum() and len(order_number) >= 8:
+            return True
+        
+        return False
+    
+    def _verify_with_server(self, order_number: str) -> OrderValidationResult:
+        """Verify order with remote licensing server"""
+        try:
+            import requests
+            
+            response = requests.post(
+                f"{self.license_server_url}/verify",
+                json={
+                    "order_number": order_number,
+                    "product": "tailor_packs",
+                    "version": "1.0.0"
+                },
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if data.get("valid"):
+                    license_data = data.get("license")
+                    license = PackLicense(
+                        order_number=order_number,
+                        pack_id=license_data.get("pack_id"),
+                        license_key=license_data.get("license_key"),
+                        customer_email=license_data.get("customer_email"),
+                        purchase_date=datetime.fromisoformat(license_data.get("purchase_date")),
+                        expiry_date=datetime.fromisoformat(license_data.get("expiry_date")) if license_data.get("expiry_date") else None,
+                        license_type=license_data.get("license_type"),
+                        max_installations=license_data.get("max_installations", 1),
+                        current_installations=license_data.get("current_installations", 0),
+                        is_valid=True,
+                        features_enabled=license_data.get("features_enabled", [])
+                    )
+                    
+                    return OrderValidationResult(
+                        is_valid=True,
+                        pack_info=data.get("pack_info"),
+                        license=license,
+                        error_message=None,
+                        trial_available=data.get("trial_available", False)
+                    )
+                else:
+                    return OrderValidationResult(
+                        is_valid=False,
+                        pack_info=None,
+                        license=None,
+                        error_message=data.get("error", "Invalid order number"),
+                        trial_available=data.get("trial_available", False)
+                    )
+            else:
+                return OrderValidationResult(
+                    is_valid=False,
+                    pack_info=None,
+                    license=None,
+                    error_message=f"Server error: {response.status_code}",
+                    trial_available=False
+                )
+                
+        except requests.RequestException:
+            # Offline mode - use local validation only
+            return OrderValidationResult(
+                is_valid=False,
+                pack_info=None,
+                license=None,
+                error_message="Unable to verify online (offline mode)",
+                trial_available=True
+            )
+        except Exception as e:
+            return OrderValidationResult(
+                is_valid=False,
+                pack_info=None,
+                license=None,
+                error_message=f"Verification error: {str(e)}",
+                trial_available=False
+            )
+    
+    def _load_local_licenses(self) -> Dict[str, PackLicense]:
+        """Load licenses from local encrypted storage"""
+        if not os.path.exists(self.local_license_file):
+            return {}
+        
+        try:
+            with open(self.local_license_file, 'rb') as f:
+                encrypted_data = f.read()
+            
+            decrypted_data = self.cipher_suite.decrypt(encrypted_data)
+            licenses_data = json.loads(decrypted_data.decode())
+            
+            licenses = {}
+            for order_number, license_dict in licenses_data.items():
+                # Convert datetime strings back to datetime objects
+                license_dict['purchase_date'] = datetime.fromisoformat(license_dict['purchase_date'])
+                if license_dict['expiry_date']:
+                    license_dict['expiry_date'] = datetime.fromisoformat(license_dict['expiry_date'])
+                
+                licenses[order_number] = PackLicense(**license_dict)
+            
+            return licenses
+            
+        except Exception as e:
+            print(f"Error loading licenses: {e}")
+            return {}
+    
+    def _save_local_licenses(self):
+        """Save licenses to local encrypted storage"""
+        try:
+            # Convert to serializable format
+            licenses_data = {}
+            for order_number, license in self.licenses.items():
+                license_dict = asdict(license)
+                # Convert datetime objects to strings
+                license_dict['purchase_date'] = license.purchase_date.isoformat()
+                if license.expiry_date:
+                    license_dict['expiry_date'] = license.expiry_date.isoformat()
+                else:
+                    license_dict['expiry_date'] = None
+                
+                licenses_data[order_number] = license_dict
+            
+            # Encrypt and save
+            json_data = json.dumps(licenses_data).encode()
+            encrypted_data = self.cipher_suite.encrypt(json_data)
+            
+            with open(self.local_license_file, 'wb') as f:
+                f.write(encrypted_data)
+                
+        except Exception as e:
+            print(f"Error saving licenses: {e}")
+    
+    def _store_local_license(self, license: PackLicense):
+        """Store a license locally"""
+        self.licenses[license.order_number] = license
+        self._save_local_licenses()
+    
+    def _get_local_license(self, order_number: str) -> Optional[PackLicense]:
+        """Get license from local storage"""
+        return self.licenses.get(order_number)
+    
+    def _is_license_expired(self, license: PackLicense) -> bool:
+        """Check if license is expired"""
+        if not license.expiry_date:
+            return False  # Lifetime license
+        return datetime.now() > license.expiry_date
+    
+    def _is_trial_available(self, order_number: str) -> bool:
+        """Check if trial is available for this order/email"""
+        # For now, always return True for demonstration
+        # In real implementation, this would check against used trials
+        return True
+    
+    def _is_trial_available_for_pack(self, pack_id: str) -> bool:
+        """Check if trial is available for a specific pack"""
+        # Check if any trial licenses exist for this pack
+        for license in self.licenses.values():
+            if license.pack_id == pack_id and license.license_type == "trial":
+                return False  # Trial already used
+        return True
+    
+    def _has_used_trial(self, pack_id: str, customer_email: str) -> bool:
+        """Check if customer has already used trial for this pack"""
+        for license in self.licenses.values():
+            if (license.pack_id == pack_id and 
+                license.customer_email == customer_email and
+                license.license_type == "trial"):
+                return True
+        return False
+    
+    def _generate_trial_key(self, pack_id: str) -> str:
+        """Generate a trial license key"""
+        timestamp = str(int(time.time()))
+        data = f"TRIAL-{pack_id}-{timestamp}"
+        return hashlib.sha256(data.encode()).hexdigest()[:16].upper()
+    
+    def _get_trial_features(self, pack_id: str) -> List[str]:
+        """Get trial features for a pack"""
+        # Default trial features - in real implementation, this would be pack-specific
+        return ["basic_features", "limited_usage", "watermark"]
+    
+    def _get_pack_info_for_license(self, license: PackLicense) -> Dict[str, any]:
+        """Get pack information for a license"""
+        # Mock pack info - in real implementation, this would come from pack registry
+        return {
+            "pack_id": license.pack_id,
+            "name": f"Pack {license.pack_id}",
+            "version": "1.0.0",
+            "description": f"Business pack for {license.pack_id}",
+            "category": "business"
+        }
+
+
+# Global instance
+_order_verification_service = None
+
+def get_order_verification_service() -> OrderVerificationService:
+    """Get the global OrderVerificationService instance"""
+    global _order_verification_service
+    if _order_verification_service is None:
+        _order_verification_service = OrderVerificationService()
+    return _order_verification_service
     def __init__(self, data_dir: str = None):
         """Initialize the order verification service"""
         from backend.platform_compatibility import PlatformManager
