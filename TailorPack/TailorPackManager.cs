@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text.Json;
+using WestfallPersonalAssistant.Services;
 
 namespace WestfallPersonalAssistant.TailorPack
 {
@@ -9,6 +12,9 @@ namespace WestfallPersonalAssistant.TailorPack
     {
         private static TailorPackManager? _instance;
         private readonly Dictionary<string, ITailorPack> _loadedPacks = new();
+        private readonly FeatureRegistry _featureRegistry;
+        private readonly FeatureActivationService _activationService;
+        private IFileSystemService? _fileSystemService;
         
         public static TailorPackManager Instance 
         {
@@ -19,25 +25,149 @@ namespace WestfallPersonalAssistant.TailorPack
             }
         }
         
+        public FeatureRegistry FeatureRegistry => _featureRegistry;
+        public FeatureActivationService ActivationService => _activationService;
+        
+        public event EventHandler<PackEventArgs>? PackLoaded;
+        public event EventHandler<PackEventArgs>? PackUnloaded;
+        public event EventHandler<PackErrorEventArgs>? PackError;
+        
+        private TailorPackManager()
+        {
+            _featureRegistry = new FeatureRegistry();
+            _activationService = new FeatureActivationService(_featureRegistry);
+        }
+        
+        public void Initialize(IFileSystemService fileSystemService)
+        {
+            _fileSystemService = fileSystemService;
+            DiscoverPacks();
+        }
+        
         public void DiscoverPacks()
         {
-            // Implementation will scan for packs in the designated directory
-            Console.WriteLine("Discovering packs...");
+            if (_fileSystemService == null) return;
+            
+            try
+            {
+                var packsPath = _fileSystemService.GetTailorPacksPath();
+                Console.WriteLine($"Discovering packs in: {packsPath}");
+                
+                if (!_fileSystemService.DirectoryExists(packsPath))
+                {
+                    _fileSystemService.CreateDirectory(packsPath);
+                    return;
+                }
+                
+                var packDirectories = _fileSystemService.GetDirectories(packsPath);
+                foreach (var packDir in packDirectories)
+                {
+                    var packId = Path.GetFileName(packDir);
+                    Console.WriteLine($"Found pack directory: {packId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error discovering packs: {ex.Message}");
+                PackError?.Invoke(this, new PackErrorEventArgs("discovery", $"Pack discovery failed: {ex.Message}"));
+            }
         }
         
         public bool LoadPack(string packId)
         {
-            // Implementation will load the pack assembly
-            Console.WriteLine($"Loading pack: {packId}");
-            return true;
+            try
+            {
+                if (_loadedPacks.ContainsKey(packId))
+                {
+                    Console.WriteLine($"Pack {packId} is already loaded");
+                    return true;
+                }
+                
+                Console.WriteLine($"Loading pack: {packId}");
+                
+                // For now, we only support the demo pack
+                if (packId == "marketing-essentials")
+                {
+                    var pack = new WestfallPersonalAssistant.Packs.Demo.MarketingEssentialsPack();
+                    return LoadPackInstance(pack);
+                }
+                
+                Console.WriteLine($"Pack {packId} not found or not supported");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading pack {packId}: {ex.Message}");
+                PackError?.Invoke(this, new PackErrorEventArgs(packId, $"Load failed: {ex.Message}"));
+                return false;
+            }
+        }
+        
+        private bool LoadPackInstance(ITailorPack pack)
+        {
+            try
+            {
+                var manifest = pack.GetManifest();
+                
+                if (string.IsNullOrEmpty(manifest.Id))
+                {
+                    Console.WriteLine("Pack manifest has no ID");
+                    return false;
+                }
+                
+                if (_loadedPacks.ContainsKey(manifest.Id))
+                {
+                    Console.WriteLine($"Pack {manifest.Id} is already loaded");
+                    return true;
+                }
+                
+                // Initialize the pack
+                pack.Initialize();
+                
+                // Register features
+                var features = pack.GetFeatures();
+                foreach (var feature in features)
+                {
+                    _featureRegistry.RegisterFeature(feature, manifest.Id);
+                }
+                
+                _loadedPacks[manifest.Id] = pack;
+                PackLoaded?.Invoke(this, new PackEventArgs(manifest.Id, pack));
+                
+                Console.WriteLine($"Pack {manifest.Id} loaded successfully with {features.Length} features");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading pack instance: {ex.Message}");
+                return false;
+            }
         }
         
         public void UnloadPack(string packId)
         {
-            if (_loadedPacks.TryGetValue(packId, out var pack))
+            try
             {
-                pack.Shutdown();
-                _loadedPacks.Remove(packId);
+                if (_loadedPacks.TryGetValue(packId, out var pack))
+                {
+                    // Deactivate all features from this pack
+                    _activationService.DeactivatePackFeatures(packId);
+                    
+                    // Unregister features
+                    _featureRegistry.UnregisterPackFeatures(packId);
+                    
+                    // Shutdown the pack
+                    pack.Shutdown();
+                    _loadedPacks.Remove(packId);
+                    
+                    PackUnloaded?.Invoke(this, new PackEventArgs(packId, pack));
+                    Console.WriteLine($"Pack {packId} unloaded successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error unloading pack {packId}: {ex.Message}");
+                PackError?.Invoke(this, new PackErrorEventArgs(packId, $"Unload failed: {ex.Message}"));
             }
         }
         
@@ -46,11 +176,105 @@ namespace WestfallPersonalAssistant.TailorPack
             return _loadedPacks.Values.ToArray();
         }
         
+        public ITailorPack? GetPack(string packId)
+        {
+            _loadedPacks.TryGetValue(packId, out var pack);
+            return pack;
+        }
+        
+        public bool IsPackLoaded(string packId)
+        {
+            return _loadedPacks.ContainsKey(packId);
+        }
+        
         public bool ImportPack(string zipFilePath)
         {
-            // Implementation will extract and validate the pack
-            Console.WriteLine($"Importing pack from: {zipFilePath}");
-            return true;
+            if (_fileSystemService == null) return false;
+            
+            try
+            {
+                Console.WriteLine($"Importing pack from: {zipFilePath}");
+                
+                if (!_fileSystemService.FileExists(zipFilePath))
+                {
+                    Console.WriteLine("Pack file does not exist");
+                    return false;
+                }
+                
+                var packsPath = _fileSystemService.GetTailorPacksPath();
+                
+                // Extract and validate the pack
+                using var archive = ZipFile.OpenRead(zipFilePath);
+                
+                // Look for manifest file
+                var manifestEntry = archive.Entries.FirstOrDefault(e => 
+                    e.Name.Equals("manifest.json", StringComparison.OrdinalIgnoreCase));
+                
+                if (manifestEntry == null)
+                {
+                    Console.WriteLine("Pack does not contain a manifest.json file");
+                    return false;
+                }
+                
+                // Read and validate manifest
+                using var manifestStream = manifestEntry.Open();
+                using var reader = new StreamReader(manifestStream);
+                var manifestJson = reader.ReadToEnd();
+                
+                var manifest = JsonSerializer.Deserialize<TailorPackManifest>(manifestJson);
+                if (manifest == null || string.IsNullOrEmpty(manifest.Id))
+                {
+                    Console.WriteLine("Invalid manifest file");
+                    return false;
+                }
+                
+                // Extract to pack directory
+                var packPath = Path.Combine(packsPath, manifest.Id);
+                if (_fileSystemService.DirectoryExists(packPath))
+                {
+                    _fileSystemService.DeleteDirectory(packPath);
+                }
+                
+                archive.ExtractToDirectory(packPath);
+                Console.WriteLine($"Pack {manifest.Id} imported successfully");
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error importing pack: {ex.Message}");
+                PackError?.Invoke(this, new PackErrorEventArgs("import", $"Import failed: {ex.Message}"));
+                return false;
+            }
+        }
+        
+        public TailorPackManifest[] GetPackManifests()
+        {
+            return _loadedPacks.Values.Select(pack => pack.GetManifest()).ToArray();
+        }
+    }
+    
+    public class PackEventArgs : EventArgs
+    {
+        public string PackId { get; }
+        public ITailorPack Pack { get; }
+        
+        public PackEventArgs(string packId, ITailorPack pack)
+        {
+            PackId = packId;
+            Pack = pack;
+        }
+    }
+    
+    public class PackErrorEventArgs : EventArgs
+    {
+        public string PackId { get; }
+        public string Error { get; }
+        
+        public PackErrorEventArgs(string packId, string error)
+        {
+            PackId = packId;
+            Error = error;
         }
     }
 }
