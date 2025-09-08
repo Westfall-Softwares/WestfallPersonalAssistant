@@ -130,6 +130,8 @@ try:
     from util.marketplace_manager import get_marketplace_manager
     from util.template_exchange import get_template_manager
     from util.api_gateway import get_api_gateway
+    from util.tailor_pack_manager import get_tailor_pack_manager
+    from util.tailor_pack_widget import TailorPackManagerWidget
     ADVANCED_FEATURES_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Advanced features import error: {e}")
@@ -268,7 +270,7 @@ class MainWindow(QMainWindow):
         return True
     
     def init_ui(self):
-        self.setWindowTitle("Westfall Personal Assistant - Secure")
+        self.setWindowTitle("Entrepreneur Assistant - Secure")
         self.setGeometry(100, 100, 900, 750)
         
         central_widget = QWidget()
@@ -279,7 +281,7 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(10)
         
         # Header with gradient
-        header = QLabel("Westfall Personal Assistant")
+        header = QLabel("Entrepreneur Assistant")
         header.setAlignment(Qt.AlignCenter)
         header.setStyleSheet("""
             QLabel {
@@ -291,7 +293,7 @@ class MainWindow(QMainWindow):
                 border-radius: 10px;
             }
         """)
-        header.setToolTip("Your secure personal assistant with AI capabilities")
+        header.setToolTip("Your business-focused assistant with AI capabilities and Tailor Pack support")
         main_layout.addWidget(header)
         
         # Quick Access Bar (for recent/favorite features)
@@ -385,11 +387,12 @@ class MainWindow(QMainWindow):
             # Advanced Features (Phase 1)
             ("🎤 Voice Control", self.open_voice_control, "Voice commands and recognition", "Ctrl+V"),
             ("🛍️ Extensions", self.open_marketplace, "Browse and install extensions", "Ctrl+X"),
+            ("📦 Tailor Packs", self.open_tailor_pack_manager, "Manage business feature packs", "Ctrl+Alt+T"),
             ("📋 Templates", self.open_templates, "Manage document templates", "Ctrl+J"),
             ("🌐 API Gateway", self.open_api_gateway, "Monitor API connections", "Ctrl+G"),
         ]
         
-        positions = [(i, j) for i in range(7) for j in range(3)]
+        positions = [(i, j) for i in range(9) for j in range(3)]
         
         for position, (name, callback, tooltip, shortcut) in zip(positions, self.features):
             btn = QPushButton(name)
@@ -1306,6 +1309,18 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.information(self, "Advanced Features", 
                                   "Extension marketplace is not available.")
+    
+    def open_tailor_pack_manager(self):
+        """Open Tailor Pack Manager"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            if 'tailor_packs' not in self.windows:
+                self.windows['tailor_packs'] = TailorPackManagerWidget()
+            self.windows['tailor_packs'].show()
+            self.windows['tailor_packs'].raise_()
+            self.windows['tailor_packs'].activateWindow()
+        else:
+            QMessageBox.information(self, "Tailor Packs", 
+                                  "Tailor Pack management is not available.")
     
     def open_templates(self):
         """Open template exchange"""
