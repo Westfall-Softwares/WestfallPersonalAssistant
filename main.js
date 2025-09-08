@@ -312,6 +312,7 @@ function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({
     ...windowOptions,
+    title: 'Westfall Assistant - Entrepreneur Edition',
     icon: path.join(__dirname, 'westfall.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -357,7 +358,7 @@ function createWindow() {
       // Show notification first time
       if (!store.get('trayNotificationShown')) {
         new Notification({
-          title: 'Entrepreneur Assistant',
+          title: 'Westfall Assistant - Entrepreneur Edition',
           body: 'Application was minimized to tray. Double-click the tray icon to restore.',
           icon: path.join(__dirname, 'westfall.png')
         }).show();

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Safe Deletion and Recovery Utilities for Westfall Personal Assistant
+Safe Deletion and Recovery Utilities for Westfall Assistant - Entrepreneur Edition
 
 Provides soft delete functionality with recovery options for critical data.
 """

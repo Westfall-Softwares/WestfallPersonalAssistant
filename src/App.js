@@ -27,12 +27,16 @@ import ModelManager from './components/ModelManager';
 import SettingsPanel from './components/SettingsPanel';
 import ScreenCapture from './components/ScreenCapture';
 import ThinkingModeSelector from './components/ThinkingModeSelector';
+import TailorPackManager from './components/TailorPackManager';
+import BusinessDashboard from './components/BusinessDashboard';
+import BusinessSetupWizard from './components/BusinessSetupWizard';
 
 const drawerWidth = 240;
 
 function App() {
-  const [currentView, setCurrentView] = useState('chat');
+  const [currentView, setCurrentView] = useState('dashboard');
   const [modelStatus, setModelStatus] = useState('disconnected');
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [settings, setSettings] = useState({
     thinkingMode: 'normal',
     theme: 'dark',
@@ -58,6 +62,12 @@ function App() {
       window.electronAPI.getSettings().then(setSettings);
     }
 
+    // Check if business setup is needed
+    const businessSetup = localStorage.getItem('businessSetup');
+    if (!businessSetup) {
+      setShowSetupWizard(true);
+    }
+
     // Listen for IPC events
     if (window.electronAPI) {
       const handleOpenSettings = () => {
@@ -73,24 +83,47 @@ function App() {
   }, []);
 
   const menuItems = [
-    { id: 'chat', label: 'Chat', icon: <ThinkingIcon /> },
+    { id: 'dashboard', label: 'Business Dashboard', icon: <ThinkingIcon /> },
+    { id: 'chat', label: 'AI Assistant', icon: <ThinkingIcon /> },
     { id: 'models', label: 'Model Manager', icon: <MemoryIcon /> },
+    { id: 'tailorpacks', label: 'Tailor Packs', icon: <SettingsIcon /> },
     { id: 'screen', label: 'Screen Capture', icon: <ScreenshotIcon /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon /> }
   ];
 
+  const handleSetupComplete = (setupData) => {
+    console.log('Business setup completed:', setupData);
+    setShowSetupWizard(false);
+    // Could trigger welcome notifications, start trials, etc.
+  };
+
+  const handleSkipSetup = () => {
+    setShowSetupWizard(false);
+    // Mark setup as skipped so we don't show it again
+    localStorage.setItem('businessSetup', JSON.stringify({ skipped: true, skippedAt: new Date().toISOString() }));
+  };
+
+  // Show setup wizard if needed
+  if (showSetupWizard) {
+    return <BusinessSetupWizard onComplete={handleSetupComplete} onSkip={handleSkipSetup} />;
+  }
+
   const renderContent = () => {
     switch (currentView) {
+      case 'dashboard':
+        return <BusinessDashboard />;
       case 'chat':
         return <ChatInterface thinkingMode={settings.thinkingMode} modelStatus={modelStatus} />;
       case 'models':
         return <ModelManager onStatusChange={setModelStatus} />;
+      case 'tailorpacks':
+        return <TailorPackManager />;
       case 'screen':
         return <ScreenCapture />;
       case 'settings':
         return <SettingsPanel settings={settings} onSettingsChange={setSettings} />;
       default:
-        return <ChatInterface thinkingMode={settings.thinkingMode} modelStatus={modelStatus} />;
+        return <BusinessDashboard />;
     }
   };
 
@@ -106,7 +139,7 @@ function App() {
               style={{ height: 32, width: 32 }}
             />
             <Typography variant="h6" noWrap component="div">
-              Westfall Personal Assistant
+              Westfall Assistant - Entrepreneur Edition
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />

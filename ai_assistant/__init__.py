@@ -1,5 +1,5 @@
 """
-AI Assistant module for WestfallPersonalAssistant
+AI Assistant module for Westfall Assistant - Entrepreneur Edition
 Provides intelligent chat and command processing capabilities
 """
 

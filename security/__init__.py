@@ -1,5 +1,5 @@
 """
-Security module for WestfallPersonalAssistant
+Security module for Westfall Assistant - Entrepreneur Edition
 Handles encryption, authentication, and secure storage
 """
 

@@ -1,5 +1,5 @@
 """
-Utility modules for Westfall Personal Assistant
+Utility modules for Westfall Assistant - Entrepreneur Edition
 
 This package provides common utilities for error handling, validation, and other shared functionality.
 """

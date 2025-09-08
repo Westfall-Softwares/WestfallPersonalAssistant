@@ -145,7 +145,7 @@ function startApplication() {
   
   // Handle Ctrl+C gracefully
   process.on('SIGINT', () => {
-    console.log('\n👋 Shutting down Westfall Personal Assistant...');
+    console.log('\n👋 Shutting down Westfall Assistant - Entrepreneur Edition...');
     app.kill();
     process.exit(0);
   });

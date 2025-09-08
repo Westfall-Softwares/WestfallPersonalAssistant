@@ -1,5 +1,5 @@
 """
-WestfallPersonalAssistant Screen Analysis Thread
+Westfall Assistant Screen Analysis Thread
 Provides visual understanding using LLaVA models for screen intelligence
 """
 
@@ -470,7 +470,7 @@ class AIQueryThread(QThread):
             'user_context': self.context,
             'system_info': {
                 'os': os.name,
-                'app': 'WestfallPersonalAssistant'
+                'app': 'Westfall Assistant'
             }
         }
         
@@ -489,7 +489,7 @@ class AIQueryThread(QThread):
         # Placeholder - would integrate with screen capture
         return {
             'screen_resolution': '1920x1080',
-            'active_window': 'WestfallPersonalAssistant',
+            'active_window': 'Westfall Assistant',
             'ui_elements': ['menu', 'buttons', 'text_fields']
         }
     
