@@ -446,6 +446,7 @@ class MemoryMonitor(QObject):
     memory_warning = pyqtSignal(float)  # memory_usage_mb
     memory_critical = pyqtSignal(float)  # memory_usage_mb
     cleanup_triggered = pyqtSignal(str)  # cleanup_type
+    memory_leak_detected = pyqtSignal(str, float)  # component, growth_rate
     
     def __init__(self, warning_threshold_mb: float = 200, 
                  critical_threshold_mb: float = 500):
@@ -454,24 +455,41 @@ class MemoryMonitor(QObject):
         self.warning_threshold = warning_threshold_mb * 1024 * 1024  # Convert to bytes
         self.critical_threshold = critical_threshold_mb * 1024 * 1024
         
+        # Memory tracking
+        self.memory_history = []
+        self.component_memory = {}
+        self.last_cleanup_time = time.time()
+        
         # Monitoring timer
         self.monitor_timer = QTimer()
         self.monitor_timer.timeout.connect(self.check_memory_usage)
         self.monitor_timer.start(30000)  # Check every 30 seconds
         
+        # Leak detection timer
+        self.leak_timer = QTimer()
+        self.leak_timer.timeout.connect(self.detect_memory_leaks)
+        self.leak_timer.start(300000)  # Check every 5 minutes
+        
         # Components to manage
         self.managed_components = []
+        self.memory_alerts_sent = set()
     
-    def register_component(self, component):
+    def register_component(self, component, name: str = None):
         """Register component for memory management"""
-        self.managed_components.append(weakref.ref(component))
+        component_name = name or component.__class__.__name__
+        self.managed_components.append({
+            'ref': weakref.ref(component),
+            'name': component_name,
+            'initial_memory': self.get_memory_usage()
+        })
     
     def get_memory_usage(self) -> float:
         """Get current memory usage in bytes"""
         try:
             import psutil
             process = psutil.Process()
-            return process.memory_info().rss
+            memory_info = process.memory_info()
+            return memory_info.rss
         except ImportError:
             # Fallback method using resource module
             try:
@@ -480,45 +498,224 @@ class MemoryMonitor(QObject):
             except ImportError:
                 return 0  # Can't measure memory
     
+    def get_detailed_memory_info(self) -> Dict[str, float]:
+        """Get detailed memory information"""
+        try:
+            import psutil
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            
+            return {
+                'rss': memory_info.rss,  # Resident Set Size
+                'vms': memory_info.vms,  # Virtual Memory Size
+                'shared': getattr(memory_info, 'shared', 0),
+                'text': getattr(memory_info, 'text', 0),
+                'data': getattr(memory_info, 'data', 0),
+                'lib': getattr(memory_info, 'lib', 0),
+                'dirty': getattr(memory_info, 'dirty', 0)
+            }
+        except ImportError:
+            return {'rss': self.get_memory_usage()}
+    
     def check_memory_usage(self):
         """Check current memory usage and trigger cleanup if needed"""
         memory_usage = self.get_memory_usage()
         memory_mb = memory_usage / (1024 * 1024)
         
+        # Track memory history
+        self.memory_history.append({
+            'timestamp': time.time(),
+            'memory_mb': memory_mb,
+            'detailed': self.get_detailed_memory_info()
+        })
+        
+        # Keep only last 100 readings
+        if len(self.memory_history) > 100:
+            self.memory_history = self.memory_history[-100:]
+        
+        # Check thresholds
         if memory_usage > self.critical_threshold:
-            self.memory_critical.emit(memory_mb)
-            self.trigger_aggressive_cleanup()
+            alert_key = f"critical_{int(memory_mb)}"
+            if alert_key not in self.memory_alerts_sent:
+                self.memory_critical.emit(memory_mb)
+                self.memory_alerts_sent.add(alert_key)
+                self.trigger_aggressive_cleanup()
         elif memory_usage > self.warning_threshold:
-            self.memory_warning.emit(memory_mb)
-            self.trigger_gentle_cleanup()
+            alert_key = f"warning_{int(memory_mb)}"
+            if alert_key not in self.memory_alerts_sent:
+                self.memory_warning.emit(memory_mb)
+                self.memory_alerts_sent.add(alert_key)
+                self.trigger_gentle_cleanup()
+        
+        # Clear old alerts
+        current_level = int(memory_mb)
+        self.memory_alerts_sent = {
+            alert for alert in self.memory_alerts_sent
+            if abs(int(alert.split('_')[1]) - current_level) < 50
+        }
+    
+    def detect_memory_leaks(self):
+        """Detect potential memory leaks by analyzing memory growth patterns"""
+        if len(self.memory_history) < 10:
+            return  # Not enough data
+        
+        # Calculate memory growth rate over last 10 readings
+        recent_readings = self.memory_history[-10:]
+        initial_memory = recent_readings[0]['memory_mb']
+        final_memory = recent_readings[-1]['memory_mb']
+        time_span = recent_readings[-1]['timestamp'] - recent_readings[0]['timestamp']
+        
+        if time_span > 0:
+            growth_rate_mb_per_hour = (final_memory - initial_memory) / (time_span / 3600)
+            
+            # Consider it a leak if memory grows consistently > 10MB/hour
+            if growth_rate_mb_per_hour > 10:
+                # Check if growth is consistent (not just a spike)
+                growths = []
+                for i in range(1, len(recent_readings)):
+                    growth = recent_readings[i]['memory_mb'] - recent_readings[i-1]['memory_mb']
+                    growths.append(growth)
+                
+                positive_growths = [g for g in growths if g > 0]
+                if len(positive_growths) > len(growths) * 0.8:  # 80% of readings show growth
+                    self.memory_leak_detected.emit("System", growth_rate_mb_per_hour)
+                    
+                    # Log detailed information for debugging
+                    print(f"Potential memory leak detected: {growth_rate_mb_per_hour:.2f} MB/hour growth")
+                    self._log_memory_leak_details()
+    
+    def _log_memory_leak_details(self):
+        """Log detailed memory information for leak analysis"""
+        try:
+            import psutil
+            process = psutil.Process()
+            
+            # Get memory maps if available
+            if hasattr(process, 'memory_maps'):
+                memory_maps = process.memory_maps()
+                large_mappings = [
+                    mapping for mapping in memory_maps
+                    if mapping.rss > 10 * 1024 * 1024  # > 10MB
+                ]
+                
+                print("Large memory mappings:")
+                for mapping in large_mappings[:10]:  # Top 10
+                    print(f"  {mapping.path}: {mapping.rss / 1024 / 1024:.1f} MB")
+            
+            # Get open file descriptors
+            if hasattr(process, 'open_files'):
+                open_files = process.open_files()
+                print(f"Open file descriptors: {len(open_files)}")
+                
+            # Get thread count
+            print(f"Thread count: {process.num_threads()}")
+            
+        except Exception as e:
+            print(f"Failed to log memory leak details: {e}")
+    
+    def get_memory_report(self) -> Dict[str, Any]:
+        """Generate comprehensive memory usage report"""
+        if not self.memory_history:
+            return {}
+        
+        current_memory = self.memory_history[-1]
+        memory_mb = current_memory['memory_mb']
+        
+        # Calculate statistics
+        memory_values = [reading['memory_mb'] for reading in self.memory_history]
+        min_memory = min(memory_values)
+        max_memory = max(memory_values)
+        avg_memory = sum(memory_values) / len(memory_values)
+        
+        # Calculate growth rate
+        growth_rate = 0
+        if len(self.memory_history) >= 2:
+            first_reading = self.memory_history[0]
+            last_reading = self.memory_history[-1]
+            time_diff = last_reading['timestamp'] - first_reading['timestamp']
+            if time_diff > 0:
+                memory_diff = last_reading['memory_mb'] - first_reading['memory_mb']
+                growth_rate = memory_diff / (time_diff / 3600)  # MB per hour
+        
+        return {
+            'current_memory_mb': memory_mb,
+            'min_memory_mb': min_memory,
+            'max_memory_mb': max_memory,
+            'avg_memory_mb': avg_memory,
+            'growth_rate_mb_per_hour': growth_rate,
+            'warning_threshold_mb': self.warning_threshold / (1024 * 1024),
+            'critical_threshold_mb': self.critical_threshold / (1024 * 1024),
+            'readings_count': len(self.memory_history),
+            'last_cleanup': self.last_cleanup_time,
+            'detailed_info': current_memory.get('detailed', {}),
+            'managed_components': len([c for c in self.managed_components if c['ref']() is not None])
+        }
     
     def trigger_gentle_cleanup(self):
         """Trigger gentle cleanup"""
         # Clear expired cache items
-        cache_manager = get_performance_manager().cache_manager
-        cache_manager.periodic_cleanup()
+        try:
+            cache_manager = get_performance_manager().cache_manager
+            cache_manager.periodic_cleanup()
+        except:
+            pass
         
         # Clean up resources
-        resource_manager = get_resource_manager()
-        resource_manager.cleanup_temp_files()
+        try:
+            resource_manager = get_resource_manager()
+            resource_manager.cleanup_temp_files()
+        except:
+            pass
         
+        self.last_cleanup_time = time.time()
         self.cleanup_triggered.emit("gentle")
     
     def trigger_aggressive_cleanup(self):
         """Trigger aggressive cleanup"""
         # Clear all caches
-        cache_manager = get_performance_manager().cache_manager
-        cache_manager.clear_cache()
+        try:
+            cache_manager = get_performance_manager().cache_manager
+            cache_manager.clear_cache()
+        except:
+            pass
         
         # Clean up all resources
-        resource_manager = get_resource_manager()
-        resource_manager.full_cleanup()
+        try:
+            resource_manager = get_resource_manager()
+            resource_manager.full_cleanup()
+        except:
+            pass
         
         # Trigger garbage collection
         import gc
         gc.collect()
         
+        # Clear component references if they're no longer valid
+        self.managed_components = [
+            comp for comp in self.managed_components
+            if comp['ref']() is not None
+        ]
+        
+        self.last_cleanup_time = time.time()
         self.cleanup_triggered.emit("aggressive")
+    
+    def force_garbage_collection(self):
+        """Force comprehensive garbage collection"""
+        import gc
+        
+        # Enable garbage collection debug
+        old_flags = gc.get_debug()
+        gc.set_debug(gc.DEBUG_STATS)
+        
+        # Multiple collection passes
+        for i in range(3):
+            collected = gc.collect()
+            print(f"Garbage collection pass {i+1}: {collected} objects collected")
+        
+        # Restore original debug flags
+        gc.set_debug(old_flags)
+        
+        return gc.get_stats()
 
 
 class PerformanceManager(QObject):
