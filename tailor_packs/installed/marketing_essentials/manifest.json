@@ -30,6 +30,21 @@
     "customer_data",
     "campaign_data"
   ],
+  "platform_compatibility": {
+    "supported_platforms": ["windows", "linux", "macos"],
+    "required_architecture": ["x86_64", "arm64"],
+    "platform_requirements": {
+      "windows": {
+        "min_version": "10.0"
+      },
+      "linux": {
+        "desktop_environments": ["gnome", "kde", "xfce"]
+      },
+      "macos": {
+        "min_version": "10.15"
+      }
+    }
+  },
   "configuration": {
     "default_campaign_duration": 30,
     "auto_posting": false,

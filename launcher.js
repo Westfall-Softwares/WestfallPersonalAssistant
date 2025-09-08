@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Westfall Personal Assistant - Zero-Dependency Launcher
+ * Westfall Assistant - Zero-Dependency Launcher
  * 
  * This launcher automatically installs dependencies and starts the application
  * so users don't need to manually install anything.
@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-console.log('🚀 Starting Westfall Personal Assistant...');
+console.log('🚀 Starting Westfall Assistant...');
 console.log('');
 
 // Check if this is the first run
@@ -130,7 +130,7 @@ async function installDependencies() {
 }
 
 function startApplication() {
-  console.log('🎯 Launching Westfall Personal Assistant...');
+  console.log('🎯 Launching Westfall Assistant...');
   console.log('');
   
   // Start the application

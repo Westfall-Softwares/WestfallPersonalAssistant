@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-In-App Help System for Westfall Personal Assistant
+In-App Help System for Westfall Assistant
 Provides context-sensitive help and documentation browsing
 """
 
@@ -56,7 +56,7 @@ class DocumentationLoader(QThread):
         """Build documentation structure from markdown files"""
         docs_data = {
             "metadata": {
-                "title": "Westfall Personal Assistant Documentation",
+                "title": "Westfall Assistant Documentation",
                 "version": "1.0.0",
                 "generated": "2025-09-08"
             },
@@ -559,9 +559,9 @@ class HelpSystemWidget(QWidget):
     def show_welcome_page(self):
         """Show welcome page when no index is available"""
         welcome_content = """
-        # Welcome to Westfall Personal Assistant Help
+        # Welcome to Westfall Assistant Help
         
-        This is the integrated help system for Westfall Personal Assistant.
+        This is the integrated help system for Westfall Assistant.
         
         ## Getting Started
         
