@@ -316,6 +316,80 @@ export default function BusinessDashboard() {
         </Grid>
       </Grid>
 
+      {/* Entrepreneur Enhancement Recommendations */}
+      <Card elevation={2} sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" component="h3" sx={{ color: 'white', fontWeight: 'bold' }}>
+              🚀 Growth Opportunities
+            </Typography>
+            <Chip 
+              label="AI-Powered" 
+              size="small" 
+              sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+            />
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  📦 Recommended Tailor Packs
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                  • <strong>Sales Pipeline Pro</strong> - Boost conversions by 25%
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                  • <strong>Marketing Automation</strong> - Save 10+ hours/week
+                </Typography>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  sx={{ 
+                    color: 'white', 
+                    borderColor: 'white',
+                    '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+                  }}
+                >
+                  Explore Packs
+                </Button>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  📈 Performance Insights
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                  • Customer acquisition cost decreased 12%
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                  • Revenue per customer increased $156
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  • Peak sales hours: 2-4 PM
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  🎯 Next Action Items
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                  • Schedule follow-up with 3 warm leads
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                  • Review and optimize top-performing campaigns
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  • Update pricing strategy based on market analysis
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
       <Grid container spacing={3}>
         {/* Monthly Goals */}
         <Grid item xs={12} md={6}>

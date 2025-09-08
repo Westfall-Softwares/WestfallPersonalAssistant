@@ -150,7 +150,8 @@ class AIChatWidget(QWidget):
         
         context = {
             "window": type(self.parent_window).__name__,
-            "data": {}
+            "data": {},
+            "business_context": self.get_business_context()
         }
         
         # Get window-specific context
@@ -159,10 +160,56 @@ class AIChatWidget(QWidget):
         
         return context
     
+    def get_business_context(self):
+        """Get entrepreneur and business context for AI responses"""
+        try:
+            # Get Tailor Pack information
+            from util.tailor_pack_manager import get_tailor_pack_manager
+            pack_manager = get_tailor_pack_manager()
+            active_packs = pack_manager.get_active_packs()
+            
+            # Get business profile if available
+            business_profile = {}
+            try:
+                from util.entrepreneur_config import get_entrepreneur_config
+                config = get_entrepreneur_config()
+                business_profile = {
+                    "business_name": config.business_profile.business_name,
+                    "business_type": config.business_profile.business_type,
+                    "industry": config.business_profile.industry
+                }
+            except:
+                pass
+            
+            return {
+                "user_type": "entrepreneur",
+                "active_tailor_packs": [{"name": pack.name, "category": pack.business_category} for pack in active_packs],
+                "business_profile": business_profile,
+                "available_tools": [
+                    "Business Dashboard", "CRM Manager", "Finance Tracker", 
+                    "Time Tracking", "KPI Monitoring", "Report Generation"
+                ],
+                "context_focus": "business_productivity_and_growth"
+            }
+        except Exception as e:
+            return {
+                "user_type": "entrepreneur",
+                "active_tailor_packs": [],
+                "business_profile": {},
+                "available_tools": [],
+                "context_focus": "business_productivity_and_growth"
+            }
+    
     def is_command(self, message):
+        # Enhanced command recognition for entrepreneurs
         command_keywords = [
             "send email", "add password", "create note", "schedule",
-            "add expense", "search", "open", "close", "show"
+            "add expense", "search", "open", "close", "show",
+            # Business-specific commands
+            "track revenue", "add customer", "create invoice", "schedule meeting",
+            "add task", "track time", "generate report", "analyze performance",
+            "show dashboard", "import pack", "install tailor pack",
+            "check kpis", "view pipeline", "export data"
         ]
         return any(keyword in message.lower() for keyword in command_keywords)
     

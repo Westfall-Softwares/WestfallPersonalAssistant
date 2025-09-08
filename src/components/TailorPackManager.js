@@ -58,6 +58,7 @@ export default function TailorPackManager() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
   const [importError, setImportError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     loadTailorPacks();
@@ -233,6 +234,58 @@ export default function TailorPackManager() {
     } catch (error) {
       alert('Export failed. Please try again.');
       console.error('Export error:', error);
+    }
+  };
+
+  // Enhanced drag-and-drop functionality for entrepreneur workflow
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = async (event) => {
+    event.preventDefault();
+    setDragOver(false);
+    
+    const files = Array.from(event.dataTransfer.files);
+    const zipFiles = files.filter(file => file.name.endsWith('.zip'));
+    
+    if (zipFiles.length === 0) {
+      setImportError('Please drop ZIP files containing Tailor Packs');
+      return;
+    }
+    
+    // Process the first ZIP file
+    const file = zipFiles[0];
+    await processFileImport(file);
+  };
+
+  const processFileImport = async (file) => {
+    const formData = new FormData();
+    formData.append('packFile', file);
+    
+    try {
+      const response = await fetch('/api/tailor-packs/import-file', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setInstalledPacks(packs => [...packs, result.pack]);
+        alert(`🚀 Successfully imported ${result.pack.name}! Your business assistant just got more powerful.`);
+      } else {
+        setImportError(result.error || 'Failed to import pack from file');
+      }
+    } catch (error) {
+      setImportError('File import failed. Please check the file and try again.');
+      console.error('File import error:', error);
     }
   };
 
@@ -469,24 +522,55 @@ export default function TailorPackManager() {
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box 
+      sx={{ width: '100%' }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          📦 Tailor Pack Manager
+        <Typography variant="h4" component="h1" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
+          🚀 Business Extension Manager
         </Typography>
         <Button
           variant="contained"
+          size="large"
           startIcon={<AddIcon />}
           onClick={() => setImportDialogOpen(true)}
+          sx={{ 
+            background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+            boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
+          }}
         >
-          Import Pack
+          Add Business Pack
         </Button>
       </Box>
 
-      <Alert severity="info" sx={{ mb: 3 }}>
+      {dragOver && (
+        <Card sx={{ 
+          mb: 3, 
+          p: 4, 
+          textAlign: 'center', 
+          backgroundColor: '#e3f2fd',
+          border: '2px dashed #2196f3'
+        }}>
+          <Typography variant="h6" color="primary">
+            📦 Drop your Tailor Pack ZIP file here to install
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Drag and drop makes installing business functionality fast and easy
+          </Typography>
+        </Card>
+      )}
+
+      <Alert severity="info" sx={{ mb: 3, backgroundColor: '#f8f9fa' }}>
         <Typography variant="body2">
-          <strong>Tailor Packs</strong> are specialized business functionality modules that extend your assistant with industry-specific tools and workflows. 
-          Install packs to add features like advanced CRM, marketing automation, financial planning, and more.
+          <strong>🎯 Business Tailor Packs</strong> are specialized functionality modules designed for entrepreneurs and small businesses. 
+          Each pack adds industry-specific tools, automations, and workflows to supercharge your business operations.
+          <br />
+          <strong>💡 Pro Tip:</strong> Start with Marketing Essentials or Sales Pipeline Pro for immediate productivity gains.
+        </Typography>
+      </Alert>
         </Typography>
       </Alert>
 
