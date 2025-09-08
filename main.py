@@ -891,15 +891,43 @@ class MainWindow(QMainWindow):
         dialog.exec_()
     
     def show_help(self):
-        """Show help documentation"""
-        QMessageBox.information(self, "Help", 
-            "Westfall Personal Assistant Help\n\n"
-            "• Use Ctrl+K to quickly search for features\n"
-            "• Press Ctrl+Space to open AI Assistant\n"
-            "• Press Ctrl+/ to see all keyboard shortcuts\n"
-            "• Click on any feature to open it\n"
-            "• Your data is encrypted and secure\n\n"
-            "For more help, ask the AI Assistant!")
+        """Show comprehensive help documentation"""
+        try:
+            from help_system import HelpSystemWidget
+            
+            # Create help dialog
+            dialog = QDialog(self)
+            dialog.setWindowTitle("📚 Help & Documentation")
+            dialog.setModal(False)
+            dialog.resize(1000, 700)
+            
+            layout = QVBoxLayout()
+            
+            # Add help system widget
+            help_system = HelpSystemWidget("docs")
+            layout.addWidget(help_system)
+            
+            # Close button
+            from PyQt5.QtWidgets import QDialogButtonBox
+            buttons = QDialogButtonBox(QDialogButtonBox.Close)
+            buttons.rejected.connect(dialog.accept)
+            layout.addWidget(buttons)
+            
+            dialog.setLayout(layout)
+            dialog.show()
+            
+        except ImportError:
+            # Fallback to simple help if help system isn't available
+            QMessageBox.information(self, "Help", 
+                "Westfall Personal Assistant Help\n\n"
+                "• Use Ctrl+K to quickly search for features\n"
+                "• Press Ctrl+Space to open AI Assistant\n"
+                "• Press Ctrl+/ to see all keyboard shortcuts\n"
+                "• Click on any feature to open it\n"
+                "• Your data is encrypted and secure\n\n"
+                "For more help, ask the AI Assistant!\n\n"
+                "📚 Full documentation available at:\n"
+                "https://github.com/Westfall-Softwares/WestfallPersonalAssistant/tree/main/docs")
     
     def toggle_dark_mode(self):
         """Toggle between light and dark mode"""
