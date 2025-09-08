@@ -29,12 +29,14 @@ import ScreenCapture from './components/ScreenCapture';
 import ThinkingModeSelector from './components/ThinkingModeSelector';
 import TailorPackManager from './components/TailorPackManager';
 import BusinessDashboard from './components/BusinessDashboard';
+import BusinessSetupWizard from './components/BusinessSetupWizard';
 
 const drawerWidth = 240;
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [modelStatus, setModelStatus] = useState('disconnected');
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [settings, setSettings] = useState({
     thinkingMode: 'normal',
     theme: 'dark',
@@ -60,6 +62,12 @@ function App() {
       window.electronAPI.getSettings().then(setSettings);
     }
 
+    // Check if business setup is needed
+    const businessSetup = localStorage.getItem('businessSetup');
+    if (!businessSetup) {
+      setShowSetupWizard(true);
+    }
+
     // Listen for IPC events
     if (window.electronAPI) {
       const handleOpenSettings = () => {
@@ -82,6 +90,23 @@ function App() {
     { id: 'screen', label: 'Screen Capture', icon: <ScreenshotIcon /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon /> }
   ];
+
+  const handleSetupComplete = (setupData) => {
+    console.log('Business setup completed:', setupData);
+    setShowSetupWizard(false);
+    // Could trigger welcome notifications, start trials, etc.
+  };
+
+  const handleSkipSetup = () => {
+    setShowSetupWizard(false);
+    // Mark setup as skipped so we don't show it again
+    localStorage.setItem('businessSetup', JSON.stringify({ skipped: true, skippedAt: new Date().toISOString() }));
+  };
+
+  // Show setup wizard if needed
+  if (showSetupWizard) {
+    return <BusinessSetupWizard onComplete={handleSetupComplete} onSkip={handleSkipSetup} />;
+  }
 
   const renderContent = () => {
     switch (currentView) {
