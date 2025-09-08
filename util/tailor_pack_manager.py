@@ -262,7 +262,7 @@ class TailorPackManager(MarketplaceManager):
         """Check if pack is compatible with current platform"""
         try:
             platform_manager = PlatformManager()
-            current_platform = platform_manager.platform_info
+            current_platform = platform_manager.info  # Fixed: use .info instead of .platform_info
             
             # Check supported platforms
             if 'supported_platforms' in platform_info:
