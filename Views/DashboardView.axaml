@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="WestfallPersonalAssistant.Views.DashboardView">
+    <Grid RowDefinitions="Auto,*">
+        <TextBlock Grid.Row="0" Text="Business Dashboard" 
+                 FontSize="24" Margin="10"/>
+        <StackPanel Grid.Row="1" Spacing="10" Margin="10">
+            <TextBlock Text="Welcome to Westfall Assistant - Entrepreneur Edition"
+                     FontSize="18"/>
+            <TextBlock Text="Your business management solution"
+                     FontSize="14"/>
+            <Button Content="Manage Tailor Packs" Margin="0,20,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>
