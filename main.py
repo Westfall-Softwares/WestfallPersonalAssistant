@@ -132,6 +132,7 @@ try:
     from util.api_gateway import get_api_gateway
     from util.tailor_pack_manager import get_tailor_pack_manager
     from util.tailor_pack_widget import TailorPackManagerWidget
+    from util.welcome_experience import show_welcome_if_needed
     ADVANCED_FEATURES_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Advanced features import error: {e}")
@@ -214,6 +215,9 @@ class MainWindow(QMainWindow):
         self.init_shortcuts()
         self.init_ai()
         self.apply_black_red_theme()
+        
+        # Show welcome experience for new users
+        QTimer.singleShot(1000, self.show_welcome_if_needed)  # Delay to ensure UI is ready
     
     def init_security(self):
         """Initialize security with master password"""
@@ -339,8 +343,8 @@ class MainWindow(QMainWindow):
         search_layout = QHBoxLayout()
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search features, type commands, or ask AI (prefix with 'ai:' or '?')... Press Ctrl+K")
-        self.search_input.setToolTip("Quick search: Type to find features | AI mode: Start with 'ai:' or '?' | Command palette: Ctrl+K")
+        self.search_input.setPlaceholderText("Search: 'revenue', 'customers', 'time' or ask AI with 'ai:' ... Press Ctrl+K")
+        self.search_input.setToolTip("Quick search: 'revenue', 'customers', 'time' | AI mode: 'ai: question' | Business shortcuts available")
         self.search_input.returnPressed.connect(self.handle_search)
         search_layout.addWidget(self.search_input)
         
@@ -436,7 +440,10 @@ class MainWindow(QMainWindow):
         
         # Status bar
         self.status_bar = self.statusBar()
-        self.status_bar.showMessage("Ready - Secure Mode Active | Press Ctrl+/ for shortcuts")
+        self.status_bar.showMessage("🚀 Entrepreneur Assistant Ready | Press Ctrl+K for quick search, Ctrl+Space for AI help")
+        
+        # Add business status widgets to status bar
+        self.init_business_status_bar()
         
         # Auto-lock timer
         self.lock_timer = QTimer()
@@ -794,6 +801,14 @@ class MainWindow(QMainWindow):
             }
         """)
     
+    def show_welcome_if_needed(self):
+        """Show welcome experience for new users"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            try:
+                show_welcome_if_needed(self)
+            except Exception as e:
+                print(f"Error showing welcome experience: {e}")
+    
     def init_tray(self):
         """Initialize system tray"""
         self.tray_icon = QSystemTrayIcon(self)
@@ -907,43 +922,261 @@ class MainWindow(QMainWindow):
         dialog.exec_()
     
     def show_help(self):
-        """Show comprehensive help documentation"""
+        """Show entrepreneur-focused help and tips"""
+        help_dialog = QDialog(self)
+        help_dialog.setWindowTitle("📚 Entrepreneur Assistant Help")
+        help_dialog.setGeometry(200, 200, 800, 600)
+        
+        layout = QVBoxLayout(help_dialog)
+        
+        # Create tab widget for different help sections
+        tabs = QTabWidget()
+        
+        # Quick Start tab
+        quick_start_tab = self.create_quick_start_help()
+        tabs.addTab(quick_start_tab, "🚀 Quick Start")
+        
+        # Business Features tab
+        business_tab = self.create_business_features_help()
+        tabs.addTab(business_tab, "💼 Business Features")
+        
+        # Tailor Packs tab
+        packs_tab = self.create_tailor_packs_help()
+        tabs.addTab(packs_tab, "📦 Tailor Packs")
+        
+        # Keyboard Shortcuts tab
+        shortcuts_tab = self.create_shortcuts_help()
+        tabs.addTab(shortcuts_tab, "⌨️ Shortcuts")
+        
+        layout.addWidget(tabs)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(help_dialog.accept)
+        layout.addWidget(close_btn)
+        
+        help_dialog.exec_()
+    
+    def create_quick_start_help(self):
+        """Create quick start help content"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        content = QTextEdit()
+        content.setReadOnly(True)
+        content.setHtml("""
+        <h2>🚀 Getting Started with Entrepreneur Assistant</h2>
+        
+        <h3>1. Set Up Your Business Profile</h3>
+        <p>Go to <b>Settings → Business Profile</b> to configure your business information. This personalizes your experience and enables better AI insights.</p>
+        
+        <h3>2. Explore Core Business Features</h3>
+        <ul>
+            <li><b>📊 Business Dashboard</b> - Your central hub for KPIs and metrics</li>
+            <li><b>🤝 CRM Manager</b> - Track customers and sales pipeline</li>
+            <li><b>💰 Finance Tracker</b> - Monitor revenue, expenses, and profitability</li>
+            <li><b>⏱️ Time Tracking</b> - Track billable hours and productivity</li>
+        </ul>
+        
+        <h3>3. Install Tailor Packs</h3>
+        <p>Use <b>📦 Tailor Packs</b> to extend functionality with industry-specific tools. Start with the Marketing Essentials pack.</p>
+        
+        <h3>4. Use Smart Search</h3>
+        <p>Type keywords like 'revenue', 'customers', or 'time' in the search bar, or ask the AI with 'ai: [your question]'.</p>
+        
+        <h3>5. Get AI Help</h3>
+        <p>Press <b>Ctrl+Space</b> or click the AI button to get intelligent assistance with business tasks and data analysis.</p>
+        """)
+        
+        layout.addWidget(content)
+        return widget
+    
+    def create_business_features_help(self):
+        """Create business features help content"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        content = QTextEdit()
+        content.setReadOnly(True)
+        content.setHtml("""
+        <h2>💼 Business Features Guide</h2>
+        
+        <h3>📊 Business Dashboard</h3>
+        <p>Your central command center for business metrics. Track revenue, growth, customer acquisition, and key performance indicators at a glance.</p>
+        
+        <h3>🤝 CRM Manager</h3>
+        <p>Manage customer relationships, track sales pipeline, log interactions, and never miss a follow-up. Integrates with email for automatic contact tracking.</p>
+        
+        <h3>💰 Finance Tracker</h3>
+        <p>Monitor cash flow, track expenses by category, manage invoices, and get profitability insights. Perfect for solo entrepreneurs and small businesses.</p>
+        
+        <h3>⏱️ Time Tracking</h3>
+        <p>Track billable hours by project, client, or task. Generate timesheets, analyze productivity patterns, and optimize your schedule.</p>
+        
+        <h3>📈 KPI Tracker</h3>
+        <p>Define and monitor key performance indicators specific to your business. Set targets and track progress toward your goals.</p>
+        
+        <h3>📄 Report Generator</h3>
+        <p>Create professional business reports with charts and insights. Perfect for investor updates, performance reviews, and business planning.</p>
+        
+        <h3>🔐 Security Features</h3>
+        <p>All your business data is encrypted and stored locally. Set up automatic backups and control access to sensitive information.</p>
+        """)
+        
+        layout.addWidget(content)
+        return widget
+    
+    def create_tailor_packs_help(self):
+        """Create Tailor Packs help content"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        content = QTextEdit()
+        content.setReadOnly(True)
+        content.setHtml("""
+        <h2>📦 Tailor Packs System</h2>
+        
+        <h3>What are Tailor Packs?</h3>
+        <p>Tailor Packs are specialized business functionality modules that extend your assistant with industry-specific tools and workflows.</p>
+        
+        <h3>Available Pack Categories</h3>
+        <ul>
+            <li><b>Marketing Packs</b> - Campaign tracking, social media management, lead generation</li>
+            <li><b>Sales Packs</b> - Sales pipeline, proposal generation, customer onboarding</li>
+            <li><b>Finance Packs</b> - Advanced accounting, tax preparation, financial planning</li>
+            <li><b>Operations Packs</b> - Project management, team collaboration, workflow automation</li>
+            <li><b>Industry Packs</b> - Specialized tools for specific industries (legal, medical, real estate, etc.)</li>
+        </ul>
+        
+        <h3>Installing Packs</h3>
+        <ol>
+            <li>Click <b>📦 Tailor Packs</b> in the main menu</li>
+            <li>Click <b>Import Pack</b> to install from a ZIP file</li>
+            <li>Or browse the marketplace for available packs</li>
+            <li>Enable/disable packs as needed</li>
+        </ol>
+        
+        <h3>Trial Licenses</h3>
+        <p>Most premium packs offer 30-day free trials. You can start a trial directly from the pack manager.</p>
+        
+        <h3>Creating Custom Packs</h3>
+        <p>Developers can create custom Tailor Packs using our SDK. Contact support for development resources.</p>
+        """)
+        
+        layout.addWidget(content)
+        return widget
+    
+    def create_shortcuts_help(self):
+        """Create keyboard shortcuts help content"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        content = QTextEdit()
+        content.setReadOnly(True)
+        content.setHtml("""
+        <h2>⌨️ Keyboard Shortcuts</h2>
+        
+        <h3>🚀 Quick Access</h3>
+        <table border="1" style="border-collapse: collapse; width: 100%;">
+        <tr><th>Shortcut</th><th>Action</th></tr>
+        <tr><td><b>Ctrl+Space</b></td><td>Open AI Assistant</td></tr>
+        <tr><td><b>Ctrl+K</b></td><td>Focus search bar</td></tr>
+        <tr><td><b>Ctrl+Alt+T</b></td><td>Open Tailor Pack Manager</td></tr>
+        <tr><td><b>F1</b></td><td>Show this help</td></tr>
+        </table>
+        
+        <h3>💼 Business Features</h3>
+        <table border="1" style="border-collapse: collapse; width: 100%;">
+        <tr><th>Shortcut</th><th>Action</th></tr>
+        <tr><td><b>Ctrl+Shift+B</b></td><td>Business Dashboard</td></tr>
+        <tr><td><b>Ctrl+Shift+M</b></td><td>CRM Manager</td></tr>
+        <tr><td><b>Ctrl+Shift+F</b></td><td>Finance Tracker</td></tr>
+        <tr><td><b>Ctrl+Shift+T</b></td><td>Time Tracking</td></tr>
+        <tr><td><b>Ctrl+Shift+K</b></td><td>KPI Tracker</td></tr>
+        <tr><td><b>Ctrl+Shift+R</b></td><td>Report Generator</td></tr>
+        </table>
+        
+        <h3>📝 Productivity</h3>
+        <table border="1" style="border-collapse: collapse; width: 100%;">
+        <tr><th>Shortcut</th><th>Action</th></tr>
+        <tr><td><b>Ctrl+E</b></td><td>Email</td></tr>
+        <tr><td><b>Ctrl+N</b></td><td>Notes</td></tr>
+        <tr><td><b>Ctrl+T</b></td><td>Todo List</td></tr>
+        <tr><td><b>Ctrl+Shift+D</b></td><td>Calendar</td></tr>
+        <tr><td><b>Ctrl+Shift+O</b></td><td>Contacts</td></tr>
+        </table>
+        
+        <h3>🔧 System</h3>
+        <table border="1" style="border-collapse: collapse; width: 100%;">
+        <tr><th>Shortcut</th><th>Action</th></tr>
+        <tr><td><b>Ctrl+,</b></td><td>Settings</td></tr>
+        <tr><td><b>Ctrl+D</b></td><td>Toggle dark mode</td></tr>
+        <tr><td><b>F11</b></td><td>Toggle fullscreen</td></tr>
+        </table>
+        """)
+        
+        layout.addWidget(content)
+        return widget
+    
+    def init_business_status_bar(self):
+        """Initialize business-focused status bar widgets"""
+        # Add permanent widgets to status bar
+        
+        # Tailor Packs status
+        self.packs_status = QLabel("📦 Packs: Loading...")
+        self.packs_status.setStyleSheet("color: #666; margin: 0 10px;")
+        self.status_bar.addPermanentWidget(self.packs_status)
+        
+        # Business profile status
+        self.profile_status = QLabel("👤 Profile: Not Set")
+        self.profile_status.setStyleSheet("color: #666; margin: 0 10px;")
+        self.status_bar.addPermanentWidget(self.profile_status)
+        
+        # Update status
+        QTimer.singleShot(2000, self.update_business_status)
+    
+    def update_business_status(self):
+        """Update business status indicators"""
         try:
-            from help_system import HelpSystemWidget
+            # Update Tailor Packs status
+            if ADVANCED_FEATURES_AVAILABLE:
+                pack_manager = get_tailor_pack_manager()
+                active_packs = pack_manager.get_active_packs()
+                self.packs_status.setText(f"📦 Packs: {len(active_packs)} active")
+                
+                if len(active_packs) == 0:
+                    self.packs_status.setStyleSheet("color: #ff6600; margin: 0 10px;")
+                    self.packs_status.setToolTip("No Tailor Packs active. Click to browse available packs.")
+                    self.packs_status.mousePressEvent = lambda e: self.open_tailor_pack_manager()
+                else:
+                    self.packs_status.setStyleSheet("color: #4CAF50; margin: 0 10px;")
+                    pack_names = [p.name for p in active_packs[:3]]
+                    tooltip = "Active packs: " + ", ".join(pack_names)
+                    if len(active_packs) > 3:
+                        tooltip += f" (+{len(active_packs) - 3} more)"
+                    self.packs_status.setToolTip(tooltip)
             
-            # Create help dialog
-            dialog = QDialog(self)
-            dialog.setWindowTitle("📚 Help & Documentation")
-            dialog.setModal(False)
-            dialog.resize(1000, 700)
-            
-            layout = QVBoxLayout()
-            
-            # Add help system widget
-            help_system = HelpSystemWidget("docs")
-            layout.addWidget(help_system)
-            
-            # Close button
-            from PyQt5.QtWidgets import QDialogButtonBox
-            buttons = QDialogButtonBox(QDialogButtonBox.Close)
-            buttons.rejected.connect(dialog.accept)
-            layout.addWidget(buttons)
-            
-            dialog.setLayout(layout)
-            dialog.show()
-            
-        except ImportError:
-            # Fallback to simple help if help system isn't available
-            QMessageBox.information(self, "Help", 
-                "Westfall Personal Assistant Help\n\n"
-                "• Use Ctrl+K to quickly search for features\n"
-                "• Press Ctrl+Space to open AI Assistant\n"
-                "• Press Ctrl+/ to see all keyboard shortcuts\n"
-                "• Click on any feature to open it\n"
-                "• Your data is encrypted and secure\n\n"
-                "For more help, ask the AI Assistant!\n\n"
-                "📚 Full documentation available at:\n"
-                "https://github.com/Westfall-Softwares/WestfallPersonalAssistant/tree/main/docs")
+            # Update business profile status
+            try:
+                from util.entrepreneur_config import get_entrepreneur_config
+                config = get_entrepreneur_config()
+                if config.business_profile.business_name:
+                    business_name = config.business_profile.business_name
+                    if len(business_name) > 15:
+                        business_name = business_name[:12] + "..."
+                    self.profile_status.setText(f"👤 {business_name}")
+                    self.profile_status.setStyleSheet("color: #4CAF50; margin: 0 10px;")
+                    self.profile_status.setToolTip(f"Business: {config.business_profile.business_name}\nType: {config.business_profile.business_type}")
+                else:
+                    self.profile_status.setText("👤 Profile: Not Set")
+                    self.profile_status.setStyleSheet("color: #ff6600; margin: 0 10px;")
+                    self.profile_status.setToolTip("Click to set up your business profile")
+                    self.profile_status.mousePressEvent = lambda e: self.open_settings()
+            except:
+                pass
+                
+        except Exception as e:
+            print(f"Error updating business status: {e}")
     
     def toggle_dark_mode(self):
         """Toggle between light and dark mode"""
@@ -1071,29 +1304,135 @@ class MainWindow(QMainWindow):
     def handle_search(self):
         query = self.search_input.text()
         if query.startswith("ai:") or query.startswith("?"):
-            # Send to AI
+            # Send to AI with business context
             if not self.ai_chat.isVisible():
                 self.ai_chat.show()
-            self.ai_chat.input_field.setText(query.lstrip("ai:").lstrip("?").strip())
+            
+            # Add business context to AI queries
+            business_query = self.enhance_ai_query(query.lstrip("ai:").lstrip("?").strip())
+            self.ai_chat.input_field.setText(business_query)
             self.ai_chat.send_message()
             self.search_input.clear()
         else:
-            # Search features
+            # Enhanced business-focused search
             self.search_features(query)
     
+    def enhance_ai_query(self, query):
+        """Enhance AI queries with business context"""
+        # Add business context for common entrepreneur queries
+        business_enhancements = {
+            "revenue": "Show me business revenue analysis and trends",
+            "customers": "Help me analyze customer data and relationships",
+            "marketing": "Provide marketing strategy and campaign insights",
+            "productivity": "Suggest productivity improvements for my business",
+            "growth": "Analyze business growth opportunities and metrics",
+            "expenses": "Help me understand business expenses and cost optimization"
+        }
+        
+        query_lower = query.lower()
+        for keyword, enhancement in business_enhancements.items():
+            if keyword in query_lower:
+                return f"{enhancement}: {query}"
+        
+        # Add general business context
+        return f"As an entrepreneur assistant, help with: {query}"
+    
     def search_features(self, query):
-        """Search and open features"""
+        """Enhanced search with business shortcuts and suggestions"""
         query_lower = query.lower()
         
+        # Business quick actions
+        business_shortcuts = {
+            "revenue": self.open_finance,
+            "income": self.open_finance,
+            "expenses": self.open_finance,
+            "profit": self.open_finance,
+            "customers": self.open_crm_manager,
+            "crm": self.open_crm_manager,
+            "leads": self.open_crm_manager,
+            "sales": self.open_crm_manager,
+            "time": self.open_time_tracking,
+            "hours": self.open_time_tracking,
+            "billable": self.open_time_tracking,
+            "kpi": self.open_kpi_tracker,
+            "metrics": self.open_business_dashboard,
+            "dashboard": self.open_business_dashboard,
+            "reports": self.open_report_generator,
+            "packs": self.open_tailor_pack_manager,
+            "extensions": self.open_tailor_pack_manager,
+            "marketing": lambda: self.show_marketing_suggestions(),
+            "automation": lambda: self.show_automation_suggestions()
+        }
+        
+        # Check business shortcuts first
+        for keyword, action in business_shortcuts.items():
+            if keyword in query_lower:
+                action()
+                self.search_input.clear()
+                self.status_bar.showMessage(f"Opened {keyword} tools")
+                return
+        
+        # Standard feature search
         for name, callback, _, _ in self.features:
             clean_name = name.split(' ', 1)[1].lower() if ' ' in name else name.lower()
             if query_lower in clean_name:
                 callback()
                 self.search_input.clear()
                 self.status_bar.showMessage(f"Opened {name}")
-                break
-        else:
-            self.status_bar.showMessage(f"No feature found for '{query}'")
+                return
+        
+        # No match found - show suggestions
+        self.show_search_suggestions(query)
+    
+    def show_marketing_suggestions(self):
+        """Show marketing-related suggestions"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Marketing Tools")
+        msg.setText("Marketing functionality is available through Tailor Packs!")
+        msg.setInformativeText("Install the Marketing Essentials pack for campaign tracking, social media management, and lead generation tools.")
+        
+        install_btn = msg.addButton("Install Marketing Pack", QMessageBox.ActionRole)
+        browse_btn = msg.addButton("Browse Packs", QMessageBox.ActionRole)
+        cancel_btn = msg.addButton("Cancel", QMessageBox.RejectRole)
+        
+        result = msg.exec_()
+        
+        if msg.clickedButton() == install_btn:
+            self.open_tailor_pack_manager()
+        elif msg.clickedButton() == browse_btn:
+            self.open_marketplace()
+    
+    def show_automation_suggestions(self):
+        """Show automation-related suggestions"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Automation Tools")
+        msg.setText("Automation features are available through specialized Tailor Packs!")
+        msg.setInformativeText("Install workflow packs for email automation, social media scheduling, and business process automation.")
+        
+        browse_btn = msg.addButton("Browse Automation Packs", QMessageBox.ActionRole)
+        cancel_btn = msg.addButton("Cancel", QMessageBox.RejectRole)
+        
+        result = msg.exec_()
+        
+        if msg.clickedButton() == browse_btn:
+            self.open_tailor_pack_manager()
+    
+    def show_search_suggestions(self, query):
+        """Show search suggestions when no direct match is found"""
+        suggestions = [
+            "💰 Try: 'revenue', 'income', 'expenses' for financial tools",
+            "👥 Try: 'customers', 'crm', 'leads' for customer management",
+            "⏱️ Try: 'time', 'hours', 'billable' for time tracking",
+            "📊 Try: 'dashboard', 'metrics', 'kpi' for business insights",
+            "📦 Try: 'packs', 'marketing', 'automation' for extensions",
+            "🤖 Try: 'ai: [question]' for AI assistance"
+        ]
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Search Suggestions")
+        msg.setText(f"No direct match found for '{query}'")
+        msg.setInformativeText("Here are some suggestions:\n\n" + "\n".join(suggestions))
+        msg.exec_()
     
     def toggle_ai_chat(self):
         if self.ai_chat.isVisible():
