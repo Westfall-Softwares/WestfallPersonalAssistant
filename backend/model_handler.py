@@ -7,6 +7,7 @@ This module provides unified interfaces for different model types:
 - Other formats as needed
 
 Optimized for RTX 2060 with smart GPU layer offloading.
+Enhanced with security features for model verification and validation.
 """
 
 import logging
@@ -15,6 +16,14 @@ import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, Union
 import asyncio
+
+# Import security manager
+try:
+    from .security.model_security import ModelSecurityManager
+    SECURITY_AVAILABLE = True
+except ImportError:
+    SECURITY_AVAILABLE = False
+    print("Warning: Model security features not available")
 
 logger = logging.getLogger(__name__)
 
@@ -280,9 +289,19 @@ class TransformersModel(BaseModel):
 class ModelManager:
     """Manages different model types and provides unified interface"""
     
-    def __init__(self):
+    def __init__(self, config_dir: str = None):
         self.current_model: Optional[BaseModel] = None
         self.config = ModelConfig()
+        self.config_dir = config_dir or os.path.expanduser("~/.westfall_assistant")
+        
+        # Initialize security manager if available
+        self.security_manager = None
+        if SECURITY_AVAILABLE:
+            try:
+                self.security_manager = ModelSecurityManager(self.config_dir)
+                logger.info("Model security manager initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize model security: {e}")
     
     def detect_model_type(self, model_path: str) -> str:
         """Detect model type from file extension"""
@@ -296,23 +315,84 @@ class ModelManager:
         else:
             return 'unknown'
     
-    def load_model(self, model_path: str) -> bool:
-        """Load a model automatically detecting its type"""
+    def validate_model_security(self, model_path: str, source_url: str = None, 
+                               publisher: str = None, expected_checksum: str = None) -> Dict:
+        """Validate model security before loading."""
+        if not self.security_manager:
+            logger.warning("Security manager not available, skipping validation")
+            return {"valid": True, "warnings": ["Security validation disabled"]}
+        
+        try:
+            return self.security_manager.validate_model_before_load(
+                model_path, source_url, publisher, expected_checksum
+            )
+        except Exception as e:
+            logger.error(f"Security validation error: {e}")
+            return {"valid": False, "errors": [f"Security validation failed: {e}"]}
+    
+    def load_model(self, model_path: str, source_url: str = None, 
+                   publisher: str = None, expected_checksum: str = None, 
+                   force_load: bool = False) -> Dict:
+        """Load a model with security validation"""
+        result = {"success": False, "message": "", "security_status": {}}
+        
+        # Validate security first unless forced
+        if not force_load:
+            security_result = self.validate_model_security(
+                model_path, source_url, publisher, expected_checksum
+            )
+            result["security_status"] = security_result
+            
+            if not security_result["valid"]:
+                result["message"] = f"Security validation failed: {'; '.join(security_result.get('errors', []))}"
+                logger.error(result["message"])
+                return result
+            
+            # Log warnings but continue
+            for warning in security_result.get("warnings", []):
+                logger.warning(f"Security warning: {warning}")
+        
         # Unload current model if any
         if self.current_model:
             self.unload_model()
         
         model_type = self.detect_model_type(model_path)
         
-        if model_type == 'llama_cpp' and LLAMA_CPP_AVAILABLE:
-            self.current_model = LlamaCppModel(model_path, self.config)
-        elif model_type == 'transformers' and TRANSFORMERS_AVAILABLE:
-            self.current_model = TransformersModel(model_path, self.config)
-        else:
-            logger.error(f"Unsupported model type or dependencies not available: {model_type}")
-            return False
+        try:
+            if model_type == 'llama_cpp' and LLAMA_CPP_AVAILABLE:
+                self.current_model = LlamaCppModel(model_path, self.config)
+            elif model_type == 'transformers' and TRANSFORMERS_AVAILABLE:
+                self.current_model = TransformersModel(model_path, self.config)
+            else:
+                result["message"] = f"Unsupported model type or dependencies not available: {model_type}"
+                logger.error(result["message"])
+                return result
+            
+            # Load the model
+            if self.current_model.load():
+                result["success"] = True
+                result["message"] = f"Model loaded successfully: {Path(model_path).name}"
+                
+                # Store checksum for future reference if security manager is available
+                if self.security_manager and not expected_checksum:
+                    try:
+                        checksum = self.security_manager.calculate_file_checksum(model_path)
+                        self.security_manager.store_model_checksum(
+                            Path(model_path).name, checksum, source_url
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to store model checksum: {e}")
+                
+                logger.info(result["message"])
+            else:
+                result["message"] = "Failed to load model"
+                logger.error(result["message"])
         
-        return self.current_model.load()
+        except Exception as e:
+            result["message"] = f"Error loading model: {e}"
+            logger.error(result["message"])
+        
+        return result
     
     def unload_model(self):
         """Unload the current model"""
@@ -340,7 +420,56 @@ class ModelManager:
                 "temperature": self.config.temperature
             }
         })
+        
+        # Add security information if available
+        if self.security_manager:
+            try:
+                model_path = self.current_model.model_path
+                model_name = Path(model_path).name
+                
+                # Get stored checksum
+                checksum_info = self.security_manager.model_checksums.get(model_name)
+                if checksum_info:
+                    info["security"] = {
+                        "checksum_verified": True,
+                        "stored_at": checksum_info.get("stored_at"),
+                        "source_url": checksum_info.get("source_url")
+                    }
+                
+                # Get security status
+                security_status = self.security_manager.get_security_status()
+                info["security_manager"] = security_status
+                
+            except Exception as e:
+                logger.warning(f"Failed to get security info: {e}")
+        
         return info
+    
+    def get_security_status(self) -> Dict:
+        """Get security manager status."""
+        if not self.security_manager:
+            return {"available": False, "message": "Security manager not initialized"}
+        
+        try:
+            status = self.security_manager.get_security_status()
+            status["available"] = True
+            return status
+        except Exception as e:
+            return {"available": False, "error": str(e)}
+    
+    def add_trusted_source(self, domain: str, require_signature: bool = False, 
+                          trusted_publishers: list = None) -> bool:
+        """Add a trusted model source."""
+        if not self.security_manager:
+            logger.warning("Security manager not available")
+            return False
+        
+        try:
+            self.security_manager.add_trusted_source(domain, require_signature, trusted_publishers)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add trusted source: {e}")
+            return False
     
     def update_config(self, **kwargs):
         """Update model configuration"""
