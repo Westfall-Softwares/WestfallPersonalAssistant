@@ -290,3 +290,129 @@ class BackupManager:
             
         except Exception as e:
             return {"valid": False, "error": str(e)}
+    
+    def schedule_automatic_backup(self, hour: int = 2, minute: int = 0):
+        """Schedule automatic daily backup."""
+        try:
+            import schedule
+            
+            schedule.every().day.at(f"{hour:02d}:{minute:02d}").do(self._scheduled_backup)
+            logger.info(f"Scheduled automatic backup for {hour:02d}:{minute:02d}")
+            
+        except ImportError:
+            logger.warning("schedule library not available - using simple timer")
+            # Fallback to simple timer
+            import threading
+            import time
+            
+            def backup_timer():
+                while not self.stop_backup:
+                    # Calculate time until next backup
+                    now = datetime.now()
+                    next_backup = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                    if next_backup <= now:
+                        next_backup += timedelta(days=1)
+                    
+                    sleep_seconds = (next_backup - now).total_seconds()
+                    time.sleep(min(sleep_seconds, 3600))  # Check every hour max
+                    
+                    if not self.stop_backup:
+                        self._scheduled_backup()
+            
+            backup_thread = threading.Thread(target=backup_timer, daemon=True)
+            backup_thread.start()
+    
+    def _scheduled_backup(self):
+        """Perform scheduled backup."""
+        try:
+            backup_name = f"scheduled_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            self.create_backup(backup_name)
+            self.cleanup_old_backups()
+            logger.info("Scheduled backup completed successfully")
+        except Exception as e:
+            logger.error(f"Scheduled backup failed: {e}")
+    
+    def create_cloud_backup(self, backup_name: str = None, cloud_provider: str = "local") -> str:
+        """Create an encrypted backup for cloud storage."""
+        if backup_name is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"cloud_backup_{timestamp}"
+        
+        try:
+            # Create local encrypted backup first
+            local_backup_path = self.create_backup(backup_name)
+            
+            if cloud_provider == "local":
+                return local_backup_path
+            
+            # TODO: Implement actual cloud providers (AWS S3, Google Cloud, etc.)
+            # For now, just return the local path
+            logger.info(f"Cloud backup created locally: {local_backup_path}")
+            return local_backup_path
+            
+        except Exception as e:
+            logger.error(f"Failed to create cloud backup: {e}")
+            raise
+    
+    def export_backup_manifest(self) -> Dict:
+        """Export a manifest of all backups for external tracking."""
+        backups = self.list_backups()
+        
+        manifest = {
+            "manifest_version": "1.0",
+            "created_at": datetime.now().isoformat(),
+            "backup_directory": str(self.backup_dir),
+            "total_backups": len(backups),
+            "backups": []
+        }
+        
+        for backup in backups:
+            manifest["backups"].append({
+                "name": backup["name"],
+                "created_at": backup["created_at"],
+                "size_bytes": backup["size"],
+                "encrypted": backup.get("encrypted", True),
+                "path": backup["path"]
+            })
+        
+        manifest_path = self.backup_dir / "backup_manifest.json"
+        try:
+            with open(manifest_path, 'w') as f:
+                json.dump(manifest, f, indent=2)
+            
+            logger.info(f"Backup manifest exported to {manifest_path}")
+            return manifest
+            
+        except Exception as e:
+            logger.error(f"Failed to export backup manifest: {e}")
+            raise
+    
+    def import_backup_manifest(self, manifest_path: Union[str, Path]) -> bool:
+        """Import and validate backup manifest."""
+        try:
+            with open(manifest_path, 'r') as f:
+                manifest = json.load(f)
+            
+            # Validate manifest structure
+            required_fields = ["manifest_version", "created_at", "backups"]
+            for field in required_fields:
+                if field not in manifest:
+                    raise ValueError(f"Missing required field: {field}")
+            
+            # Validate each backup entry exists
+            missing_backups = []
+            for backup_entry in manifest["backups"]:
+                backup_path = Path(backup_entry["path"])
+                if not backup_path.exists():
+                    missing_backups.append(backup_entry["name"])
+            
+            if missing_backups:
+                logger.warning(f"Missing backup files: {missing_backups}")
+                return False
+            
+            logger.info(f"Backup manifest validated successfully: {len(manifest['backups'])} backups")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to import backup manifest: {e}")
+            return False

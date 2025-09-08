@@ -7,6 +7,7 @@ import sys
 import tempfile
 import os
 import time
+import json
 from pathlib import Path
 
 def test_model_security():
@@ -208,6 +209,131 @@ def test_platform_compatibility():
         traceback.print_exc()
         raise
 
+def test_ai_integration():
+    """Test AI integration features."""
+    print("Testing AI Integration...")
+    try:
+        from backend.ai_integration import DocumentChunker, SlidingWindowManager, PriorityRAG, QueryPlanner, AICapabilityDetector
+        
+        # Test document chunking
+        chunker = DocumentChunker(chunk_size=100, overlap=20)
+        test_text = "This is a test document. It has multiple sentences. Each sentence should be processed correctly. The chunker should handle this properly."
+        
+        chunks = chunker.chunk_by_sentences(test_text, max_chunk_size=50)
+        assert len(chunks) > 1, f"Expected multiple chunks, got {len(chunks)}"
+        assert all(chunk.content.strip() for chunk in chunks), "All chunks should have content"
+        
+        # Test sliding window context
+        context_manager = SlidingWindowManager(window_size=1000, max_context_tokens=2000)
+        context_manager.add_context("Hello, how are you?", "user")
+        context_manager.add_context("I'm doing well, thank you!", "assistant")
+        
+        context_window = context_manager.get_context_window()
+        assert "Hello, how are you?" in context_window, "Context should contain user message"
+        assert "I'm doing well, thank you!" in context_window, "Context should contain assistant message"
+        
+        # Test Priority RAG
+        rag = PriorityRAG(max_results=5)
+        rag.add_document("doc1", chunks, metadata={"type": "test"})
+        
+        results = rag.retrieve("test document", max_results=3)
+        assert len(results) <= 3, f"Expected max 3 results, got {len(results)}"
+        assert all(isinstance(result, tuple) and len(result) == 2 for result in results), "Results should be (chunk, score) tuples"
+        
+        # Test Query Planner
+        planner = QueryPlanner()
+        plan_id = planner.create_query_plan("What is the weather like?")
+        assert plan_id.startswith("plan_"), f"Plan ID should start with 'plan_', got {plan_id}"
+        
+        plan_status = planner.get_plan_status(plan_id)
+        assert plan_status['status'] in ['created', 'executing', 'completed'], f"Invalid plan status: {plan_status['status']}"
+        
+        # Test AI Capability Detector
+        detector = AICapabilityDetector()
+        capabilities = detector.detect_capabilities()
+        assert isinstance(capabilities, dict), "Capabilities should be a dictionary"
+        assert 'text_generation' in capabilities, "Should detect text generation capability"
+        
+        print("✅ AI integration tests passed")
+        
+    except Exception as e:
+        print(f"❌ AI integration tests failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+def test_data_migration():
+    """Test data migration system."""
+    print("Testing Data Migration...")
+    try:
+        # Import directly to avoid sqlalchemy dependency
+        sys.path.append('backend/database')
+        from migration_system import SchemaVersionManager, Migration, MigrationType, ConfigurationUpgrader
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create test database
+            db_path = os.path.join(temp_dir, "test.db")
+            migrations_dir = os.path.join(temp_dir, "migrations")
+            
+            # Initialize schema manager
+            schema_manager = SchemaVersionManager(db_path, migrations_dir)
+            
+            # Test migration creation
+            version = schema_manager.create_migration(
+                name="Add test table",
+                description="Create a test table for migration testing",
+                migration_type=MigrationType.SCHEMA_CHANGE,
+                up_sql="CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+                down_sql="DROP TABLE IF EXISTS test_table"
+            )
+            
+            assert version.startswith("20"), f"Version should be timestamp-based, got {version}"
+            
+            # Test migration application
+            success = schema_manager.apply_migration(version)
+            assert success, "Migration should apply successfully"
+            
+            current_version = schema_manager.get_current_version()
+            assert current_version == version, f"Current version should be {version}, got {current_version}"
+            
+            # Test rollback
+            rollback_success = schema_manager.rollback_migration(version)
+            assert rollback_success, "Migration rollback should succeed"
+            
+            # Test configuration upgrader
+            config_upgrader = ConfigurationUpgrader(temp_dir)
+            
+            # Create test config file
+            test_config = {"version": "1.0.0", "setting1": "value1"}
+            config_path = Path(temp_dir) / "test_config.json"
+            with open(config_path, 'w') as f:
+                json.dump(test_config, f)
+            
+            # Register upgrade handler
+            def upgrade_1_0_to_2_0(config_data):
+                config_data["setting2"] = "new_value"
+                return config_data
+            
+            config_upgrader.register_upgrade_handler("1.0.0", "2.0.0", upgrade_1_0_to_2_0)
+            
+            # Test config upgrade
+            upgrade_success = config_upgrader.upgrade_config_file(config_path, "2.0.0")
+            assert upgrade_success, "Config upgrade should succeed"
+            
+            with open(config_path, 'r') as f:
+                upgraded_config = json.load(f)
+            
+            assert upgraded_config["version"] == "2.0.0", "Config version should be updated"
+            assert "setting2" in upgraded_config, "New setting should be added"
+            
+        print("✅ Data migration tests passed")
+        
+    except Exception as e:
+        print(f"❌ Data migration tests failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
 def test_enhanced_threading():
     """Test enhanced threading capabilities."""
     print("Testing Enhanced Threading...")
@@ -265,6 +391,8 @@ def main():
         test_memory_management,
         test_platform_compatibility,
         test_enhanced_threading,
+        test_ai_integration,
+        test_data_migration,
         test_model_security,
     ]
     
