@@ -124,6 +124,17 @@ try:
 except ImportError:
     DEPENDENCY_MANAGER_AVAILABLE = False
 
+# Import advanced features
+try:
+    from util.voice_control import get_voice_manager
+    from util.marketplace_manager import get_marketplace_manager
+    from util.template_exchange import get_template_manager
+    from util.api_gateway import get_api_gateway
+    ADVANCED_FEATURES_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Advanced features import error: {e}")
+    ADVANCED_FEATURES_AVAILABLE = False
+
 # Handle screen intelligence imports
 try:
     from screen_intelligence.enhanced_screen_intelligence import ScreenIntelligenceWidget, EnhancedScreenIntelligence
@@ -371,6 +382,11 @@ class MainWindow(QMainWindow):
             ("📈 KPI Tracker", self.open_kpi_tracker, "Track key performance indicators", "Ctrl+Shift+K"),
             ("📄 Report Generator", self.open_report_generator, "Generate business reports", "Ctrl+Shift+R"),
             ("🤝 CRM Manager", self.open_crm_manager, "Customer relationship management", "Ctrl+Shift+M"),
+            # Advanced Features (Phase 1)
+            ("🎤 Voice Control", self.open_voice_control, "Voice commands and recognition", "Ctrl+V"),
+            ("🛍️ Extensions", self.open_marketplace, "Browse and install extensions", "Ctrl+X"),
+            ("📋 Templates", self.open_templates, "Manage document templates", "Ctrl+J"),
+            ("🌐 API Gateway", self.open_api_gateway, "Monitor API connections", "Ctrl+G"),
         ]
         
         positions = [(i, j) for i in range(7) for j in range(3)]
@@ -1236,6 +1252,56 @@ class MainWindow(QMainWindow):
         self.windows['crm_manager'].show()
         self.windows['crm_manager'].raise_()
         self.windows['crm_manager'].activateWindow()
+    
+    # Advanced Features Methods
+    def open_voice_control(self):
+        """Open voice control interface"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            if 'voice_control' not in self.windows:
+                self.windows['voice_control'] = VoiceControlWidget()
+            self.windows['voice_control'].show()
+            self.windows['voice_control'].raise_()
+            self.windows['voice_control'].activateWindow()
+        else:
+            QMessageBox.information(self, "Advanced Features", 
+                                  "Voice control requires additional dependencies.\n"
+                                  "Please install: speech_recognition, pyttsx3")
+    
+    def open_marketplace(self):
+        """Open extension marketplace"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            if 'marketplace' not in self.windows:
+                self.windows['marketplace'] = MarketplaceWidget()
+            self.windows['marketplace'].show()
+            self.windows['marketplace'].raise_()
+            self.windows['marketplace'].activateWindow()
+        else:
+            QMessageBox.information(self, "Advanced Features", 
+                                  "Extension marketplace is not available.")
+    
+    def open_templates(self):
+        """Open template exchange"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            if 'templates' not in self.windows:
+                self.windows['templates'] = TemplateWidget()
+            self.windows['templates'].show()
+            self.windows['templates'].raise_()
+            self.windows['templates'].activateWindow()
+        else:
+            QMessageBox.information(self, "Advanced Features", 
+                                  "Template exchange is not available.")
+    
+    def open_api_gateway(self):
+        """Open API gateway monitor"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            if 'api_gateway' not in self.windows:
+                self.windows['api_gateway'] = APIGatewayWidget()
+            self.windows['api_gateway'].show()
+            self.windows['api_gateway'].raise_()
+            self.windows['api_gateway'].activateWindow()
+        else:
+            QMessageBox.information(self, "Advanced Features", 
+                                  "API gateway monitoring is not available.")
         self.ai_chat.parent_window = self.windows['crm_manager']
         self.status_bar.showMessage("CRM Manager opened - Manage customer relationships & sales pipeline")
     
@@ -1427,6 +1493,582 @@ class SettingsWidget(QWidget):
         else:
             layout.addWidget(self.settings_window)
         self.setLayout(layout)
+
+
+# Advanced Features Widget Classes
+class VoiceControlWidget(QWidget):
+    """Widget for voice control interface"""
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Voice Control System")
+        self.setFixedSize(800, 600)
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("🎤 Voice Control System")
+        title.setStyleSheet("font-size: 24px; color: #ff0000; font-weight: bold; padding: 20px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        if not ADVANCED_FEATURES_AVAILABLE:
+            error_label = QLabel("Advanced features not available. Please install required dependencies.")
+            error_label.setStyleSheet("color: #ff6666; font-size: 16px; padding: 20px;")
+            error_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(error_label)
+            self.setLayout(layout)
+            return
+            
+        # Get voice manager
+        try:
+            from util.voice_control import get_voice_manager
+            self.voice_manager = get_voice_manager()
+            
+            # Status display
+            status_group = QGroupBox("Voice Control Status")
+            status_layout = QVBoxLayout()
+            
+            self.status_label = QLabel("Initializing...")
+            status_layout.addWidget(self.status_label)
+            
+            # Control buttons
+            button_layout = QHBoxLayout()
+            
+            self.enable_btn = QPushButton("Enable Voice Control")
+            self.enable_btn.clicked.connect(self.toggle_voice_control)
+            button_layout.addWidget(self.enable_btn)
+            
+            self.listening_btn = QPushButton("Start Listening")
+            self.listening_btn.clicked.connect(self.toggle_listening)
+            button_layout.addWidget(self.listening_btn)
+            
+            status_layout.addLayout(button_layout)
+            status_group.setLayout(status_layout)
+            layout.addWidget(status_group)
+            
+            # Available commands
+            commands_group = QGroupBox("Available Voice Commands")
+            commands_layout = QVBoxLayout()
+            
+            commands_list = QListWidget()
+            for command in self.voice_manager.get_available_commands():
+                commands_list.addItem(command)
+            commands_layout.addWidget(commands_list)
+            
+            commands_group.setLayout(commands_layout)
+            layout.addWidget(commands_group)
+            
+            # Update status
+            self.update_status()
+            
+            # Timer for status updates
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.update_status)
+            self.timer.start(1000)  # Update every second
+            
+        except Exception as e:
+            error_label = QLabel(f"Error initializing voice control: {str(e)}")
+            error_label.setStyleSheet("color: #ff6666; font-size: 14px; padding: 20px;")
+            layout.addWidget(error_label)
+        
+        self.setLayout(layout)
+        
+    def toggle_voice_control(self):
+        """Toggle voice control on/off"""
+        if self.voice_manager.enabled:
+            self.voice_manager.disable_voice_control()
+            self.enable_btn.setText("Enable Voice Control")
+        else:
+            if self.voice_manager.enable_voice_control():
+                self.enable_btn.setText("Disable Voice Control")
+            else:
+                QMessageBox.warning(self, "Voice Control", 
+                                  "Failed to enable voice control. Check if microphone is available.")
+        
+    def toggle_listening(self):
+        """Toggle listening on/off"""
+        if self.voice_manager.listening:
+            self.voice_manager.stop_listening()
+            self.listening_btn.setText("Start Listening")
+        else:
+            if self.voice_manager.start_listening():
+                self.listening_btn.setText("Stop Listening")
+            else:
+                QMessageBox.warning(self, "Voice Control", 
+                                  "Failed to start listening. Voice control must be enabled first.")
+        
+    def update_status(self):
+        """Update status display"""
+        status = self.voice_manager.get_status()
+        status_text = f"""
+Enabled: {'Yes' if status['enabled'] else 'No'}
+Listening: {'Yes' if status['listening'] else 'No'}
+Speech Recognition: {'Available' if status['sr_available'] else 'Not Available'}
+Text-to-Speech: {'Available' if status['tts_available'] else 'Not Available'}
+Command Queue: {status['queue_size']} commands
+"""
+        self.status_label.setText(status_text)
+
+
+class MarketplaceWidget(QWidget):
+    """Widget for extension marketplace"""
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Extension Marketplace")
+        self.setFixedSize(1000, 700)
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("🛍️ Extension Marketplace")
+        title.setStyleSheet("font-size: 24px; color: #ff0000; font-weight: bold; padding: 20px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        if not ADVANCED_FEATURES_AVAILABLE:
+            error_label = QLabel("Advanced features not available.")
+            error_label.setStyleSheet("color: #ff6666; font-size: 16px; padding: 20px;")
+            error_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(error_label)
+            self.setLayout(layout)
+            return
+            
+        try:
+            from util.marketplace_manager import get_marketplace_manager
+            self.marketplace = get_marketplace_manager()
+            
+            # Search bar
+            search_layout = QHBoxLayout()
+            self.search_input = QLineEdit()
+            self.search_input.setPlaceholderText("Search extensions...")
+            search_btn = QPushButton("Search")
+            search_btn.clicked.connect(self.search_extensions)
+            
+            search_layout.addWidget(self.search_input)
+            search_layout.addWidget(search_btn)
+            layout.addLayout(search_layout)
+            
+            # Extensions list
+            self.extensions_list = QListWidget()
+            layout.addWidget(self.extensions_list)
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            
+            install_btn = QPushButton("Install Selected")
+            install_btn.clicked.connect(self.install_extension)
+            button_layout.addWidget(install_btn)
+            
+            refresh_btn = QPushButton("Refresh")
+            refresh_btn.clicked.connect(self.refresh_marketplace)
+            button_layout.addWidget(refresh_btn)
+            
+            layout.addLayout(button_layout)
+            
+            # Load initial data
+            self.refresh_marketplace()
+            
+        except Exception as e:
+            error_label = QLabel(f"Error initializing marketplace: {str(e)}")
+            error_label.setStyleSheet("color: #ff6666; font-size: 14px; padding: 20px;")
+            layout.addWidget(error_label)
+        
+        self.setLayout(layout)
+        
+    def search_extensions(self):
+        """Search for extensions"""
+        query = self.search_input.text()
+        extensions = self.marketplace.search_marketplace(query=query)
+        self.update_extensions_list(extensions)
+        
+    def refresh_marketplace(self):
+        """Refresh marketplace data"""
+        extensions = self.marketplace.search_marketplace()
+        self.update_extensions_list(extensions)
+        
+    def update_extensions_list(self, extensions):
+        """Update the extensions list widget"""
+        self.extensions_list.clear()
+        for ext in extensions:
+            item_text = f"{ext.name} v{ext.version} - {ext.description} (⭐ {ext.rating:.1f})"
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.UserRole, ext.id)
+            self.extensions_list.addItem(item)
+            
+    def install_extension(self):
+        """Install selected extension"""
+        current_item = self.extensions_list.currentItem()
+        if current_item:
+            extension_id = current_item.data(Qt.UserRole)
+            
+            # Create progress dialog
+            progress = QProgressDialog("Installing extension...", "Cancel", 0, 100, self)
+            progress.setWindowModality(Qt.WindowModal)
+            
+            def update_progress(message, percent):
+                progress.setLabelText(message)
+                progress.setValue(int(percent * 100))
+                QApplication.processEvents()
+                
+            success = self.marketplace.install_extension(extension_id, update_progress)
+            progress.close()
+            
+            if success:
+                QMessageBox.information(self, "Installation", "Extension installed successfully!")
+            else:
+                QMessageBox.warning(self, "Installation", "Failed to install extension.")
+
+
+class TemplateWidget(QWidget):
+    """Widget for template exchange"""
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Template Exchange")
+        self.setFixedSize(1000, 700)
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("📋 Template Exchange")
+        title.setStyleSheet("font-size: 24px; color: #ff0000; font-weight: bold; padding: 20px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        if not ADVANCED_FEATURES_AVAILABLE:
+            error_label = QLabel("Advanced features not available.")
+            error_label.setStyleSheet("color: #ff6666; font-size: 16px; padding: 20px;")
+            error_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(error_label)
+            self.setLayout(layout)
+            return
+            
+        try:
+            from util.template_exchange import get_template_manager
+            self.template_manager = get_template_manager()
+            
+            # Toolbar
+            toolbar_layout = QHBoxLayout()
+            
+            new_btn = QPushButton("New Template")
+            new_btn.clicked.connect(self.create_template)
+            toolbar_layout.addWidget(new_btn)
+            
+            import_btn = QPushButton("Import")
+            import_btn.clicked.connect(self.import_template)
+            toolbar_layout.addWidget(import_btn)
+            
+            export_btn = QPushButton("Export")
+            export_btn.clicked.connect(self.export_template)
+            toolbar_layout.addWidget(export_btn)
+            
+            toolbar_layout.addStretch()
+            layout.addLayout(toolbar_layout)
+            
+            # Templates list
+            self.templates_list = QListWidget()
+            layout.addWidget(self.templates_list)
+            
+            # Template details
+            details_group = QGroupBox("Template Details")
+            details_layout = QVBoxLayout()
+            
+            self.details_label = QLabel("Select a template to view details")
+            details_layout.addWidget(self.details_label)
+            
+            details_group.setLayout(details_layout)
+            layout.addWidget(details_group)
+            
+            # Load templates
+            self.refresh_templates()
+            
+            # Connect selection
+            self.templates_list.itemSelectionChanged.connect(self.on_template_selected)
+            
+        except Exception as e:
+            error_label = QLabel(f"Error initializing templates: {str(e)}")
+            error_label.setStyleSheet("color: #ff6666; font-size: 14px; padding: 20px;")
+            layout.addWidget(error_label)
+        
+        self.setLayout(layout)
+        
+    def refresh_templates(self):
+        """Refresh templates list"""
+        self.templates_list.clear()
+        for template_id, template_info in self.template_manager.local_templates.items():
+            item_text = f"{template_info.name} ({template_info.category})"
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.UserRole, template_id)
+            self.templates_list.addItem(item)
+            
+    def on_template_selected(self):
+        """Handle template selection"""
+        current_item = self.templates_list.currentItem()
+        if current_item:
+            template_id = current_item.data(Qt.UserRole)
+            template_info = self.template_manager.get_template(template_id)
+            if template_info:
+                details = f"""
+Name: {template_info.name}
+Category: {template_info.category}
+Author: {template_info.author}
+Version: {template_info.version}
+Created: {template_info.created_date.strftime('%Y-%m-%d %H:%M')}
+Variables: {len(template_info.variables)}
+Tags: {', '.join(template_info.tags)}
+
+Description:
+{template_info.description}
+"""
+                self.details_label.setText(details)
+                
+    def create_template(self):
+        """Create new template dialog"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Create New Template")
+        dialog.setFixedSize(500, 400)
+        
+        layout = QVBoxLayout()
+        
+        # Template info
+        name_input = QLineEdit()
+        name_input.setPlaceholderText("Template name")
+        layout.addWidget(QLabel("Name:"))
+        layout.addWidget(name_input)
+        
+        category_combo = QComboBox()
+        category_combo.addItems(["business", "personal", "legal", "marketing", "technical"])
+        layout.addWidget(QLabel("Category:"))
+        layout.addWidget(category_combo)
+        
+        desc_input = QTextEdit()
+        desc_input.setPlaceholderText("Template description")
+        desc_input.setMaximumHeight(80)
+        layout.addWidget(QLabel("Description:"))
+        layout.addWidget(desc_input)
+        
+        content_input = QTextEdit()
+        content_input.setPlaceholderText("Template content with {{variables}}")
+        layout.addWidget(QLabel("Content:"))
+        layout.addWidget(content_input)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        create_btn = QPushButton("Create")
+        cancel_btn = QPushButton("Cancel")
+        
+        def create_template():
+            name = name_input.text().strip()
+            if name:
+                template_id = self.template_manager.create_template(
+                    name=name,
+                    category=category_combo.currentText(),
+                    content=content_input.toPlainText(),
+                    description=desc_input.toPlainText()
+                )
+                dialog.accept()
+                self.refresh_templates()
+                QMessageBox.information(self, "Success", f"Template '{name}' created successfully!")
+            else:
+                QMessageBox.warning(dialog, "Error", "Please enter a template name.")
+                
+        create_btn.clicked.connect(create_template)
+        cancel_btn.clicked.connect(dialog.reject)
+        
+        button_layout.addWidget(create_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+        
+        dialog.setLayout(layout)
+        dialog.exec_()
+        
+    def import_template(self):
+        """Import template from file"""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Import Template", "", "ZIP Files (*.zip)")
+        if file_path:
+            template_id = self.template_manager.import_template(file_path)
+            if template_id:
+                self.refresh_templates()
+                QMessageBox.information(self, "Success", "Template imported successfully!")
+            else:
+                QMessageBox.warning(self, "Error", "Failed to import template.")
+                
+    def export_template(self):
+        """Export selected template"""
+        current_item = self.templates_list.currentItem()
+        if current_item:
+            template_id = current_item.data(Qt.UserRole)
+            file_path, _ = QFileDialog.getSaveFileName(self, "Export Template", f"{template_id}.zip", "ZIP Files (*.zip)")
+            if file_path:
+                exported_path = self.template_manager.export_template(template_id, file_path)
+                if exported_path:
+                    QMessageBox.information(self, "Success", f"Template exported to {exported_path}")
+                else:
+                    QMessageBox.warning(self, "Error", "Failed to export template.")
+        else:
+            QMessageBox.information(self, "Export", "Please select a template to export.")
+
+
+class APIGatewayWidget(QWidget):
+    """Widget for API gateway monitoring"""
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("API Gateway Monitor")
+        self.setFixedSize(1000, 700)
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("🌐 API Gateway Monitor")
+        title.setStyleSheet("font-size: 24px; color: #ff0000; font-weight: bold; padding: 20px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        if not ADVANCED_FEATURES_AVAILABLE:
+            error_label = QLabel("Advanced features not available.")
+            error_label.setStyleSheet("color: #ff6666; font-size: 16px; padding: 20px;")
+            error_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(error_label)
+            self.setLayout(layout)
+            return
+            
+        try:
+            from util.api_gateway import get_api_gateway
+            self.gateway = get_api_gateway()
+            
+            # Status overview
+            status_group = QGroupBox("Gateway Status")
+            status_layout = QVBoxLayout()
+            
+            self.status_text = QLabel("Loading...")
+            status_layout.addWidget(self.status_text)
+            
+            status_group.setLayout(status_layout)
+            layout.addWidget(status_group)
+            
+            # Services health
+            services_group = QGroupBox("Services Health")
+            services_layout = QVBoxLayout()
+            
+            self.services_list = QListWidget()
+            services_layout.addWidget(self.services_list)
+            
+            services_group.setLayout(services_layout)
+            layout.addWidget(services_group)
+            
+            # API Keys
+            keys_group = QGroupBox("API Keys")
+            keys_layout = QVBoxLayout()
+            
+            self.keys_list = QListWidget()
+            keys_layout.addWidget(self.keys_list)
+            
+            # Key management buttons
+            key_buttons = QHBoxLayout()
+            create_key_btn = QPushButton("Create API Key")
+            create_key_btn.clicked.connect(self.create_api_key)
+            key_buttons.addWidget(create_key_btn)
+            
+            refresh_btn = QPushButton("Refresh")
+            refresh_btn.clicked.connect(self.refresh_data)
+            key_buttons.addWidget(refresh_btn)
+            
+            keys_layout.addLayout(key_buttons)
+            keys_group.setLayout(keys_layout)
+            layout.addWidget(keys_group)
+            
+            # Initial data load
+            self.refresh_data()
+            
+            # Auto-refresh timer
+            self.timer = QTimer()
+            self.timer.timeout.connect(self.refresh_data)
+            self.timer.start(5000)  # Refresh every 5 seconds
+            
+        except Exception as e:
+            error_label = QLabel(f"Error initializing API gateway: {str(e)}")
+            error_label.setStyleSheet("color: #ff6666; font-size: 14px; padding: 20px;")
+            layout.addWidget(error_label)
+        
+        self.setLayout(layout)
+        
+    def refresh_data(self):
+        """Refresh all gateway data"""
+        # Update status
+        status = self.gateway.get_gateway_status()
+        status_text = f"""
+Gateway Version: {status['gateway_version']}
+Active API Keys: {status['active_api_keys']}/{status['total_api_keys']}
+Total Requests: {status['total_requests']}
+Last Updated: {status['timestamp'][:19]}
+"""
+        self.status_text.setText(status_text)
+        
+        # Update services
+        self.services_list.clear()
+        for service_name, service_status in status['services'].items():
+            status_icon = "🟢" if service_status['status'] == "healthy" else "🔴"
+            item_text = f"{status_icon} {service_name} - {service_status['status']}"
+            self.services_list.addItem(item_text)
+            
+        # Update API keys
+        self.keys_list.clear()
+        for key_id, api_key in self.gateway.api_keys.items():
+            status_icon = "🟢" if api_key.is_active else "🔴"
+            item_text = f"{status_icon} {api_key.name} ({api_key.service}) - Used: {api_key.usage_count}"
+            self.keys_list.addItem(item_text)
+            
+    def create_api_key(self):
+        """Create new API key dialog"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Create API Key")
+        dialog.setFixedSize(400, 300)
+        
+        layout = QVBoxLayout()
+        
+        name_input = QLineEdit()
+        name_input.setPlaceholderText("API Key name")
+        layout.addWidget(QLabel("Name:"))
+        layout.addWidget(name_input)
+        
+        service_combo = QComboBox()
+        service_combo.addItems(["openai", "weather", "news", "email"])
+        layout.addWidget(QLabel("Service:"))
+        layout.addWidget(service_combo)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        create_btn = QPushButton("Create")
+        cancel_btn = QPushButton("Cancel")
+        
+        def create_key():
+            name = name_input.text().strip()
+            service = service_combo.currentText()
+            if name:
+                api_key = self.gateway.create_api_key(service, name)
+                dialog.accept()
+                self.refresh_data()
+                QMessageBox.information(self, "Success", 
+                                      f"API Key created successfully!\nKey ID: {api_key.key_id}")
+            else:
+                QMessageBox.warning(dialog, "Error", "Please enter a key name.")
+                
+        create_btn.clicked.connect(create_key)
+        cancel_btn.clicked.connect(dialog.reject)
+        
+        button_layout.addWidget(create_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+        
+        dialog.setLayout(layout)
+        dialog.exec_()
 
 def main():
     app = QApplication(sys.argv)
