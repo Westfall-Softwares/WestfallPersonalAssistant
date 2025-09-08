@@ -78,3 +78,9 @@ class MusicPlayerWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Music Player - Placeholder")
         self.setGeometry(100, 100, 800, 600)
+
+class CRMWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("CRM - Placeholder")
+        self.setGeometry(100, 100, 900, 700)

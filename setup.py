@@ -7,11 +7,11 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="westfall-personal-assistant",
+    name="westfall-assistant",
     version="2.0.0",
     author="Westfall Softwares",
     author_email="contact@westfallsoftwares.com",
-    description="A secure, AI-powered personal assistant application",
+    description="A secure, AI-powered entrepreneur assistant with Tailor Pack extensions",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Westfall-Softwares/WestfallPersonalAssistant",
@@ -19,7 +19,7 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: End Users/Desktop",
-        "Topic :: Office/Business :: Personal Information Manager",
+        "Topic :: Office/Business :: Entrepreneur Tools",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",

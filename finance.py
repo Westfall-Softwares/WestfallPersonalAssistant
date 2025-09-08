@@ -1,6 +1,6 @@
 """
-Financial Management Module for WestfallPersonalAssistant
-Designed specifically for solo developers and sole proprietors
+Financial Management Module for Westfall Assistant
+Designed specifically for entrepreneurs and business owners
 """
 
 import sqlite3
@@ -39,11 +39,11 @@ except ImportError:
     HAS_ERROR_HANDLER = False
 
 class FinanceWindow(QMainWindow):
-    """Main finance management window for solo developers"""
+    """Main finance management window for entrepreneurs"""
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Financial Management - WestfallPersonalAssistant")
+        self.setWindowTitle("Financial Management - Westfall Assistant")
         self.setMinimumSize(1000, 700)
         
         # Initialize database and error handler

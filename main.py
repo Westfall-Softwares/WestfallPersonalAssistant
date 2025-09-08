@@ -65,14 +65,9 @@ except ImportError:
     from placeholder_windows import FinanceWindow
 
 try:
-    from recipe import RecipeWindow
+    from crm_system import CRMWindow
 except ImportError:
-    from placeholder_windows import RecipeWindow
-
-try:
-    from music_player import MusicPlayerWindow
-except ImportError:
-    from placeholder_windows import MusicPlayerWindow
+    from placeholder_windows import CRMWindow
 
 # Import business features
 try:
@@ -403,10 +398,6 @@ class MainWindow(QMainWindow):
             
             # Settings & Configuration
             ("⚙️ Settings", self.open_settings, "Configure business assistant", "Ctrl+,"),
-            
-            # Optional Features (Available via Tailor Packs)
-            ("🎵 Music", self.open_music, "Background music (via Entertainment Pack)", "Ctrl+M"),
-            ("🍳 Recipes", self.open_recipe, "Meal planning (via Lifestyle Pack)", "Ctrl+R"),
         ]
         
         positions = [(i, j) for i in range(9) for j in range(3)]
@@ -460,7 +451,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(20, 20, 20, 20)
         
         # Welcome message
-        welcome = QLabel("Welcome to Westfall Personal Assistant")
+        welcome = QLabel("Welcome to Westfall Assistant")
         welcome.setStyleSheet("""
             QLabel {
                 color: #ff0000;
@@ -662,9 +653,6 @@ class MainWindow(QMainWindow):
     def show_recipes(self):
         self.show_widget(RecipeWidget, "Recipes")
     
-    def show_music(self):
-        self.show_widget(MusicPlayerWindow, "Music Player")
-    
     def show_settings(self):
         self.show_widget(SettingsWidget, "Settings")
     
@@ -743,8 +731,6 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+,"), self, self.open_settings)
         QShortcut(QKeySequence("Ctrl+Shift+F"), self, self.open_finance)
         QShortcut(QKeySequence("Ctrl+Shift+T"), self, self.open_time_tracking)
-        QShortcut(QKeySequence("Ctrl+R"), self, self.open_recipe)
-        QShortcut(QKeySequence("Ctrl+M"), self, self.open_music)
         
         # New Business Intelligence shortcuts
         QShortcut(QKeySequence("Ctrl+I"), self, self.open_screen_intelligence)
@@ -812,7 +798,7 @@ class MainWindow(QMainWindow):
     def init_tray(self):
         """Initialize system tray"""
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setToolTip("Westfall Personal Assistant - Click to show/hide")
+        self.tray_icon.setToolTip("Westfall Assistant - Click to show/hide")
         
         # Create tray menu
         tray_menu = QMenu()
@@ -874,8 +860,6 @@ class MainWindow(QMainWindow):
         <tr><td><b>Ctrl+W</b></td><td>Open Weather</td></tr>
         <tr><td><b>Ctrl+B</b></td><td>Open Browser</td></tr>
         <tr><td><b>Ctrl+F</b></td><td>Open File Manager</td></tr>
-        <tr><td><b>Ctrl+M</b></td><td>Open Music Player</td></tr>
-        <tr><td><b>Ctrl+R</b></td><td>Open Recipes</td></tr>
         <tr><td><b>Ctrl+,</b></td><td>Open Settings</td></tr>
         </table>
         
@@ -1571,23 +1555,6 @@ class MainWindow(QMainWindow):
     
     def open_time_tracking(self):
         self.show_time_tracking()
-    
-    def open_recipe(self):
-        if 'recipe' not in self.windows:
-            self.windows['recipe'] = RecipeWindow()
-        self.windows['recipe'].show()
-        self.windows['recipe'].raise_()
-        self.windows['recipe'].activateWindow()
-        self.status_bar.showMessage("Recipe Manager opened")
-    
-    def open_music(self):
-        if 'music' not in self.windows:
-            self.windows['music'] = MusicPlayerWindow()
-        self.windows['music'].show()
-        self.windows['music'].raise_()
-        self.windows['music'].activateWindow()
-        self.ai_chat.parent_window = self.windows['music']
-        self.status_bar.showMessage("Music Player opened")
     
     # New Business Intelligence window opening methods
     def open_screen_intelligence(self):
@@ -2467,7 +2434,7 @@ Last Updated: {status['timestamp'][:19]}
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("Westfall Personal Assistant")
+    app.setApplicationName("Westfall Assistant")
     app.setOrganizationName("Westfall Softwares")
     
     # Set application style
