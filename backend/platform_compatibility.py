@@ -95,7 +95,14 @@ class PlatformInfo:
                 'windows_registry': True,
                 'windows_services': True,
                 'powershell': self._check_powershell(),
-                'wmi': self._check_wmi()
+                'wmi': self._check_wmi(),
+                'windows_hello': self._check_windows_hello(),
+                'action_center': self._check_action_center(),
+                'jump_lists': self._check_jump_lists(),
+                'credential_manager': self._check_credential_manager(),
+                'memory_compression': self._check_memory_compression(),
+                'hardware_acceleration': self._check_hardware_acceleration(),
+                'dark_theme_api': self._check_dark_theme_api()
             })
         elif self.platform == PlatformType.MACOS:
             self.capabilities.update({
@@ -150,6 +157,82 @@ class PlatformInfo:
     def _check_xdg(self) -> bool:
         """Check if XDG utilities are available."""
         return self._check_command('xdg-open')
+    
+    def _check_windows_hello(self) -> bool:
+        """Check if Windows Hello is available."""
+        if self.platform != PlatformType.WINDOWS:
+            return False
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
+                               r"SOFTWARE\Microsoft\Windows\CurrentVersion\WinBio") as key:
+                return True
+        except:
+            return False
+    
+    def _check_action_center(self) -> bool:
+        """Check if Windows 10 Action Center is available."""
+        if self.platform != PlatformType.WINDOWS:
+            return False
+        # Check if we're on Windows 10 or later
+        version_parts = self.system_version.split('.')
+        if len(version_parts) >= 3:
+            build = int(version_parts[2])
+            return build >= 10240  # Windows 10 build threshold
+        return False
+    
+    def _check_jump_lists(self) -> bool:
+        """Check if Windows Jump Lists are supported."""
+        if self.platform != PlatformType.WINDOWS:
+            return False
+        # Jump Lists are available on Windows 7+
+        return True
+    
+    def _check_credential_manager(self) -> bool:
+        """Check if Windows Credential Manager is available."""
+        if self.platform != PlatformType.WINDOWS:
+            return False
+        return self._check_command('cmdkey')
+    
+    def _check_memory_compression(self) -> bool:
+        """Check if Windows 10 memory compression is available."""
+        if self.platform != PlatformType.WINDOWS:
+            return False
+        try:
+            import subprocess
+            result = subprocess.run([
+                'powershell', '-Command',
+                'Get-Command Get-MMAgent -ErrorAction SilentlyContinue'
+            ], capture_output=True, timeout=5)
+            return result.returncode == 0
+        except:
+            return False
+    
+    def _check_hardware_acceleration(self) -> bool:
+        """Check if hardware acceleration is available."""
+        try:
+            # Basic check for GPU presence
+            if self.platform == PlatformType.WINDOWS and self.capabilities.get('wmi'):
+                import wmi
+                c = wmi.WMI()
+                for gpu in c.Win32_VideoController():
+                    if gpu.Name and 'Microsoft' not in gpu.Name:
+                        return True
+        except:
+            pass
+        return False
+    
+    def _check_dark_theme_api(self) -> bool:
+        """Check if Windows 10 dark theme API is available."""
+        if self.platform != PlatformType.WINDOWS:
+            return False
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                               r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as key:
+                return True
+        except:
+            return False
     
     def is_windows(self) -> bool:
         """Check if running on Windows."""
@@ -418,18 +501,60 @@ class NotificationManager:
             return False
     
     def _windows_notification(self, title: str, message: str, timeout: int) -> bool:
-        """Show Windows notification."""
+        """Show Windows notification with Windows 10 Action Center integration."""
         try:
-            # Try using win10toast if available
+            # Try using win10toast with enhanced Windows 10 features
             try:
                 from win10toast import ToastNotifier
                 toaster = ToastNotifier()
-                toaster.show_toast(title, message, duration=timeout//1000)
+                toaster.show_toast(
+                    title, 
+                    message, 
+                    duration=timeout//1000,
+                    icon_path=None,  # Use default app icon
+                    threaded=True   # Non-blocking
+                )
                 return True
             except ImportError:
                 pass
             
-            # Fallback to PowerShell
+            # Enhanced PowerShell with Windows 10 Action Center
+            if self.platform_info.has_capability('powershell'):
+                script = f'''
+                # Windows 10 Toast Notification with Action Center integration
+                [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+                [Windows.UI.Notifications.ToastNotification, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+                [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+                
+                $template = @"
+                <toast>
+                    <visual>
+                        <binding template="ToastGeneric">
+                            <text>{title}</text>
+                            <text>{message}</text>
+                        </binding>
+                    </visual>
+                    <actions>
+                        <action content="Open App" arguments="open" />
+                        <action content="Dismiss" arguments="dismiss" />
+                    </actions>
+                </toast>
+"@
+                
+                $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+                $xml.LoadXml($template)
+                $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+                [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("WestfallPersonalAssistant").Show($toast)
+                '''
+                
+                try:
+                    subprocess.run(['powershell', '-Command', script], check=False, timeout=10)
+                    return True
+                except subprocess.TimeoutExpired:
+                    # Fallback to simple notification
+                    pass
+            
+            # Fallback to basic system notification
             if self.platform_info.has_capability('powershell'):
                 script = f'''
                 Add-Type -AssemblyName System.Windows.Forms
