@@ -269,7 +269,7 @@ class MainWindow(QMainWindow):
         return True
     
     def init_ui(self):
-        self.setWindowTitle("Entrepreneur Assistant - Secure")
+        self.setWindowTitle("Westfall Assistant - Entrepreneur Edition")
         self.setGeometry(100, 100, 900, 750)
         
         central_widget = QWidget()
@@ -280,7 +280,7 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(10)
         
         # Header with gradient
-        header = QLabel("Entrepreneur Assistant")
+        header = QLabel("Westfall Assistant - Entrepreneur Edition")
         header.setAlignment(Qt.AlignCenter)
         header.setStyleSheet("""
             QLabel {
@@ -431,7 +431,7 @@ class MainWindow(QMainWindow):
         
         # Status bar
         self.status_bar = self.statusBar()
-        self.status_bar.showMessage("🚀 Entrepreneur Assistant Ready | Press Ctrl+K for quick search, Ctrl+Space for AI help")
+        self.status_bar.showMessage("🚀 Westfall Assistant - Entrepreneur Edition Ready | Press Ctrl+K for quick search, Ctrl+Space for AI help")
         
         # Add business status widgets to status bar
         self.init_business_status_bar()

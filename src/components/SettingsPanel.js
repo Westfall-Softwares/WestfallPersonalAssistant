@@ -106,7 +106,7 @@ const SettingsPanel = ({ settings, onSettingsChange }) => {
               Application Settings
             </Typography>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-              Configure your personal assistant preferences and behavior
+              Configure your business assistant preferences and behavior
             </Typography>
 
             {/* UI Settings */}

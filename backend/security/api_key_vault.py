@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class APIKeyVault:
     """Secure API key management using system keyring and encryption."""
     
-    SERVICE_NAME = "WestfallPersonalAssistant"
+    SERVICE_NAME = "Westfall Assistant"
     
     def __init__(self, encryption_manager: EncryptionManager):
         self.encryption_manager = encryption_manager

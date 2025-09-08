@@ -1,5 +1,5 @@
 """
-WestfallPersonalAssistant AI Model Manager
+Westfall Assistant AI Model Manager
 Handles LLaVA model discovery, loading, and management with flexible quantization support
 """
 

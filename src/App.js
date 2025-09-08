@@ -27,11 +27,13 @@ import ModelManager from './components/ModelManager';
 import SettingsPanel from './components/SettingsPanel';
 import ScreenCapture from './components/ScreenCapture';
 import ThinkingModeSelector from './components/ThinkingModeSelector';
+import TailorPackManager from './components/TailorPackManager';
+import BusinessDashboard from './components/BusinessDashboard';
 
 const drawerWidth = 240;
 
 function App() {
-  const [currentView, setCurrentView] = useState('chat');
+  const [currentView, setCurrentView] = useState('dashboard');
   const [modelStatus, setModelStatus] = useState('disconnected');
   const [settings, setSettings] = useState({
     thinkingMode: 'normal',
@@ -73,24 +75,30 @@ function App() {
   }, []);
 
   const menuItems = [
-    { id: 'chat', label: 'Chat', icon: <ThinkingIcon /> },
+    { id: 'dashboard', label: 'Business Dashboard', icon: <ThinkingIcon /> },
+    { id: 'chat', label: 'AI Assistant', icon: <ThinkingIcon /> },
     { id: 'models', label: 'Model Manager', icon: <MemoryIcon /> },
+    { id: 'tailorpacks', label: 'Tailor Packs', icon: <SettingsIcon /> },
     { id: 'screen', label: 'Screen Capture', icon: <ScreenshotIcon /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon /> }
   ];
 
   const renderContent = () => {
     switch (currentView) {
+      case 'dashboard':
+        return <BusinessDashboard />;
       case 'chat':
         return <ChatInterface thinkingMode={settings.thinkingMode} modelStatus={modelStatus} />;
       case 'models':
         return <ModelManager onStatusChange={setModelStatus} />;
+      case 'tailorpacks':
+        return <TailorPackManager />;
       case 'screen':
         return <ScreenCapture />;
       case 'settings':
         return <SettingsPanel settings={settings} onSettingsChange={setSettings} />;
       default:
-        return <ChatInterface thinkingMode={settings.thinkingMode} modelStatus={modelStatus} />;
+        return <BusinessDashboard />;
     }
   };
 
@@ -106,7 +114,7 @@ function App() {
               style={{ height: 32, width: 32 }}
             />
             <Typography variant="h6" noWrap component="div">
-              Westfall Personal Assistant
+              Westfall Assistant - Entrepreneur Edition
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />
