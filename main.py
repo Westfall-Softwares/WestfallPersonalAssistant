@@ -292,14 +292,14 @@ class MainWindow(QMainWindow):
                 border-radius: 10px;
             }
         """)
-        header.setToolTip("Your business-focused assistant with AI capabilities and Tailor Pack support")
+        header.setToolTip("Your AI-powered business assistant with Tailor Pack extensions - Built for entrepreneurs who demand efficiency and intelligence")
         main_layout.addWidget(header)
         
         # Quick Access Bar (for recent/favorite features)
         quick_access_widget = QWidget()
         quick_access_layout = QHBoxLayout(quick_access_widget)
-        quick_access_label = QLabel("Quick Access:")
-        quick_access_label.setStyleSheet("font-weight: bold;")
+        quick_access_label = QLabel("🚀 Entrepreneur Quick Access:")
+        quick_access_label.setStyleSheet("font-weight: bold; color: #4CAF50;")
         quick_access_layout.addWidget(quick_access_label)
         
         self.quick_access_buttons = QHBoxLayout()
@@ -325,6 +325,26 @@ class MainWindow(QMainWindow):
             self.check_deps_btn.clicked.connect(self.check_dependencies)
             quick_access_layout.addWidget(self.check_deps_btn)
         
+        # Import Tailor Pack button (prominent placement)
+        self.import_pack_btn = QPushButton("📦 Import Pack")
+        self.import_pack_btn.setToolTip("Import a new Tailor Pack to extend functionality")
+        self.import_pack_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        self.import_pack_btn.clicked.connect(self.quick_import_pack)
+        quick_access_layout.addWidget(self.import_pack_btn)
+        
         # Dark mode toggle
         self.dark_mode_btn = QPushButton("🌙")
         self.dark_mode_btn.setToolTip("Toggle Dark Mode (Ctrl+D)")
@@ -338,8 +358,8 @@ class MainWindow(QMainWindow):
         search_layout = QHBoxLayout()
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search: 'revenue', 'customers', 'time' or ask AI with 'ai:' ... Press Ctrl+K")
-        self.search_input.setToolTip("Quick search: 'revenue', 'customers', 'time' | AI mode: 'ai: question' | Business shortcuts available")
+        self.search_input.setPlaceholderText("🔍 Smart Business Search: 'revenue', 'customers', 'time', 'dashboard', 'growth' or ask AI with 'ai:' ...")
+        self.search_input.setToolTip("Entrepreneur Quick Search: Try 'revenue', 'customers', 'pipeline', 'cash flow', 'kpi', 'growth' | AI mode: 'ai: your question' | 70+ business shortcuts available!")
         self.search_input.returnPressed.connect(self.handle_search)
         search_layout.addWidget(self.search_input)
         
@@ -393,7 +413,7 @@ class MainWindow(QMainWindow):
             
             # Advanced Features
             ("🎤 Voice Control", self.open_voice_control, "Voice commands for productivity", "Ctrl+V"),
-            ("🛍️ Extensions", self.open_marketplace, "Browse business extensions", "Ctrl+X"),
+            ("🛍️ Get More Packs", self.open_pack_marketplace, "Browse and download Tailor Packs", "Ctrl+X"),
             ("🌐 API Gateway", self.open_api_gateway, "Monitor business integrations", "Ctrl+G"),
             
             # Settings & Configuration
@@ -431,7 +451,7 @@ class MainWindow(QMainWindow):
         
         # Status bar
         self.status_bar = self.statusBar()
-        self.status_bar.showMessage("🚀 Westfall Assistant - Entrepreneur Edition Ready | Press Ctrl+K for quick search, Ctrl+Space for AI help")
+        self.status_bar.showMessage("🚀 Your Entrepreneur Assistant is Ready | ⌨️ Ctrl+K: Quick Search | 🤖 Ctrl+Space: AI Assistant | 📦 Import Tailor Packs to extend functionality")
         
         # Add business status widgets to status bar
         self.init_business_status_bar()
@@ -1325,27 +1345,90 @@ class MainWindow(QMainWindow):
         """Enhanced search with business shortcuts and suggestions"""
         query_lower = query.lower()
         
-        # Business quick actions
+        # Business quick actions - comprehensive entrepreneur terminology
         business_shortcuts = {
+            # Financial Terms
             "revenue": self.open_finance,
             "income": self.open_finance,
             "expenses": self.open_finance,
             "profit": self.open_finance,
+            "finance": self.open_finance,
+            "money": self.open_finance,
+            "budget": self.open_finance,
+            "cash flow": self.open_finance,
+            "cashflow": self.open_finance,
+            "accounting": self.open_finance,
+            "taxes": self.open_finance,
+            "invoices": self.open_finance,
+            "billing": self.open_finance,
+            
+            # Customer & Sales Terms
             "customers": self.open_crm_manager,
             "crm": self.open_crm_manager,
             "leads": self.open_crm_manager,
             "sales": self.open_crm_manager,
+            "clients": self.open_crm_manager,
+            "prospects": self.open_crm_manager,
+            "deals": self.open_crm_manager,
+            "pipeline": self.open_crm_manager,
+            "contacts": self.open_contacts,
+            
+            # Time & Productivity
             "time": self.open_time_tracking,
             "hours": self.open_time_tracking,
             "billable": self.open_time_tracking,
+            "tracking": self.open_time_tracking,
+            "schedule": self.open_calendar,
+            "calendar": self.open_calendar,
+            "appointments": self.open_calendar,
+            "meetings": self.open_calendar,
+            "tasks": self.open_todo,
+            "todo": self.open_todo,
+            "productivity": self.open_todo,
+            
+            # Analytics & Reporting
             "kpi": self.open_kpi_tracker,
             "metrics": self.open_business_dashboard,
             "dashboard": self.open_business_dashboard,
+            "analytics": self.open_business_dashboard,
+            "insights": self.open_business_dashboard,
             "reports": self.open_report_generator,
+            "reporting": self.open_report_generator,
+            "performance": self.open_kpi_tracker,
+            
+            # Business Growth & Strategy
+            "growth": self.open_business_dashboard,
+            "strategy": self.open_business_dashboard,
+            "planning": self.open_business_dashboard,
+            "goals": self.open_kpi_tracker,
+            "targets": self.open_kpi_tracker,
+            "roi": self.open_business_dashboard,
+            "conversion": self.open_business_dashboard,
+            
+            # Extensions & Tools
             "packs": self.open_tailor_pack_manager,
             "extensions": self.open_tailor_pack_manager,
+            "tools": self.open_tailor_pack_manager,
+            "marketplace": self.open_pack_marketplace,
+            "import": self.quick_import_pack,
+            
+            # Specialized Business Areas
             "marketing": lambda: self.show_marketing_suggestions(),
-            "automation": lambda: self.show_automation_suggestions()
+            "automation": lambda: self.show_automation_suggestions(),
+            "email": self.open_email,
+            "communication": self.open_email,
+            "notes": self.open_notes,
+            "documents": self.open_file_manager,
+            "files": self.open_file_manager,
+            "passwords": self.open_password_manager,
+            "security": self.open_password_manager,
+            "calculator": self.open_calculator,
+            "calc": self.open_calculator,
+            "math": self.open_calculator,
+            "weather": self.open_weather,
+            "news": self.open_news,
+            "browser": self.open_browser,
+            "web": self.open_browser
         }
         
         # Check business shortcuts first
@@ -1404,18 +1487,20 @@ class MainWindow(QMainWindow):
     def show_search_suggestions(self, query):
         """Show search suggestions when no direct match is found"""
         suggestions = [
-            "💰 Try: 'revenue', 'income', 'expenses' for financial tools",
-            "👥 Try: 'customers', 'crm', 'leads' for customer management",
-            "⏱️ Try: 'time', 'hours', 'billable' for time tracking",
-            "📊 Try: 'dashboard', 'metrics', 'kpi' for business insights",
-            "📦 Try: 'packs', 'marketing', 'automation' for extensions",
-            "🤖 Try: 'ai: [question]' for AI assistance"
+            "💰 Financial: 'revenue', 'expenses', 'profit', 'cash flow', 'budget', 'invoices'",
+            "👥 Customers: 'customers', 'crm', 'leads', 'sales', 'pipeline', 'deals'", 
+            "⏱️ Time: 'time', 'hours', 'billable', 'schedule', 'calendar', 'meetings'",
+            "📊 Analytics: 'dashboard', 'metrics', 'kpi', 'reports', 'performance', 'growth'",
+            "🚀 Growth: 'strategy', 'planning', 'goals', 'targets', 'roi', 'conversion'",
+            "📦 Tools: 'packs', 'import', 'marketing', 'automation', 'tools'",
+            "🤖 AI Help: 'ai: [your business question]' for intelligent assistance"
         ]
         
         msg = QMessageBox(self)
-        msg.setWindowTitle("Search Suggestions")
+        msg.setWindowTitle("Entrepreneur Search Guide")
         msg.setText(f"No direct match found for '{query}'")
-        msg.setInformativeText("Here are some suggestions:\n\n" + "\n".join(suggestions))
+        msg.setInformativeText("Try these business-focused search terms:\n\n" + "\n".join(suggestions) + 
+                              "\n\nOr browse the main grid for all available tools.")
         msg.exec_()
     
     def toggle_ai_chat(self):
@@ -1617,17 +1702,129 @@ class MainWindow(QMainWindow):
                                   "Voice control requires additional dependencies.\n"
                                   "Please install: speech_recognition, pyttsx3")
     
-    def open_marketplace(self):
-        """Open extension marketplace"""
+    def open_pack_marketplace(self):
+        """Open Tailor Pack Marketplace"""
         if ADVANCED_FEATURES_AVAILABLE:
-            if 'marketplace' not in self.windows:
-                self.windows['marketplace'] = MarketplaceWidget()
-            self.windows['marketplace'].show()
-            self.windows['marketplace'].raise_()
-            self.windows['marketplace'].activateWindow()
+            # For now, show a marketplace preview dialog with available pack categories
+            from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QTextEdit
+            
+            marketplace_dialog = QDialog(self)
+            marketplace_dialog.setWindowTitle("Tailor Pack Marketplace")
+            marketplace_dialog.setGeometry(300, 300, 600, 500)
+            
+            layout = QVBoxLayout(marketplace_dialog)
+            
+            # Header
+            header = QLabel("🛍️ Tailor Pack Marketplace")
+            header.setStyleSheet("font-size: 18px; font-weight: bold; color: #2196F3; padding: 10px;")
+            layout.addWidget(header)
+            
+            # Description
+            desc = QLabel("Extend your entrepreneur assistant with specialized business functionality packs.")
+            desc.setWordWrap(True)
+            desc.setStyleSheet("color: #666; padding: 5px 10px;")
+            layout.addWidget(desc)
+            
+            # Pack categories
+            categories_layout = QHBoxLayout()
+            
+            # Categories list
+            categories_widget = QVBoxLayout()
+            categories_label = QLabel("Pack Categories:")
+            categories_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+            categories_widget.addWidget(categories_label)
+            
+            categories_list = QListWidget()
+            categories_list.setMaximumWidth(200)
+            
+            pack_categories = [
+                "📊 Marketing Essentials",
+                "💼 Sales & CRM",
+                "💰 Advanced Finance",
+                "📈 Analytics & BI", 
+                "🤝 Team Collaboration",
+                "🔧 Operations & PM",
+                "⚖️ Legal & Compliance",
+                "🏥 Healthcare/Medical",
+                "🏠 Real Estate",
+                "🛒 E-commerce",
+                "🎓 Education/Training",
+                "🔧 Developer Tools"
+            ]
+            
+            for category in pack_categories:
+                item = QListWidgetItem(category)
+                categories_list.addItem(item)
+            
+            categories_widget.addWidget(categories_list)
+            categories_layout.addLayout(categories_widget)
+            
+            # Pack details
+            details_widget = QVBoxLayout()
+            details_label = QLabel("Featured Packs:")
+            details_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+            details_widget.addWidget(details_label)
+            
+            details_text = QTextEdit()
+            details_text.setReadOnly(True)
+            details_text.setHtml("""
+            <h3>🚀 Coming Soon!</h3>
+            <p>The Tailor Pack Marketplace is under development. Featured packs will include:</p>
+            <ul>
+                <li><b>Marketing Automation Pack</b> - Advanced campaign management, A/B testing, conversion tracking</li>
+                <li><b>Sales Pipeline Pro</b> - Advanced CRM, proposal generation, contract management</li>
+                <li><b>Financial Analytics Plus</b> - Advanced reporting, forecasting, budget optimization</li>
+                <li><b>E-commerce Toolkit</b> - Inventory management, order processing, customer analytics</li>
+                <li><b>Legal Assistant Pack</b> - Contract templates, compliance tracking, document automation</li>
+            </ul>
+            
+            <h4>For Now:</h4>
+            <p>• Use the <b>"Import Pack"</b> button to install pack files (.zip)</p>
+            <p>• Check our website for available pack downloads</p>
+            <p>• Contact support for custom pack development</p>
+            
+            <p><i>The marketplace will support one-click installation, automatic updates, and pack ratings when launched.</i></p>
+            """)
+            details_widget.addWidget(details_text)
+            categories_layout.addLayout(details_widget)
+            
+            layout.addLayout(categories_layout)
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            
+            visit_website_btn = QPushButton("🌐 Visit Website")
+            visit_website_btn.clicked.connect(lambda: self.open_url("https://westfallsoftwares.com/tailor-packs"))
+            button_layout.addWidget(visit_website_btn)
+            
+            import_pack_btn = QPushButton("📦 Import Pack File")
+            import_pack_btn.clicked.connect(lambda: (marketplace_dialog.close(), self.quick_import_pack()))
+            button_layout.addWidget(import_pack_btn)
+            
+            button_layout.addStretch()
+            
+            close_btn = QPushButton("Close")
+            close_btn.clicked.connect(marketplace_dialog.close)
+            button_layout.addWidget(close_btn)
+            
+            layout.addLayout(button_layout)
+            
+            marketplace_dialog.exec_()
         else:
-            QMessageBox.information(self, "Advanced Features", 
-                                  "Extension marketplace is not available.")
+            QMessageBox.information(self, "Marketplace", 
+                                  "Tailor Pack marketplace is not available.")
+    
+    def open_url(self, url):
+        """Open URL in default browser"""
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception as e:
+            QMessageBox.information(self, "Browser", f"Could not open URL: {url}\n\nError: {str(e)}")
+    
+    def open_marketplace(self):
+        """Legacy method - redirect to pack marketplace"""
+        self.open_pack_marketplace()
     
     def open_tailor_pack_manager(self):
         """Open Tailor Pack Manager"""
@@ -1640,6 +1837,52 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.information(self, "Tailor Packs", 
                                   "Tailor Pack management is not available.")
+    
+    def quick_import_pack(self):
+        """Quick import of a Tailor Pack from the main interface"""
+        if ADVANCED_FEATURES_AVAILABLE:
+            from PyQt5.QtWidgets import QFileDialog
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Import Tailor Pack",
+                "",
+                "Tailor Pack Files (*.zip);;All Files (*.*)"
+            )
+            
+            if file_path:
+                # Show import progress
+                self.status_bar.showMessage("Importing Tailor Pack...")
+                
+                from util.tailor_pack_manager import get_tailor_pack_manager
+                manager = get_tailor_pack_manager()
+                
+                try:
+                    result = manager.import_tailor_pack(file_path)
+                    if result["success"]:
+                        QMessageBox.information(
+                            self, 
+                            "Import Successful", 
+                            f"Successfully imported Tailor Pack!\n\n{result['message']}\n\nThe pack is now available in the Tailor Pack Manager."
+                        )
+                        self.status_bar.showMessage("Tailor Pack imported successfully")
+                        self.update_business_status_bar()  # Refresh pack status
+                    else:
+                        QMessageBox.warning(
+                            self,
+                            "Import Failed",
+                            f"Failed to import Tailor Pack:\n\n{result['error']}"
+                        )
+                        self.status_bar.showMessage("Tailor Pack import failed")
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Import Error",
+                        f"An error occurred while importing the Tailor Pack:\n\n{str(e)}"
+                    )
+                    self.status_bar.showMessage("Tailor Pack import error")
+        else:
+            QMessageBox.information(self, "Tailor Packs", 
+                                  "Tailor Pack import is not available.\n\nPlease ensure all dependencies are installed.")
     
     def open_templates(self):
         """Open template exchange"""

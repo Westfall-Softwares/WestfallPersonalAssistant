@@ -10,6 +10,7 @@ from dataclasses import dataclass, asdict
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
+from backend.platform_compatibility import PlatformManager
 
 
 @dataclass
