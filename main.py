@@ -292,14 +292,14 @@ class MainWindow(QMainWindow):
                 border-radius: 10px;
             }
         """)
-        header.setToolTip("Your business-focused assistant with AI capabilities and Tailor Pack support")
+        header.setToolTip("Your AI-powered business assistant with Tailor Pack extensions - Built for entrepreneurs who demand efficiency and intelligence")
         main_layout.addWidget(header)
         
         # Quick Access Bar (for recent/favorite features)
         quick_access_widget = QWidget()
         quick_access_layout = QHBoxLayout(quick_access_widget)
-        quick_access_label = QLabel("Quick Access:")
-        quick_access_label.setStyleSheet("font-weight: bold;")
+        quick_access_label = QLabel("🚀 Entrepreneur Quick Access:")
+        quick_access_label.setStyleSheet("font-weight: bold; color: #4CAF50;")
         quick_access_layout.addWidget(quick_access_label)
         
         self.quick_access_buttons = QHBoxLayout()
@@ -358,8 +358,8 @@ class MainWindow(QMainWindow):
         search_layout = QHBoxLayout()
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search: 'revenue', 'customers', 'time' or ask AI with 'ai:' ... Press Ctrl+K")
-        self.search_input.setToolTip("Quick search: 'revenue', 'customers', 'time' | AI mode: 'ai: question' | Business shortcuts available")
+        self.search_input.setPlaceholderText("🔍 Smart Business Search: 'revenue', 'customers', 'time', 'dashboard', 'growth' or ask AI with 'ai:' ...")
+        self.search_input.setToolTip("Entrepreneur Quick Search: Try 'revenue', 'customers', 'pipeline', 'cash flow', 'kpi', 'growth' | AI mode: 'ai: your question' | 70+ business shortcuts available!")
         self.search_input.returnPressed.connect(self.handle_search)
         search_layout.addWidget(self.search_input)
         
@@ -451,7 +451,7 @@ class MainWindow(QMainWindow):
         
         # Status bar
         self.status_bar = self.statusBar()
-        self.status_bar.showMessage("🚀 Westfall Assistant - Entrepreneur Edition Ready | Press Ctrl+K for quick search, Ctrl+Space for AI help")
+        self.status_bar.showMessage("🚀 Your Entrepreneur Assistant is Ready | ⌨️ Ctrl+K: Quick Search | 🤖 Ctrl+Space: AI Assistant | 📦 Import Tailor Packs to extend functionality")
         
         # Add business status widgets to status bar
         self.init_business_status_bar()
@@ -1345,27 +1345,90 @@ class MainWindow(QMainWindow):
         """Enhanced search with business shortcuts and suggestions"""
         query_lower = query.lower()
         
-        # Business quick actions
+        # Business quick actions - comprehensive entrepreneur terminology
         business_shortcuts = {
+            # Financial Terms
             "revenue": self.open_finance,
             "income": self.open_finance,
             "expenses": self.open_finance,
             "profit": self.open_finance,
+            "finance": self.open_finance,
+            "money": self.open_finance,
+            "budget": self.open_finance,
+            "cash flow": self.open_finance,
+            "cashflow": self.open_finance,
+            "accounting": self.open_finance,
+            "taxes": self.open_finance,
+            "invoices": self.open_finance,
+            "billing": self.open_finance,
+            
+            # Customer & Sales Terms
             "customers": self.open_crm_manager,
             "crm": self.open_crm_manager,
             "leads": self.open_crm_manager,
             "sales": self.open_crm_manager,
+            "clients": self.open_crm_manager,
+            "prospects": self.open_crm_manager,
+            "deals": self.open_crm_manager,
+            "pipeline": self.open_crm_manager,
+            "contacts": self.open_contacts,
+            
+            # Time & Productivity
             "time": self.open_time_tracking,
             "hours": self.open_time_tracking,
             "billable": self.open_time_tracking,
+            "tracking": self.open_time_tracking,
+            "schedule": self.open_calendar,
+            "calendar": self.open_calendar,
+            "appointments": self.open_calendar,
+            "meetings": self.open_calendar,
+            "tasks": self.open_todo,
+            "todo": self.open_todo,
+            "productivity": self.open_todo,
+            
+            # Analytics & Reporting
             "kpi": self.open_kpi_tracker,
             "metrics": self.open_business_dashboard,
             "dashboard": self.open_business_dashboard,
+            "analytics": self.open_business_dashboard,
+            "insights": self.open_business_dashboard,
             "reports": self.open_report_generator,
+            "reporting": self.open_report_generator,
+            "performance": self.open_kpi_tracker,
+            
+            # Business Growth & Strategy
+            "growth": self.open_business_dashboard,
+            "strategy": self.open_business_dashboard,
+            "planning": self.open_business_dashboard,
+            "goals": self.open_kpi_tracker,
+            "targets": self.open_kpi_tracker,
+            "roi": self.open_business_dashboard,
+            "conversion": self.open_business_dashboard,
+            
+            # Extensions & Tools
             "packs": self.open_tailor_pack_manager,
             "extensions": self.open_tailor_pack_manager,
+            "tools": self.open_tailor_pack_manager,
+            "marketplace": self.open_pack_marketplace,
+            "import": self.quick_import_pack,
+            
+            # Specialized Business Areas
             "marketing": lambda: self.show_marketing_suggestions(),
-            "automation": lambda: self.show_automation_suggestions()
+            "automation": lambda: self.show_automation_suggestions(),
+            "email": self.open_email,
+            "communication": self.open_email,
+            "notes": self.open_notes,
+            "documents": self.open_file_manager,
+            "files": self.open_file_manager,
+            "passwords": self.open_password_manager,
+            "security": self.open_password_manager,
+            "calculator": self.open_calculator,
+            "calc": self.open_calculator,
+            "math": self.open_calculator,
+            "weather": self.open_weather,
+            "news": self.open_news,
+            "browser": self.open_browser,
+            "web": self.open_browser
         }
         
         # Check business shortcuts first
@@ -1424,18 +1487,20 @@ class MainWindow(QMainWindow):
     def show_search_suggestions(self, query):
         """Show search suggestions when no direct match is found"""
         suggestions = [
-            "💰 Try: 'revenue', 'income', 'expenses' for financial tools",
-            "👥 Try: 'customers', 'crm', 'leads' for customer management",
-            "⏱️ Try: 'time', 'hours', 'billable' for time tracking",
-            "📊 Try: 'dashboard', 'metrics', 'kpi' for business insights",
-            "📦 Try: 'packs', 'marketing', 'automation' for extensions",
-            "🤖 Try: 'ai: [question]' for AI assistance"
+            "💰 Financial: 'revenue', 'expenses', 'profit', 'cash flow', 'budget', 'invoices'",
+            "👥 Customers: 'customers', 'crm', 'leads', 'sales', 'pipeline', 'deals'", 
+            "⏱️ Time: 'time', 'hours', 'billable', 'schedule', 'calendar', 'meetings'",
+            "📊 Analytics: 'dashboard', 'metrics', 'kpi', 'reports', 'performance', 'growth'",
+            "🚀 Growth: 'strategy', 'planning', 'goals', 'targets', 'roi', 'conversion'",
+            "📦 Tools: 'packs', 'import', 'marketing', 'automation', 'tools'",
+            "🤖 AI Help: 'ai: [your business question]' for intelligent assistance"
         ]
         
         msg = QMessageBox(self)
-        msg.setWindowTitle("Search Suggestions")
+        msg.setWindowTitle("Entrepreneur Search Guide")
         msg.setText(f"No direct match found for '{query}'")
-        msg.setInformativeText("Here are some suggestions:\n\n" + "\n".join(suggestions))
+        msg.setInformativeText("Try these business-focused search terms:\n\n" + "\n".join(suggestions) + 
+                              "\n\nOr browse the main grid for all available tools.")
         msg.exec_()
     
     def toggle_ai_chat(self):
