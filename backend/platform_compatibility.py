@@ -11,7 +11,7 @@ import sys
 import platform
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Callable
 from enum import Enum
 import logging
 import tempfile
@@ -597,6 +597,259 @@ class NotificationManager:
             return False
 
 
+class BusinessNotificationManager(NotificationManager):
+    """Enhanced notification manager for business events."""
+    
+    def __init__(self, platform_info: PlatformInfo):
+        super().__init__(platform_info)
+        self.business_icons = {
+            'revenue': '💰',
+            'customer': '👥',
+            'order': '📦',
+            'meeting': '📅',
+            'task': '✅',
+            'alert': '⚠️',
+            'success': '🎉',
+            'warning': '⚡',
+            'error': '❌',
+            'info': 'ℹ️'
+        }
+    
+    def show_business_notification(self, notification_type: str, title: str, 
+                                 message: str, priority: str = 'normal') -> bool:
+        """Show business-specific notification with icon and priority."""
+        icon = self.business_icons.get(notification_type, 'ℹ️')
+        enhanced_title = f"{icon} {title}"
+        
+        # Adjust timeout based on priority
+        timeout_map = {
+            'low': 3000,
+            'normal': 5000,
+            'high': 8000,
+            'critical': 0  # Persistent
+        }
+        timeout = timeout_map.get(priority, 5000)
+        
+        return self.show_notification(enhanced_title, message, timeout)
+    
+    def show_revenue_alert(self, amount: str, change: str) -> bool:
+        """Show revenue milestone notification."""
+        return self.show_business_notification(
+            'revenue',
+            'Revenue Milestone',
+            f'Monthly revenue reached {amount} ({change})',
+            'high'
+        )
+    
+    def show_customer_milestone(self, count: str, milestone: str) -> bool:
+        """Show customer milestone notification."""
+        return self.show_business_notification(
+            'customer',
+            'Customer Milestone',
+            f'Reached {count} customers - {milestone} achieved!',
+            'high'
+        )
+    
+    def show_order_notification(self, customer: str, amount: str) -> bool:
+        """Show new order notification."""
+        return self.show_business_notification(
+            'order',
+            'New Order Received',
+            f'Order from {customer} - {amount}',
+            'normal'
+        )
+    
+    def show_meeting_reminder(self, meeting: str, time: str) -> bool:
+        """Show meeting reminder."""
+        return self.show_business_notification(
+            'meeting',
+            'Meeting Reminder',
+            f'{meeting} starts in {time}',
+            'high'
+        )
+    
+    def show_task_completion(self, task: str) -> bool:
+        """Show task completion notification."""
+        return self.show_business_notification(
+            'task',
+            'Task Completed',
+            f'✓ {task}',
+            'normal'
+        )
+    
+    def show_business_alert(self, alert_type: str, message: str) -> bool:
+        """Show business alert (cash flow, runway, etc.)."""
+        priority = 'critical' if 'critical' in alert_type.lower() else 'high'
+        return self.show_business_notification(
+            'alert',
+            f'Business Alert: {alert_type}',
+            message,
+            priority
+        )
+
+
+class AutoUpdateManager:
+    """Cross-platform auto-update functionality."""
+    
+    def __init__(self, platform_info: PlatformInfo):
+        self.platform_info = platform_info
+        self.update_url = "https://updates.westfall-software.com/entrepreneur-assistant"
+        self.current_version = "1.0.0"  # This should be read from app config
+    
+    def check_for_updates(self) -> Dict[str, Any]:
+        """Check if updates are available."""
+        try:
+            import requests
+            response = requests.get(f"{self.update_url}/version-check", timeout=10)
+            
+            if response.status_code == 200:
+                update_info = response.json()
+                latest_version = update_info.get('latest_version')
+                
+                if self._is_newer_version(latest_version, self.current_version):
+                    return {
+                        'update_available': True,
+                        'latest_version': latest_version,
+                        'current_version': self.current_version,
+                        'download_url': update_info.get('download_url'),
+                        'release_notes': update_info.get('release_notes', []),
+                        'security_update': update_info.get('security_update', False)
+                    }
+                else:
+                    return {'update_available': False, 'latest_version': latest_version}
+            
+        except Exception as e:
+            logger.error(f"Failed to check for updates: {e}")
+            return {'error': str(e)}
+        
+        return {'update_available': False}
+    
+    def download_update(self, download_url: str, progress_callback: Optional[Callable] = None) -> str:
+        """Download update package."""
+        try:
+            import requests
+            from urllib.parse import urlparse
+            
+            # Determine file extension based on platform
+            if self.platform_info.is_windows():
+                file_ext = '.msi'
+            elif self.platform_info.is_macos():
+                file_ext = '.dmg'
+            else:  # Linux
+                file_ext = '.deb'  # or .rpm, .AppImage based on detection
+            
+            filename = f"westfall-assistant-update{file_ext}"
+            temp_dir = tempfile.gettempdir()
+            file_path = os.path.join(temp_dir, filename)
+            
+            with requests.get(download_url, stream=True, timeout=60) as response:
+                response.raise_for_status()
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded = 0
+                
+                with open(file_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            
+                            if progress_callback and total_size > 0:
+                                progress = (downloaded / total_size) * 100
+                                progress_callback(progress)
+            
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"Failed to download update: {e}")
+            raise
+    
+    def install_update(self, update_file: str) -> bool:
+        """Install downloaded update."""
+        try:
+            if self.platform_info.is_windows():
+                return self._install_windows_update(update_file)
+            elif self.platform_info.is_macos():
+                return self._install_macos_update(update_file)
+            else:  # Linux
+                return self._install_linux_update(update_file)
+        except Exception as e:
+            logger.error(f"Failed to install update: {e}")
+            return False
+    
+    def _install_windows_update(self, msi_file: str) -> bool:
+        """Install Windows MSI update."""
+        try:
+            # Use msiexec for silent installation
+            cmd = ['msiexec', '/i', msi_file, '/quiet', '/norestart']
+            result = subprocess.run(cmd, capture_output=True, timeout=300)
+            return result.returncode == 0
+        except Exception:
+            return False
+    
+    def _install_macos_update(self, dmg_file: str) -> bool:
+        """Install macOS DMG update."""
+        try:
+            # Mount DMG and copy app
+            mount_result = subprocess.run(
+                ['hdiutil', 'attach', dmg_file], 
+                capture_output=True, text=True
+            )
+            
+            if mount_result.returncode == 0:
+                # Extract mount point from output
+                mount_point = None
+                for line in mount_result.stdout.split('\n'):
+                    if '/Volumes/' in line:
+                        mount_point = line.split('\t')[-1].strip()
+                        break
+                
+                if mount_point:
+                    # Copy app to Applications
+                    app_source = os.path.join(mount_point, 'Westfall Assistant.app')
+                    app_dest = '/Applications/Westfall Assistant.app'
+                    
+                    if os.path.exists(app_source):
+                        shutil.copytree(app_source, app_dest, dirs_exist_ok=True)
+                        
+                        # Unmount DMG
+                        subprocess.run(['hdiutil', 'detach', mount_point], check=False)
+                        return True
+            
+            return False
+        except Exception:
+            return False
+    
+    def _install_linux_update(self, package_file: str) -> bool:
+        """Install Linux package update."""
+        try:
+            if package_file.endswith('.deb'):
+                cmd = ['sudo', 'dpkg', '-i', package_file]
+            elif package_file.endswith('.rpm'):
+                cmd = ['sudo', 'rpm', '-U', package_file]
+            else:
+                return False
+            
+            result = subprocess.run(cmd, capture_output=True, timeout=300)
+            return result.returncode == 0
+        except Exception:
+            return False
+    
+    def _is_newer_version(self, version1: str, version2: str) -> bool:
+        """Compare two version strings."""
+        try:
+            v1_parts = [int(x) for x in version1.split('.')]
+            v2_parts = [int(x) for x in version2.split('.')]
+            
+            # Pad with zeros
+            max_len = max(len(v1_parts), len(v2_parts))
+            v1_parts.extend([0] * (max_len - len(v1_parts)))
+            v2_parts.extend([0] * (max_len - len(v2_parts)))
+            
+            return v1_parts > v2_parts
+        except Exception:
+            return False
+
+
 class PlatformManager:
     """Main platform management class."""
     
@@ -605,8 +858,31 @@ class PlatformManager:
         self.paths = PathManager(self.info)
         self.processes = ProcessManager(self.info)
         self.notifications = NotificationManager(self.info)
+        self.business_notifications = BusinessNotificationManager(self.info)
+        self.auto_updater = AutoUpdateManager(self.info)
         
         logger.info(f"Platform manager initialized for {self.info.platform.value}")
+    
+    def show_business_notification(self, notification_type: str, title: str, 
+                                 message: str, priority: str = 'normal') -> bool:
+        """Show business notification using enhanced manager."""
+        return self.business_notifications.show_business_notification(
+            notification_type, title, message, priority
+        )
+    
+    def check_for_app_updates(self) -> Dict[str, Any]:
+        """Check for application updates."""
+        return self.auto_updater.check_for_updates()
+    
+    def download_and_install_update(self, download_url: str, 
+                                  progress_callback: Optional[Callable] = None) -> bool:
+        """Download and install application update."""
+        try:
+            update_file = self.auto_updater.download_update(download_url, progress_callback)
+            return self.auto_updater.install_update(update_file)
+        except Exception as e:
+            logger.error(f"Update installation failed: {e}")
+            return False
     
     def get_system_info(self) -> Dict:
         """Get comprehensive system information."""

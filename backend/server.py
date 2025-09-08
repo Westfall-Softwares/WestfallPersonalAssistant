@@ -2193,6 +2193,224 @@ async def get_calculator_stats():
     stats = await calculator.get_calculator_stats()
     return stats
 
+# =====================================
+# TAILOR PACK API ENDPOINTS
+# =====================================
+
+class TailorPackImportRequest(BaseModel):
+    orderNumber: str
+    verifyLicense: bool = True
+
+class TailorPackManifest(BaseModel):
+    pack_id: str
+    name: str
+    version: str
+    description: str
+    author: str
+    target_audience: str
+    business_category: str
+    features: List[str]
+    dependencies: Optional[List[str]] = []
+    license_required: bool = False
+
+@app.get("/api/tailor-packs")
+async def get_installed_tailor_packs():
+    """Get list of installed Tailor Packs."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        pack_manager = get_tailor_pack_manager()
+        
+        installed_packs = pack_manager.get_installed_packs()
+        active_packs = pack_manager.get_active_packs()
+        
+        # Convert to frontend format
+        packs_data = []
+        for pack in installed_packs:
+            pack_data = {
+                "id": pack.pack_id,
+                "name": pack.name,
+                "version": pack.version,
+                "description": pack.description,
+                "author": pack.author,
+                "category": pack.business_category,
+                "targetAudience": pack.target_audience,
+                "active": pack.enabled,
+                "features": pack.feature_list or [],
+                "dependencies": getattr(pack, 'dependencies', []),
+                "licenseRequired": pack.license_required,
+                "trialDaysLeft": getattr(pack, 'trial_days_left', None)
+            }
+            packs_data.append(pack_data)
+        
+        return {
+            "success": True,
+            "installedPacks": packs_data,
+            "totalInstalled": len(installed_packs),
+            "totalActive": len(active_packs)
+        }
+    except Exception as e:
+        logger.error(f"Error getting tailor packs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/tailor-packs/import")
+async def import_tailor_pack(request: TailorPackImportRequest):
+    """Import a Tailor Pack using order number/license key."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        from util.order_verification import get_order_verification_service
+        
+        pack_manager = get_tailor_pack_manager()
+        order_service = get_order_verification_service()
+        
+        # Verify order/license
+        if request.verifyLicense:
+            verification_result = order_service.verify_order(request.orderNumber)
+            if not verification_result.get("valid", False):
+                return {
+                    "success": False,
+                    "error": verification_result.get("error", "Invalid order number")
+                }
+        
+        # Download and import pack
+        # This would typically involve downloading from a marketplace
+        # For now, return mock success
+        return {
+            "success": True,
+            "pack": {
+                "id": "mock-pack-" + request.orderNumber[:8],
+                "name": "Mock Business Pack",
+                "version": "1.0.0",
+                "description": "A mock pack for demonstration",
+                "author": "Westfall Software",
+                "category": "business",
+                "targetAudience": "entrepreneur",
+                "active": True,
+                "features": ["Feature 1", "Feature 2"],
+                "licenseRequired": True
+            },
+            "message": "Pack imported successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error importing tailor pack: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/tailor-packs/import-file")
+async def import_tailor_pack_from_file():
+    """Import a Tailor Pack from uploaded ZIP file."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        pack_manager = get_tailor_pack_manager()
+        
+        # This would handle file upload and import
+        # For now, return mock success
+        return {
+            "success": True,
+            "pack": {
+                "id": "uploaded-pack-" + str(int(time.time())),
+                "name": "Uploaded Pack",
+                "version": "1.0.0",
+                "description": "Pack imported from file",
+                "author": "Unknown",
+                "category": "other",
+                "targetAudience": "any",
+                "active": True,
+                "features": ["Uploaded Feature"]
+            },
+            "message": "Pack imported from file successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error importing tailor pack from file: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/tailor-packs/export/{pack_id}")
+async def export_tailor_pack(pack_id: str):
+    """Export a Tailor Pack to ZIP file."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        pack_manager = get_tailor_pack_manager()
+        
+        export_result = pack_manager.export_tailor_pack(pack_id)
+        
+        if export_result["success"]:
+            # Return file download response
+            # This would typically return a FileResponse
+            return {
+                "success": True,
+                "downloadUrl": f"/downloads/packs/{pack_id}.zip",
+                "message": f"Pack {export_result['pack_name']} exported successfully"
+            }
+        else:
+            return {"success": False, "error": export_result["error"]}
+    except Exception as e:
+        logger.error(f"Error exporting tailor pack: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/tailor-packs/backup")
+async def backup_all_tailor_packs():
+    """Create backup of all Tailor Packs."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        pack_manager = get_tailor_pack_manager()
+        
+        backup_result = pack_manager.backup_all_packs()
+        
+        if backup_result["success"]:
+            return {
+                "success": True,
+                "backupPath": backup_result["backup_path"],
+                "totalPacks": backup_result["total_packs"],
+                "backupSize": backup_result["backup_size"],
+                "message": "Backup created successfully"
+            }
+        else:
+            return {"success": False, "error": backup_result["error"]}
+    except Exception as e:
+        logger.error(f"Error creating backup: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/tailor-packs/{pack_id}/toggle")
+async def toggle_tailor_pack(pack_id: str, enabled: bool):
+    """Enable or disable a Tailor Pack."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        pack_manager = get_tailor_pack_manager()
+        
+        if enabled:
+            result = pack_manager.enable_pack(pack_id)
+        else:
+            result = pack_manager.disable_pack(pack_id)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error toggling tailor pack {pack_id}: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/tailor-packs/statistics")
+async def get_tailor_pack_statistics():
+    """Get statistics about Tailor Packs."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        pack_manager = get_tailor_pack_manager()
+        
+        stats = pack_manager.get_pack_statistics()
+        return {"success": True, "statistics": stats}
+    except Exception as e:
+        logger.error(f"Error getting tailor pack statistics: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/tailor-packs/{pack_id}/dependencies")
+async def resolve_pack_dependencies(pack_id: str):
+    """Resolve dependencies for a Tailor Pack."""
+    try:
+        from util.tailor_pack_manager import get_tailor_pack_manager
+        pack_manager = get_tailor_pack_manager()
+        
+        resolution = pack_manager.resolve_dependencies(pack_id)
+        return resolution
+    except Exception as e:
+        logger.error(f"Error resolving dependencies for {pack_id}: {e}")
+        return {"success": False, "error": str(e)}
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Westfall Personal Assistant Backend")
     parser.add_argument("--model", type=str, help="Path to model file to load on startup")

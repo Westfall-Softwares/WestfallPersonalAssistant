@@ -135,19 +135,133 @@ export default function TailorPackManager() {
     );
   };
 
-  const handleImportPack = () => {
+  const handleImportPack = async () => {
     if (!orderNumber.trim()) {
       setImportError('Please enter an order number');
       return;
     }
     
-    // Mock import process
-    console.log('Importing pack with order number:', orderNumber);
-    setImportDialogOpen(false);
-    setOrderNumber('');
     setImportError('');
     
-    // Show success message or add to installed packs
+    try {
+      // Call backend to import pack with order verification
+      const response = await fetch('/api/tailor-packs/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderNumber: orderNumber.trim(),
+          verifyLicense: true
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Add to installed packs
+        setInstalledPacks(packs => [...packs, result.pack]);
+        setImportDialogOpen(false);
+        setOrderNumber('');
+        
+        // Show success notification
+        alert(`Successfully imported ${result.pack.name}!`);
+      } else {
+        setImportError(result.error || 'Failed to import pack');
+      }
+    } catch (error) {
+      setImportError('Network error occurred. Please try again.');
+      console.error('Import error:', error);
+    }
+  };
+
+  const handleImportFromFile = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.zip')) {
+      setImportError('Please select a ZIP file');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('packFile', file);
+    
+    try {
+      const response = await fetch('/api/tailor-packs/import-file', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setInstalledPacks(packs => [...packs, result.pack]);
+        alert(`Successfully imported ${result.pack.name} from file!`);
+      } else {
+        setImportError(result.error || 'Failed to import pack from file');
+      }
+    } catch (error) {
+      setImportError('File import failed. Please check the file and try again.');
+      console.error('File import error:', error);
+    }
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const handleExportPack = async (packId) => {
+    try {
+      const response = await fetch(`/api/tailor-packs/export/${packId}`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${packId}-export.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        const result = await response.json();
+        alert(`Export failed: ${result.error}`);
+      }
+    } catch (error) {
+      alert('Export failed. Please try again.');
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleBackupAllPacks = async () => {
+    try {
+      const response = await fetch('/api/tailor-packs/backup', {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tailor-packs-backup-${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        alert('Backup created successfully!');
+      } else {
+        const result = await response.json();
+        alert(`Backup failed: ${result.error}`);
+      }
+    } catch (error) {
+      alert('Backup failed. Please try again.');
+      console.error('Backup error:', error);
+    }
   };
 
   const renderInstalledPacks = () => (
@@ -165,11 +279,21 @@ export default function TailorPackManager() {
                     v{pack.version} • {pack.author}
                   </Typography>
                 </Box>
-                <Switch
-                  checked={pack.active}
-                  onChange={(e) => togglePackActive(pack.id, e.target.checked)}
-                  color="primary"
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Switch
+                    checked={pack.active}
+                    onChange={(e) => togglePackActive(pack.id, e.target.checked)}
+                    color="primary"
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleExportPack(pack.id)}
+                    title="Export pack"
+                  >
+                    Export
+                  </Button>
+                </Box>
               </Box>
               
               <Typography variant="body2" sx={{ mb: 2 }}>
@@ -183,11 +307,28 @@ export default function TailorPackManager() {
                   color="primary" 
                   variant="outlined"
                 />
+                {pack.targetAudience && (
+                  <Chip 
+                    label={pack.targetAudience} 
+                    size="small" 
+                    color="secondary" 
+                    variant="outlined"
+                  />
+                )}
                 {pack.licenseRequired && (
                   <Chip 
                     label={pack.trialDaysLeft ? `Trial: ${pack.trialDaysLeft} days` : 'Licensed'} 
                     size="small" 
                     color={pack.trialDaysLeft ? 'warning' : 'success'}
+                  />
+                )}
+                {pack.dependencies && pack.dependencies.length > 0 && (
+                  <Chip 
+                    label={`${pack.dependencies.length} dependencies`} 
+                    size="small" 
+                    color="info" 
+                    variant="outlined"
+                    title={`Dependencies: ${pack.dependencies.join(', ')}`}
                   />
                 )}
               </Box>
@@ -199,35 +340,47 @@ export default function TailorPackManager() {
                 {pack.features.map((feature, index) => (
                   <ListItem key={index} sx={{ py: 0 }}>
                     <ListItemText 
-                      primary={feature}
+                      primary={feature} 
                       primaryTypographyProps={{ variant: 'body2' }}
                     />
                   </ListItem>
                 ))}
               </List>
               
+              {/* Pack Actions */}
               <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  startIcon={<SettingsIcon />}
-                  variant="outlined"
-                >
-                  Configure
+                <Button size="small" variant="text">
+                  Settings
                 </Button>
-                {pack.licenseRequired && pack.trialDaysLeft && (
-                  <Button
-                    size="small"
-                    color="warning"
-                    variant="contained"
-                  >
-                    Upgrade License
-                  </Button>
-                )}
+                <Button size="small" variant="text" color="error">
+                  Uninstall
+                </Button>
               </Box>
             </CardContent>
           </Card>
         </Grid>
       ))}
+      
+      {installedPacks.length === 0 && (
+        <Grid item xs={12}>
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <ExtensionIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No Tailor Packs Installed
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Install your first Tailor Pack to extend your business capabilities
+            </Typography>
+            <Button 
+              variant="contained" 
+              startIcon={<AddIcon />}
+              onClick={() => setImportDialogOpen(true)}
+            >
+              Import Your First Pack
+            </Button>
+          </Box>
+        </Grid>
+      )}
     </Grid>
   );
 
@@ -422,8 +575,11 @@ export default function TailorPackManager() {
       <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Import Tailor Pack</DialogTitle>
         <DialogContent>
+          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+            Method 1: License/Order Number
+          </Typography>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            Enter your order number or license key to import and activate a Tailor Pack.
+            Enter your order number or license key to download and import a Tailor Pack.
           </Typography>
           <TextField
             fullWidth
@@ -432,12 +588,86 @@ export default function TailorPackManager() {
             onChange={(e) => setOrderNumber(e.target.value)}
             error={!!importError}
             helperText={importError}
-            sx={{ mt: 2 }}
+            sx={{ mt: 1, mb: 2 }}
           />
+          <Button 
+            onClick={handleImportPack} 
+            variant="contained" 
+            disabled={!orderNumber.trim()}
+            fullWidth
+            sx={{ mb: 3 }}
+          >
+            Import from License
+          </Button>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Typography variant="h6" gutterBottom>
+            Method 2: Upload Pack File
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Upload a Tailor Pack ZIP file directly.
+          </Typography>
+          <input
+            accept=".zip"
+            style={{ display: 'none' }}
+            id="pack-file-input"
+            type="file"
+            onChange={handleImportFromFile}
+          />
+          <label htmlFor="pack-file-input">
+            <Button 
+              variant="outlined" 
+              component="span" 
+              fullWidth
+              startIcon={<DownloadIcon />}
+            >
+              Select Pack File (.zip)
+            </Button>
+          </label>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Typography variant="h6" gutterBottom>
+            Backup & Restore
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button 
+              variant="outlined" 
+              onClick={handleBackupAllPacks}
+              fullWidth
+            >
+              Backup All Packs
+            </Button>
+            <input
+              accept=".zip"
+              style={{ display: 'none' }}
+              id="restore-backup-input"
+              type="file"
+              onChange={(e) => {
+                // Handle restore from backup
+                console.log('Restore backup:', e.target.files[0]);
+              }}
+            />
+            <label htmlFor="restore-backup-input">
+              <Button 
+                variant="outlined" 
+                component="span"
+                fullWidth
+              >
+                Restore Backup
+              </Button>
+            </label>
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setImportDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleImportPack} variant="contained">Import Pack</Button>
+          <Button onClick={() => {
+            setImportDialogOpen(false);
+            setImportError('');
+            setOrderNumber('');
+          }}>
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
