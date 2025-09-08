@@ -126,13 +126,22 @@ except ImportError:
 
 # Handle screen intelligence imports
 try:
-    from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
-    # Use MultiMonitorCapture as LiveScreenIntelligence
-    LiveScreenIntelligence = MultiMonitorCapture
+    from screen_intelligence.enhanced_screen_intelligence import ScreenIntelligenceWidget, EnhancedScreenIntelligence
+    # Use Enhanced version as primary
+    LiveScreenIntelligence = EnhancedScreenIntelligence
     SCREEN_INTELLIGENCE_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Screen intelligence import error: {e}")
-    SCREEN_INTELLIGENCE_AVAILABLE = False
+    ENHANCED_SCREEN_INTELLIGENCE = True
+except ImportError:
+    try:
+        from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
+        # Use MultiMonitorCapture as LiveScreenIntelligence
+        LiveScreenIntelligence = MultiMonitorCapture
+        SCREEN_INTELLIGENCE_AVAILABLE = True
+        ENHANCED_SCREEN_INTELLIGENCE = False
+    except ImportError as e:
+        print(f"Warning: Screen intelligence import error: {e}")
+        SCREEN_INTELLIGENCE_AVAILABLE = False
+        ENHANCED_SCREEN_INTELLIGENCE = False
     class LiveScreenIntelligence(QWidget):
         def __init__(self):
             super().__init__()
@@ -627,14 +636,21 @@ class MainWindow(QMainWindow):
         self.show_widget(CRMManager, "CRM")
     
     def show_screen_intelligence(self):
-        # Use MultiMonitorCapture which we know exists
-        try:
-            from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
-            self.show_widget(MultiMonitorCapture, "Screen Intelligence")
-        except ImportError:
-            QMessageBox.critical(self, "Module Not Found", 
-                "Screen Intelligence module not found.\n"
-                "Please ensure all files were created properly.")
+        if ENHANCED_SCREEN_INTELLIGENCE:
+            try:
+                self.show_widget(ScreenIntelligenceWidget, "Enhanced Screen Intelligence")
+            except ImportError:
+                # Fallback to basic version
+                from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
+                self.show_widget(MultiMonitorCapture, "Screen Intelligence")
+        else:
+            try:
+                from screen_intelligence.capture.multi_monitor_capture import MultiMonitorCapture
+                self.show_widget(MultiMonitorCapture, "Screen Intelligence")
+            except ImportError:
+                QMessageBox.critical(self, "Module Not Found", 
+                    "Screen Intelligence module not found.\n"
+                    "Please ensure all dependencies are installed.")
     
     def toggle_ai_assistant(self):
         """Toggle AI Assistant"""
@@ -1177,12 +1193,15 @@ class MainWindow(QMainWindow):
     # New Business Intelligence window opening methods
     def open_screen_intelligence(self):
         if 'screen_intelligence' not in self.windows:
-            self.windows['screen_intelligence'] = MultiMonitorCapture()
+            if ENHANCED_SCREEN_INTELLIGENCE:
+                self.windows['screen_intelligence'] = ScreenIntelligenceWidget()
+            else:
+                self.windows['screen_intelligence'] = MultiMonitorCapture()
         self.windows['screen_intelligence'].show()
         self.windows['screen_intelligence'].raise_()
         self.windows['screen_intelligence'].activateWindow()
         self.ai_chat.parent_window = self.windows['screen_intelligence']
-        self.status_bar.showMessage("Screen Intelligence opened - Multi-monitor capture & analysis")
+        self.status_bar.showMessage("Screen Intelligence opened - AI-powered screen analysis")
     
     def open_business_dashboard(self):
         if 'business_dashboard' not in self.windows:
