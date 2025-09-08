@@ -104,30 +104,82 @@ const GoalProgress = ({ title, current, target, unit = '' }) => {
 export default function BusinessDashboard() {
   const [refreshTime, setRefreshTime] = useState(new Date());
   const [menuAnchor, setMenuAnchor] = useState(null);
+  const [selectedTimeRange, setSelectedTimeRange] = useState('month');
 
-  // Mock business data - replace with real API calls
+  // Enhanced business data with more comprehensive metrics
   const businessMetrics = {
     revenue: {
       current: '$12,450',
       change: '+15.2% vs last month',
-      changeType: 'positive'
+      changeType: 'positive',
+      target: '$15,000',
+      progress: 83
     },
     customers: {
       current: '847',
       change: '+23 new this month',
-      changeType: 'positive'
+      changeType: 'positive',
+      target: '1,000',
+      progress: 85
     },
     orders: {
       current: '156',
       change: '-5.1% vs last month',
-      changeType: 'negative'
+      changeType: 'negative',
+      target: '175',
+      progress: 89
     },
     avgDeal: {
       current: '$1,234',
       change: '+8.7% vs last month',
-      changeType: 'positive'
+      changeType: 'positive',
+      target: '$1,500',
+      progress: 82
+    },
+    // New entrepreneur-focused metrics
+    burnRate: {
+      current: '$3,200',
+      change: '-12% vs last month',
+      changeType: 'positive',
+      description: 'Monthly burn rate'
+    },
+    cashflow: {
+      current: '$8,750',
+      change: '+24% vs last month',
+      changeType: 'positive',
+      description: 'Net cash flow'
+    },
+    runway: {
+      current: '18 months',
+      change: '+2 months vs last calc',
+      changeType: 'positive',
+      description: 'Cash runway'
+    },
+    conversionRate: {
+      current: '3.2%',
+      change: '+0.8% vs last month',
+      changeType: 'positive',
+      description: 'Lead conversion rate'
     }
   };
+
+  const entrepreneurKPIs = [
+    { name: 'Customer Acquisition Cost', value: '$125', target: '$100', status: 'warning' },
+    { name: 'Lifetime Value', value: '$2,450', target: '$2,000', status: 'success' },
+    { name: 'Monthly Recurring Revenue', value: '$8,200', target: '$10,000', status: 'info' },
+    { name: 'Churn Rate', value: '2.1%', target: '<3%', status: 'success' },
+    { name: 'Product Market Fit Score', value: '7.8/10', target: '8.0', status: 'warning' },
+    { name: 'Net Promoter Score', value: '67', target: '70', status: 'info' }
+  ];
+
+  const businessGoals = [
+    { title: 'Q4 Revenue Target', current: 42500, target: 60000, unit: '$' },
+    { title: 'Customer Growth', current: 847, target: 1000, unit: '' },
+    { title: 'Product Development', current: 7, target: 10, unit: ' features' },
+    { title: 'Market Expansion', current: 3, target: 5, unit: ' cities' },
+    { title: 'Team Growth', current: 12, target: 15, unit: ' employees' },
+    { title: 'Funding Round', current: 250000, target: 500000, unit: '$' }
+  ];
 
   const recentActivity = [
     { 
@@ -145,26 +197,26 @@ export default function BusinessDashboard() {
       color: 'info'
     },
     { 
-      type: 'email', 
-      icon: EmailIcon, 
-      text: 'Proposal sent to TechStart Inc', 
+      type: 'funding', 
+      icon: AttachMoneyIcon, 
+      text: 'Investment inquiry from VC firm', 
       time: '6 hours ago',
-      color: 'primary'
+      color: 'warning'
     },
     { 
-      type: 'meeting', 
-      icon: EventIcon, 
-      text: 'Completed call with Product Manager at Beta Co', 
+      type: 'product', 
+      icon: TaskIcon, 
+      text: 'New feature deployed to production', 
+      time: '8 hours ago',
+      color: 'info'
+    },
+    { 
+      type: 'team', 
+      icon: PeopleIcon, 
+      text: 'New developer started today', 
       time: '1 day ago',
-      color: 'secondary'
+      color: 'success'
     }
-  ];
-
-  const monthlyGoals = [
-    { title: 'Monthly Revenue', current: 12450, target: 20000, unit: '$' },
-    { title: 'New Customers', current: 23, target: 30, unit: '' },
-    { title: 'Closed Deals', current: 8, target: 12, unit: '' },
-    { title: 'Meeting Hours', current: 42, target: 60, unit: 'h' }
   ];
 
   const upcomingTasks = [
@@ -272,7 +324,7 @@ export default function BusinessDashboard() {
               <Typography variant="h6" component="h3" gutterBottom>
                 📈 Monthly Goals
               </Typography>
-              {monthlyGoals.map((goal, index) => (
+              {businessGoals.slice(0, 4).map((goal, index) => (
                 <GoalProgress
                   key={index}
                   title={goal.title}
@@ -400,6 +452,117 @@ export default function BusinessDashboard() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Entrepreneur KPIs Section */}
+      <Grid container spacing={3} sx={{ mt: 2 }}>
+        <Grid item xs={12}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" component="h3" gutterBottom>
+                💼 Entrepreneur KPIs
+              </Typography>
+              <Grid container spacing={2}>
+                {entrepreneurKPIs.map((kpi, index) => (
+                  <Grid item xs={12} sm={6} md={4} key={index}>
+                    <Paper 
+                      elevation={1} 
+                      sx={{ 
+                        p: 2, 
+                        textAlign: 'center',
+                        borderLeft: `4px solid ${
+                          kpi.status === 'success' ? '#4caf50' :
+                          kpi.status === 'warning' ? '#ff9800' :
+                          kpi.status === 'error' ? '#f44336' : '#2196f3'
+                        }`
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        {kpi.name}
+                      </Typography>
+                      <Typography variant="h6" fontWeight="bold">
+                        {kpi.value}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Target: {kpi.target}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Enhanced Business Financial Metrics */}
+      <Grid container spacing={3} sx={{ mt: 2 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Monthly Burn Rate"
+            value={businessMetrics.burnRate.current}
+            change={businessMetrics.burnRate.change}
+            changeType={businessMetrics.burnRate.changeType}
+            icon={TrendingDownIcon}
+            color="warning"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Net Cash Flow"
+            value={businessMetrics.cashflow.current}
+            change={businessMetrics.cashflow.change}
+            changeType={businessMetrics.cashflow.changeType}
+            icon={AttachMoneyIcon}
+            color="success"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Cash Runway"
+            value={businessMetrics.runway.current}
+            change={businessMetrics.runway.change}
+            changeType={businessMetrics.runway.changeType}
+            icon={AccessTimeIcon}
+            color="info"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricCard
+            title="Conversion Rate"
+            value={businessMetrics.conversionRate.current}
+            change={businessMetrics.conversionRate.change}
+            changeType={businessMetrics.conversionRate.changeType}
+            icon={TrendingUpIcon}
+            color="primary"
+          />
+        </Grid>
+      </Grid>
+
+      {/* Business Goals Section */}
+      <Grid container spacing={3} sx={{ mt: 2 }}>
+        <Grid item xs={12}>
+          <Card elevation={2}>
+            <CardContent>
+              <Typography variant="h6" component="h3" gutterBottom>
+                🎯 Strategic Business Goals
+              </Typography>
+              <Grid container spacing={2}>
+                {businessGoals.map((goal, index) => (
+                  <Grid item xs={12} sm={6} md={4} key={index}>
+                    <GoalProgress
+                      title={goal.title}
+                      current={goal.current}
+                      target={goal.target}
+                      unit={goal.unit}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
     </Box>
   );
 }
