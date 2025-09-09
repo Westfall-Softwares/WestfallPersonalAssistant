@@ -51,26 +51,98 @@ class TaskManager:
 
     def add_task(self, task: Dict[str, Any]) -> str:
         """
-        Add a new task.
+        Add a new task with input validation.
 
         Args:
             task: Dictionary containing task information
 
         Returns:
             Task ID of the created task
+            
+        Raises:
+            ValueError: If task data is invalid
         """
+        # Input validation
+        if not isinstance(task, dict):
+            raise ValueError("Task must be a dictionary")
+        
+        # Validate required fields
+        title = task.get('title', '').strip()
+        if not title:
+            raise ValueError("Task title is required")
+        
+        if len(title) > 200:
+            raise ValueError("Task title too long (max 200 characters)")
+        
+        # Validate description
+        description = task.get('description', '').strip()
+        if len(description) > 1000:
+            raise ValueError("Task description too long (max 1000 characters)")
+        
+        # Validate priority
+        priority = task.get('priority', 'medium').lower()
+        if priority not in ['low', 'medium', 'high', 'urgent']:
+            priority = 'medium'
+        
+        # Validate tags
+        tags = task.get('tags', [])
+        if not isinstance(tags, list):
+            tags = []
+        else:
+            # Filter and validate tags
+            validated_tags = []
+            for tag in tags[:10]:  # Limit to 10 tags
+                if isinstance(tag, str) and len(tag.strip()) > 0 and len(tag.strip()) <= 50:
+                    validated_tags.append(tag.strip())
+            tags = validated_tags
+        
+        # Validate due_date if provided
+        due_date = task.get('due_date')
+        if due_date is not None:
+            if isinstance(due_date, str):
+                try:
+                    due_date = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                except ValueError:
+                    logger.warning("Invalid due_date format, ignoring")
+                    due_date = None
+            elif not isinstance(due_date, datetime):
+                due_date = None
+        
+        # Additional security validation
+        try:
+            from backend.security.input_validation import input_validator, ValidationError
+            
+            # Sanitize title and description
+            try:
+                title = input_validator.sanitize_string(title, max_length=200)
+                description = input_validator.sanitize_string(description, max_length=1000)
+                
+                # Check for suspicious content
+                if input_validator.contains_suspicious_patterns(title) or \
+                   input_validator.contains_suspicious_patterns(description):
+                    raise ValueError("Task contains potentially unsafe content")
+                    
+            except ValidationError as ve:
+                raise ValueError(f"Invalid task data: {str(ve)}")
+                
+        except ImportError:
+            # Fallback validation if security module not available
+            import html
+            title = html.escape(title)
+            description = html.escape(description)
+        
         try:
             self._task_counter += 1
             task_id = f"task_{self._task_counter}_{int(datetime.now().timestamp())}"
 
-            # Create task object
+            # Create task object with validated data
             new_task = Task(
                 id=task_id,
-                title=task.get('title', 'Untitled Task'),
-                description=task.get('description', ''),
-                due_date=task.get('due_date'),
-                priority=task.get('priority', 'medium'),
-                tags=task.get('tags', [])
+                title=title,
+                description=description,
+                due_date=due_date,
+                priority=priority,
+                tags=tags
             )
 
             self.tasks.append(new_task)
@@ -139,7 +211,7 @@ class TaskManager:
 
     def update_task(self, task_id: str, updates: Dict[str, Any]) -> bool:
         """
-        Update a task with new information.
+        Update a task with new information and input validation.
 
         Args:
             task_id: ID of the task to update
@@ -147,26 +219,121 @@ class TaskManager:
 
         Returns:
             True if task was updated successfully, False otherwise
+            
+        Raises:
+            ValueError: If update data is invalid
         """
+        # Input validation
+        if not isinstance(task_id, str) or not task_id.strip():
+            raise ValueError("Task ID must be a non-empty string")
+        
+        if not isinstance(updates, dict):
+            raise ValueError("Updates must be a dictionary")
+        
+        if len(updates) == 0:
+            return True  # No updates to apply
+        
+        # Validate update fields
+        validated_updates = {}
+        
+        # Validate title
+        if 'title' in updates:
+            title = str(updates['title']).strip()
+            if not title:
+                raise ValueError("Task title cannot be empty")
+            if len(title) > 200:
+                raise ValueError("Task title too long (max 200 characters)")
+            validated_updates['title'] = title
+        
+        # Validate description
+        if 'description' in updates:
+            description = str(updates['description']).strip()
+            if len(description) > 1000:
+                raise ValueError("Task description too long (max 1000 characters)")
+            validated_updates['description'] = description
+        
+        # Validate priority
+        if 'priority' in updates:
+            priority = str(updates['priority']).lower()
+            if priority not in ['low', 'medium', 'high', 'urgent']:
+                raise ValueError("Priority must be: low, medium, high, or urgent")
+            validated_updates['priority'] = priority
+        
+        # Validate tags
+        if 'tags' in updates:
+            tags = updates['tags']
+            if not isinstance(tags, list):
+                raise ValueError("Tags must be a list")
+            
+            validated_tags = []
+            for tag in tags[:10]:  # Limit to 10 tags
+                if isinstance(tag, str) and len(tag.strip()) > 0 and len(tag.strip()) <= 50:
+                    validated_tags.append(tag.strip())
+            validated_updates['tags'] = validated_tags
+        
+        # Validate completed status
+        if 'completed' in updates:
+            if not isinstance(updates['completed'], bool):
+                raise ValueError("Completed status must be a boolean")
+            validated_updates['completed'] = updates['completed']
+        
+        # Validate due_date
+        if 'due_date' in updates:
+            due_date = updates['due_date']
+            if due_date is not None:
+                if isinstance(due_date, str):
+                    try:
+                        due_date = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise ValueError("Invalid due_date format")
+                elif not isinstance(due_date, datetime):
+                    raise ValueError("due_date must be a datetime object or ISO string")
+            validated_updates['due_date'] = due_date
+        
+        # Additional security validation
+        try:
+            from backend.security.input_validation import input_validator, ValidationError
+            
+            # Sanitize text fields
+            if 'title' in validated_updates:
+                try:
+                    title = input_validator.sanitize_string(validated_updates['title'], max_length=200)
+                    if input_validator.contains_suspicious_patterns(title):
+                        raise ValueError("Task title contains potentially unsafe content")
+                    validated_updates['title'] = title
+                except ValidationError as ve:
+                    raise ValueError(f"Invalid title: {str(ve)}")
+            
+            if 'description' in validated_updates:
+                try:
+                    description = input_validator.sanitize_string(validated_updates['description'], max_length=1000)
+                    if input_validator.contains_suspicious_patterns(description):
+                        raise ValueError("Task description contains potentially unsafe content")
+                    validated_updates['description'] = description
+                except ValidationError as ve:
+                    raise ValueError(f"Invalid description: {str(ve)}")
+                    
+        except ImportError:
+            # Fallback validation if security module not available
+            import html
+            if 'title' in validated_updates:
+                validated_updates['title'] = html.escape(validated_updates['title'])
+            if 'description' in validated_updates:
+                validated_updates['description'] = html.escape(validated_updates['description'])
+        
         try:
             for task in self.tasks:
                 if task.id == task_id:
-                    if 'title' in updates:
-                        task.title = updates['title']
-                    if 'description' in updates:
-                        task.description = updates['description']
-                    if 'due_date' in updates:
-                        task.due_date = updates['due_date']
-                    if 'priority' in updates:
-                        task.priority = updates['priority']
-                    if 'tags' in updates:
-                        task.tags = updates['tags']
-                    if 'completed' in updates:
-                        task.completed = updates['completed']
-                        if updates['completed'] and not task.completed_at:
-                            task.completed_at = datetime.now()
-                        elif not updates['completed']:
-                            task.completed_at = None
+                    # Apply validated updates
+                    for field, value in validated_updates.items():
+                        if field == 'completed':
+                            task.completed = value
+                            if value and not task.completed_at:
+                                task.completed_at = datetime.now()
+                            elif not value:
+                                task.completed_at = None
+                        else:
+                            setattr(task, field, value)
 
                     logger.info("Updated task: %s", task_id)
                     return True
@@ -242,14 +409,49 @@ class TaskManager:
 
     def search_tasks(self, query: str) -> List[Dict[str, Any]]:
         """
-        Search tasks by title, description, or tags.
+        Search tasks by title, description, or tags with input validation.
 
         Args:
             query: Search query string
 
         Returns:
             List of matching task dictionaries
+            
+        Raises:
+            ValueError: If query is invalid
         """
+        # Input validation
+        if not isinstance(query, str):
+            raise ValueError("Search query must be a string")
+        
+        query = query.strip()
+        if not query:
+            raise ValueError("Search query cannot be empty")
+        
+        if len(query) > 200:
+            raise ValueError("Search query too long (max 200 characters)")
+        
+        # Security validation
+        try:
+            from backend.security.input_validation import input_validator, ValidationError
+            
+            try:
+                # Sanitize search query
+                query = input_validator.sanitize_string(query, max_length=200)
+                
+                # Check for suspicious patterns (but allow search to continue)
+                if input_validator.contains_suspicious_patterns(query):
+                    logger.warning(f"Suspicious search query detected: {query[:50]}...")
+                    # For search, we'll allow it but log the warning
+                    
+            except ValidationError as ve:
+                raise ValueError(f"Invalid search query: {str(ve)}")
+                
+        except ImportError:
+            # Fallback validation if security module not available
+            import html
+            query = html.escape(query)
+        
         try:
             query_lower = query.lower()
             matching_tasks = []

@@ -254,8 +254,14 @@ class Settings:
         if os.getenv('OPENAI_API_KEY'):
             self.models.openai_api_key = os.getenv('OPENAI_API_KEY')
         
+        if os.getenv('OPENAI_DEFAULT_MODEL'):
+            self.models.openai_default_model = os.getenv('OPENAI_DEFAULT_MODEL')
+        
         if os.getenv('OLLAMA_BASE_URL'):
             self.models.ollama_base_url = os.getenv('OLLAMA_BASE_URL')
+        
+        if os.getenv('OLLAMA_DEFAULT_MODEL'):
+            self.models.ollama_default_model = os.getenv('OLLAMA_DEFAULT_MODEL')
         
         # Logging
         if os.getenv('LOG_LEVEL'):
@@ -264,9 +270,75 @@ class Settings:
             except ValueError:
                 pass
         
+        if os.getenv('LOG_FILE'):
+            self.logging.log_file = os.getenv('LOG_FILE')
+        
+        if os.getenv('LOG_TO_FILE'):
+            self.logging.log_to_file = os.getenv('LOG_TO_FILE').lower() == 'true'
+        
+        # Security settings
+        if os.getenv('SESSION_TIMEOUT_MINUTES'):
+            try:
+                timeout = int(os.getenv('SESSION_TIMEOUT_MINUTES'))
+                # Will be used by session management
+            except ValueError:
+                pass
+        
+        if os.getenv('MAX_REQUESTS_PER_MINUTE'):
+            try:
+                self.security.max_requests_per_minute = int(os.getenv('MAX_REQUESTS_PER_MINUTE'))
+            except ValueError:
+                pass
+        
+        if os.getenv('MAX_TOKENS_PER_HOUR'):
+            try:
+                self.security.max_tokens_per_hour = int(os.getenv('MAX_TOKENS_PER_HOUR'))
+            except ValueError:
+                pass
+        
+        # UI settings
+        if os.getenv('THEME_MODE'):
+            try:
+                self.ui.theme_mode = ThemeMode(os.getenv('THEME_MODE').lower())
+            except ValueError:
+                pass
+        
+        if os.getenv('WINDOW_WIDTH'):
+            try:
+                self.ui.window_width = int(os.getenv('WINDOW_WIDTH'))
+            except ValueError:
+                pass
+        
+        if os.getenv('WINDOW_HEIGHT'):
+            try:
+                self.ui.window_height = int(os.getenv('WINDOW_HEIGHT'))
+            except ValueError:
+                pass
+        
+        if os.getenv('ENABLE_ANIMATIONS'):
+            self.ui.enable_animations = os.getenv('ENABLE_ANIMATIONS').lower() == 'true'
+        
         # Feature flags
         if os.getenv('BUSINESS_FEATURES_ENABLED'):
             self.features.business_dashboard_enabled = os.getenv('BUSINESS_FEATURES_ENABLED').lower() == 'true'
+        
+        if os.getenv('CRM_ENABLED'):
+            self.features.crm_enabled = os.getenv('CRM_ENABLED').lower() == 'true'
+        
+        if os.getenv('FINANCE_TRACKING_ENABLED'):
+            self.features.finance_tracking_enabled = os.getenv('FINANCE_TRACKING_ENABLED').lower() == 'true'
+        
+        if os.getenv('TIME_TRACKING_ENABLED'):
+            self.features.time_tracking_enabled = os.getenv('TIME_TRACKING_ENABLED').lower() == 'true'
+        
+        if os.getenv('SCREEN_CAPTURE_ENABLED'):
+            self.features.screen_capture_enabled = os.getenv('SCREEN_CAPTURE_ENABLED').lower() == 'true'
+        
+        if os.getenv('AUTOMATION_ENABLED'):
+            self.features.automation_enabled = os.getenv('AUTOMATION_ENABLED').lower() == 'true'
+        
+        if os.getenv('WEB_SEARCH_ENABLED'):
+            self.features.web_search_enabled = os.getenv('WEB_SEARCH_ENABLED').lower() == 'true'
     
     def _update_dataclass(self, instance, data: Dict[str, Any]):
         """Update dataclass instance with data dictionary"""
