@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Westfall Personal Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 2.2em;
+        }
+        
+        .header p {
+            color: #666;
+            margin: 0;
+            font-size: 1.1em;
+        }
+        
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .nav-links a {
+            color: #007bff;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .settings-section {
+            margin-bottom: 35px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            margin: 0;
+            font-size: 1.3em;
+            color: #495057;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-content {
+            padding: 20px;
+        }
+        
+        .setting-item {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .setting-item label {
+            font-weight: 500;
+            color: #333;
+            font-size: 0.95em;
+        }
+        
+        .setting-item .description {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .setting-item input[type="text"],
+        .setting-item input[type="password"],
+        .setting-item input[type="email"],
+        .setting-item input[type="url"],
+        .setting-item input[type="number"],
+        .setting-item select {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9em;
+            transition: border-color 0.3s;
+        }
+        
+        .setting-item input:focus,
+        .setting-item select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        
+        .setting-item input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.1);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        
+        .test-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            white-space: nowrap;
+        }
+        
+        .test-btn:hover {
+            background-color: #218838;
+        }
+        
+        .test-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-left: 10px;
+            font-size: 0.85em;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.testing {
+            background-color: #e2e3e5;
+            color: #6c757d;
+        }
+        
+        .action-buttons {
+            margin-top: 40px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .primary-button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        
+        .primary-button:hover {
+            background-color: #0056b3;
+        }
+        
+        .primary-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .secondary-button {
+            background-color: #6c757d;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        
+        .secondary-button:hover {
+            background-color: #545b62;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            z-index: 1000;
+            display: none;
+            min-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .notification.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .notification.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .saving .primary-button {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .saving .primary-button:after {
+            content: " (Saving...)";
+        }
+        
+        .service-status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .service-status.configured {
+            background-color: #28a745;
+        }
+        
+        .service-status.not-configured {
+            background-color: #dc3545;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Settings</h1>
+            <p>Configure your Westfall Personal Assistant</p>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">← Back to Home</a>
+            <a href="/api/settings/status">Settings Status</a>
+        </div>
+        
+        <!-- API Keys Section -->
+        <div class="settings-section">
+            <h3 class="section-header">
+                🔑 API Keys
+            </h3>
+            <div class="section-content">
+                <!-- OpenWeather API -->
+                <div class="setting-item">
+                    <label for="openweather-key">OpenWeather API Key:</label>
+                    <div class="description">Get weather information and forecasts</div>
+                    <div class="input-group">
+                        <input type="password" 
+                               id="openweather-key" 
+                               value="{{ settings.get('OPENWEATHER_API_KEY', '') }}" 
+                               placeholder="Enter your OpenWeather API key">
+                        <button class="test-btn" onclick="testApiKey('openweather')">Test</button>
+                        <span class="status" id="openweather-status">
+                            <span class="service-status {{ 'configured' if services.openweather.configured else 'not-configured' }}"></span>
+                            {{ 'Configured' if services.openweather.configured else 'Not configured' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- NewsAPI -->
+                <div class="setting-item">
+                    <label for="newsapi-key">NewsAPI Key:</label>
+                    <div class="description">Access news headlines and articles</div>
+                    <div class="input-group">
+                        <input type="password" 
+                               id="newsapi-key" 
+                               value="{{ settings.get('NEWSAPI_KEY', '') }}" 
+                               placeholder="Enter your NewsAPI key">
+                        <button class="test-btn" onclick="testApiKey('newsapi')">Test</button>
+                        <span class="status" id="newsapi-status">
+                            <span class="service-status {{ 'configured' if services.newsapi.configured else 'not-configured' }}"></span>
+                            {{ 'Configured' if services.newsapi.configured else 'Not configured' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- OpenAI API -->
+                <div class="setting-item">
+                    <label for="openai-key">OpenAI API Key:</label>
+                    <div class="description">Enable GPT models for AI assistance</div>
+                    <div class="input-group">
+                        <input type="password" 
+                               id="openai-key" 
+                               value="{{ settings.get('OPENAI_API_KEY', '') }}" 
+                               placeholder="Enter your OpenAI API key">
+                        <button class="test-btn" onclick="testApiKey('openai')">Test</button>
+                        <span class="status" id="openai-status">
+                            <span class="service-status {{ 'configured' if services.openai.configured else 'not-configured' }}"></span>
+                            {{ 'Configured' if services.openai.configured else 'Not configured' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- OpenAI Model -->
+                <div class="setting-item">
+                    <label for="openai-model">OpenAI Default Model:</label>
+                    <div class="description">Choose the default OpenAI model to use</div>
+                    <div class="input-group">
+                        <select id="openai-model">
+                            <option value="gpt-3.5-turbo" {{ 'selected' if settings.get('OPENAI_DEFAULT_MODEL') == 'gpt-3.5-turbo' else '' }}>GPT-3.5 Turbo</option>
+                            <option value="gpt-4" {{ 'selected' if settings.get('OPENAI_DEFAULT_MODEL') == 'gpt-4' else '' }}>GPT-4</option>
+                            <option value="gpt-4-turbo-preview" {{ 'selected' if settings.get('OPENAI_DEFAULT_MODEL') == 'gpt-4-turbo-preview' else '' }}>GPT-4 Turbo</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Email Configuration -->
+        <div class="settings-section">
+            <h3 class="section-header">
+                📧 Email Configuration
+            </h3>
+            <div class="section-content">
+                <div class="setting-item">
+                    <label for="email-host">SMTP Host:</label>
+                    <div class="description">Your email provider's SMTP server</div>
+                    <div class="input-group">
+                        <input type="text" 
+                               id="email-host" 
+                               value="{{ settings.get('EMAIL_SMTP_HOST', '') }}" 
+                               placeholder="smtp.gmail.com">
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <label for="email-port">SMTP Port:</label>
+                    <div class="description">Usually 587 for TLS or 465 for SSL</div>
+                    <div class="input-group">
+                        <input type="number" 
+                               id="email-port" 
+                               value="{{ settings.get('EMAIL_SMTP_PORT', '587') }}" 
+                               placeholder="587">
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <label for="email-username">Email Username:</label>
+                    <div class="description">Your email address or username</div>
+                    <div class="input-group">
+                        <input type="email" 
+                               id="email-username" 
+                               value="{{ settings.get('EMAIL_USERNAME', '') }}" 
+                               placeholder="your@email.com">
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <label for="email-password">Email Password:</label>
+                    <div class="description">Your email password or app-specific password</div>
+                    <div class="input-group">
+                        <input type="password" 
+                               id="email-password" 
+                               value="{{ settings.get('EMAIL_PASSWORD', '') }}" 
+                               placeholder="Enter your email password">
+                        <span class="status">
+                            <span class="service-status {{ 'configured' if services.email.configured else 'not-configured' }}"></span>
+                            {{ 'Configured' if services.email.configured else 'Not configured' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="checkbox-group">
+                        <input type="checkbox" 
+                               id="email-tls" 
+                               {{ 'checked' if settings.get('EMAIL_USE_TLS', 'true') == 'true' else '' }}>
+                        <label for="email-tls">Use TLS encryption</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Model Settings -->
+        <div class="settings-section">
+            <h3 class="section-header">
+                🤖 AI Model Settings
+            </h3>
+            <div class="section-content">
+                <div class="setting-item">
+                    <label for="ollama-url">Ollama Base URL:</label>
+                    <div class="description">URL for local Ollama instance</div>
+                    <div class="input-group">
+                        <input type="url" 
+                               id="ollama-url" 
+                               value="{{ settings.get('OLLAMA_BASE_URL', 'http://localhost:11434') }}" 
+                               placeholder="http://localhost:11434">
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <label for="ollama-model">Ollama Default Model:</label>
+                    <div class="description">Default model for local inference</div>
+                    <div class="input-group">
+                        <input type="text" 
+                               id="ollama-model" 
+                               value="{{ settings.get('OLLAMA_DEFAULT_MODEL', 'llama2') }}" 
+                               placeholder="llama2">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Feature Toggles -->
+        <div class="settings-section">
+            <h3 class="section-header">
+                🎛️ Features
+            </h3>
+            <div class="section-content">
+                <div class="setting-item">
+                    <div class="checkbox-group">
+                        <input type="checkbox" 
+                               id="enable-voice" 
+                               {{ 'checked' if settings.get('ENABLE_VOICE') == 'true' else '' }}>
+                        <label for="enable-voice">Enable Voice Recognition and TTS</label>
+                    </div>
+                    <div class="description">Allow voice input and text-to-speech output</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="checkbox-group">
+                        <input type="checkbox" 
+                               id="business-features" 
+                               {{ 'checked' if settings.get('BUSINESS_FEATURES_ENABLED') == 'true' else '' }}>
+                        <label for="business-features">Enable Business Features</label>
+                    </div>
+                    <div class="description">CRM, finance tracking, and business analytics</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="checkbox-group">
+                        <input type="checkbox" 
+                               id="screen-capture" 
+                               {{ 'checked' if settings.get('SCREEN_CAPTURE_ENABLED') == 'true' else '' }}>
+                        <label for="screen-capture">Enable Screen Capture</label>
+                    </div>
+                    <div class="description">Allow the assistant to capture and analyze screen content</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="checkbox-group">
+                        <input type="checkbox" 
+                               id="web-search" 
+                               {{ 'checked' if settings.get('WEB_SEARCH_ENABLED') == 'true' else '' }}>
+                        <label for="web-search">Enable Web Search</label>
+                    </div>
+                    <div class="description">Allow the assistant to search the web for information</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- UI Settings -->
+        <div class="settings-section">
+            <h3 class="section-header">
+                🎨 User Interface
+            </h3>
+            <div class="section-content">
+                <div class="setting-item">
+                    <label for="theme-mode">Theme Mode:</label>
+                    <div class="description">Choose your preferred theme</div>
+                    <div class="input-group">
+                        <select id="theme-mode">
+                            <option value="auto" {{ 'selected' if settings.get('THEME_MODE') == 'auto' else '' }}>Auto (System)</option>
+                            <option value="light" {{ 'selected' if settings.get('THEME_MODE') == 'light' else '' }}>Light</option>
+                            <option value="dark" {{ 'selected' if settings.get('THEME_MODE') == 'dark' else '' }}>Dark</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="checkbox-group">
+                        <input type="checkbox" 
+                               id="enable-animations" 
+                               {{ 'checked' if settings.get('ENABLE_ANIMATIONS') == 'true' else '' }}>
+                        <label for="enable-animations">Enable Animations</label>
+                    </div>
+                    <div class="description">Enable smooth transitions and animations</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Security Settings -->
+        <div class="settings-section">
+            <h3 class="section-header">
+                🔒 Security
+            </h3>
+            <div class="section-content">
+                <div class="setting-item">
+                    <label for="max-requests">Max Requests Per Minute:</label>
+                    <div class="description">Rate limiting for API requests</div>
+                    <div class="input-group">
+                        <input type="number" 
+                               id="max-requests" 
+                               value="{{ settings.get('MAX_REQUESTS_PER_MINUTE', '60') }}" 
+                               min="1" max="1000" 
+                               placeholder="60">
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="checkbox-group">
+                        <input type="checkbox" 
+                               id="content-filtering" 
+                               {{ 'checked' if settings.get('CONTENT_FILTERING_ENABLED') == 'true' else '' }}>
+                        <label for="content-filtering">Enable Content Filtering</label>
+                    </div>
+                    <div class="description">Filter inappropriate content in responses</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="primary-button" onclick="saveSettings()">💾 Save Settings</button>
+            <button class="secondary-button" onclick="resetSettings()">🔄 Reset to Defaults</button>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+    
+    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+    <script>
+        // Inline JavaScript for basic functionality
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+        
+        function testApiKey(service) {
+            let apiKeyInput;
+            let statusElement;
+            
+            if (service === 'openweather') {
+                apiKeyInput = document.getElementById('openweather-key');
+                statusElement = document.getElementById('openweather-status');
+            } else if (service === 'newsapi') {
+                apiKeyInput = document.getElementById('newsapi-key');
+                statusElement = document.getElementById('newsapi-status');
+            } else if (service === 'openai') {
+                apiKeyInput = document.getElementById('openai-key');
+                statusElement = document.getElementById('openai-status');
+            }
+            
+            const apiKey = apiKeyInput.value.trim();
+            
+            if (!apiKey) {
+                statusElement.innerHTML = '<span class="service-status not-configured"></span>Enter key first';
+                statusElement.className = 'status warning';
+                return;
+            }
+            
+            // Show testing indicator
+            statusElement.innerHTML = '<span class="service-status testing"></span>Testing...';
+            statusElement.className = 'status testing';
+            
+            fetch(`/api/settings/test/${service}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ api_key: apiKey })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.valid) {
+                    statusElement.innerHTML = '<span class="service-status configured"></span>✅ Valid';
+                    statusElement.className = 'status success';
+                } else {
+                    statusElement.innerHTML = '<span class="service-status not-configured"></span>❌ Invalid';
+                    statusElement.className = 'status error';
+                }
+            })
+            .catch(error => {
+                statusElement.innerHTML = '<span class="service-status not-configured"></span>❌ Error testing';
+                statusElement.className = 'status error';
+                console.error('Error testing API key:', error);
+            });
+        }
+        
+        function saveSettings() {
+            const actionButtons = document.querySelector('.action-buttons');
+            actionButtons.classList.add('saving');
+            
+            const settings = {
+                OPENWEATHER_API_KEY: document.getElementById('openweather-key').value,
+                NEWSAPI_KEY: document.getElementById('newsapi-key').value,
+                OPENAI_API_KEY: document.getElementById('openai-key').value,
+                OPENAI_DEFAULT_MODEL: document.getElementById('openai-model').value,
+                EMAIL_SMTP_HOST: document.getElementById('email-host').value,
+                EMAIL_SMTP_PORT: document.getElementById('email-port').value,
+                EMAIL_USERNAME: document.getElementById('email-username').value,
+                EMAIL_PASSWORD: document.getElementById('email-password').value,
+                EMAIL_USE_TLS: document.getElementById('email-tls').checked ? 'true' : 'false',
+                OLLAMA_BASE_URL: document.getElementById('ollama-url').value,
+                OLLAMA_DEFAULT_MODEL: document.getElementById('ollama-model').value,
+                ENABLE_VOICE: document.getElementById('enable-voice').checked ? 'true' : 'false',
+                BUSINESS_FEATURES_ENABLED: document.getElementById('business-features').checked ? 'true' : 'false',
+                SCREEN_CAPTURE_ENABLED: document.getElementById('screen-capture').checked ? 'true' : 'false',
+                WEB_SEARCH_ENABLED: document.getElementById('web-search').checked ? 'true' : 'false',
+                THEME_MODE: document.getElementById('theme-mode').value,
+                ENABLE_ANIMATIONS: document.getElementById('enable-animations').checked ? 'true' : 'false',
+                MAX_REQUESTS_PER_MINUTE: document.getElementById('max-requests').value,
+                CONTENT_FILTERING_ENABLED: document.getElementById('content-filtering').checked ? 'true' : 'false'
+            };
+            
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(settings)
+            })
+            .then(response => response.json())
+            .then(data => {
+                actionButtons.classList.remove('saving');
+                if (data.success) {
+                    showNotification('Settings saved successfully!', 'success');
+                } else {
+                    showNotification('Error saving settings: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                actionButtons.classList.remove('saving');
+                showNotification('Error saving settings: ' + error.message, 'error');
+                console.error('Error saving settings:', error);
+            });
+        }
+        
+        function resetSettings() {
+            if (confirm('Are you sure you want to reset all settings to default values? This action cannot be undone.')) {
+                fetch('/api/settings/reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ confirm: true })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Settings reset to defaults successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showNotification('Error resetting settings: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error resetting settings: ' + error.message, 'error');
+                    console.error('Error resetting settings:', error);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

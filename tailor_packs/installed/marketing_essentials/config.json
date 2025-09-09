@@ -1,0 +1,31 @@
+{
+  "auto_posting": false,
+  "analytics_refresh_interval": 3600,
+  "default_campaign_duration": 30,
+  "social_platforms": {
+    "twitter": {
+      "enabled": true,
+      "api_key": "",
+      "max_chars": 280
+    },
+    "linkedin": {
+      "enabled": true,
+      "api_key": "",
+      "max_chars": 3000
+    },
+    "facebook": {
+      "enabled": false,
+      "api_key": "",
+      "max_chars": 2000
+    }
+  },
+  "email_marketing": {
+    "smtp_server": "",
+    "smtp_port": 587,
+    "use_tls": true
+  },
+  "analytics": {
+    "tracking_enabled": true,
+    "report_frequency": "weekly"
+  }
+}

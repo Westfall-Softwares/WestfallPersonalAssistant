@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:WestfallPersonalAssistant.Views"
+        x:Class="WestfallPersonalAssistant.MainWindow"
+        Title="Westfall Assistant - Entrepreneur Edition"
+        Width="1200" Height="800"
+        AutomationProperties.Name="Westfall Assistant Main Window"
+        AutomationProperties.HelpText="Business management application with dashboard, analytics, and tailor pack management">
+    
+    <!-- Accessibility: Add keyboard shortcuts -->
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+1" Command="{Binding SwitchToDashboardCommand}"/>
+        <KeyBinding Gesture="Ctrl+2" Command="{Binding SwitchToAnalyticsCommand}"/>
+        <KeyBinding Gesture="Ctrl+3" Command="{Binding SwitchToPacksCommand}"/>
+        <KeyBinding Gesture="F1" Command="{Binding ShowAccessibilityHelpCommand}"/>
+        <KeyBinding Gesture="Ctrl+Alt+A" Command="{Binding OpenAccessibilitySettingsCommand}"/>
+    </Window.KeyBindings>
+    
+    <TabControl x:Name="MainTabControl"
+                AutomationProperties.Name="Main Navigation"
+                AutomationProperties.HelpText="Use Ctrl+1, Ctrl+2, or Ctrl+3 to switch between tabs">
+        <TabItem Header="Dashboard" 
+                 AutomationProperties.Name="Business Dashboard"
+                 AutomationProperties.HelpText="View business metrics and key performance indicators">
+            <views:DashboardView/>
+        </TabItem>
+        <TabItem Header="Analytics" 
+                 AutomationProperties.Name="Analytics Dashboard"
+                 AutomationProperties.HelpText="View detailed business analytics and reports">
+            <views:AnalyticsDashboardView/>
+        </TabItem>
+        <TabItem Header="Tailor Packs" 
+                 AutomationProperties.Name="Tailor Pack Management"
+                 AutomationProperties.HelpText="Install and manage business functionality packs">
+            <views:PackManagementView/>
+        </TabItem>
+    </TabControl>
+</Window>

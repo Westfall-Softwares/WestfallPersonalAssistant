@@ -1,0 +1,66 @@
+{
+  "pack_id": "marketing_essentials",
+  "name": "Marketing Essentials Pack",
+  "version": "1.0.0",
+  "description": "Essential marketing tools for entrepreneurs including campaign tracking, social media management, and lead generation tools.",
+  "author": "Westfall Softwares",
+  "target_audience": "entrepreneur",
+  "business_category": "marketing",
+  "pack_type": "business",
+  "license_required": false,
+  "min_app_version": "1.0.0",
+  "features": [
+    "Campaign Tracker",
+    "Social Media Scheduler",
+    "Lead Generation",
+    "Email Marketing",
+    "Analytics Dashboard"
+  ],
+  "ui_components": [
+    "marketing_dashboard.py",
+    "campaign_widget.py",
+    "social_scheduler.py"
+  ],
+  "dependencies": [],
+  "permissions": [
+    "data_access",
+    "network_access"
+  ],
+  "data_requirements": [
+    "customer_data",
+    "campaign_data"
+  ],
+  "platform_compatibility": {
+    "supported_platforms": ["windows", "linux", "macos"],
+    "required_architecture": ["x86_64", "arm64"],
+    "platform_requirements": {
+      "windows": {
+        "min_version": "10.0"
+      },
+      "linux": {
+        "desktop_environments": ["gnome", "kde", "xfce"]
+      },
+      "macos": {
+        "min_version": "10.15"
+      }
+    }
+  },
+  "configuration": {
+    "default_campaign_duration": 30,
+    "auto_posting": false,
+    "analytics_refresh_interval": 3600
+  },
+  "data_schema": {
+    "campaign": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "status": {"type": "string"},
+        "budget": {"type": "number"},
+        "start_date": {"type": "string"},
+        "end_date": {"type": "string"}
+      }
+    }
+  }
+}
