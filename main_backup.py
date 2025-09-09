@@ -10,7 +10,7 @@ from PyQt5.QtGui import QIcon, QPixmap, QKeySequence, QPalette, QColor, QFont
 
 # Import all windows
 try:
-    from email_window import EmailWindow
+    from placeholder_windows import EmailWindow
 except ImportError:
     from placeholder_windows import EmailWindow
 
@@ -31,7 +31,7 @@ try:
 except ImportError:
     from placeholder_windows import CalendarWindow
 
-from weather import WeatherWindow
+from services.weather_service import WeatherWindow
 from services.news_service import NewsWindow
 
 try:
