@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using WestfallPersonalAssistant.Services;
 
 namespace WestfallPersonalAssistant.Models
 {
@@ -45,6 +46,9 @@ namespace WestfallPersonalAssistant.Models
         
         [JsonPropertyName("businessSettings")]
         public BusinessSettings BusinessSettings { get; set; } = new();
+        
+        [JsonPropertyName("accessibilitySettings")]
+        public AccessibilitySettings? AccessibilitySettings { get; set; } = new();
     }
     
     public class WindowSettings
@@ -108,5 +112,37 @@ namespace WestfallPersonalAssistant.Models
         
         [JsonPropertyName("enableAnalyticsDashboard")]
         public bool EnableAnalyticsDashboard { get; set; } = true;
+    }
+    
+    public class AccessibilitySettings
+    {
+        [JsonPropertyName("isHighContrastMode")]
+        public bool IsHighContrastMode { get; set; }
+        
+        [JsonPropertyName("textScalingFactor")]
+        public double TextScalingFactor { get; set; } = 1.0;
+        
+        [JsonPropertyName("reduceMotion")]
+        public bool ReduceMotion { get; set; }
+        
+        [JsonPropertyName("screenReaderMode")]
+        public bool ScreenReaderMode { get; set; }
+        
+        [JsonPropertyName("showFocusIndicators")]
+        public bool ShowFocusIndicators { get; set; } = true;
+        
+        [JsonPropertyName("enhancedKeyboardNavigation")]
+        public bool EnhancedKeyboardNavigation { get; set; } = true;
+        
+        [JsonPropertyName("colorBlindnessAccommodation")]
+        public ColorBlindnessType ColorBlindnessAccommodation { get; set; } = ColorBlindnessType.None;
+    }
+    
+    public enum ColorBlindnessType
+    {
+        None,
+        Deuteranopia,
+        Protanopia,
+        Tritanopia
     }
 }
