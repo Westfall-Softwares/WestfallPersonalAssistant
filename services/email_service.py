@@ -9,12 +9,16 @@ import smtplib
 import imaplib
 import email
 import logging
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, TYPE_CHECKING
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 import os
+
+# Type checking imports (prevent circular imports)
+if TYPE_CHECKING:
+    from core.message_handler import MessageHandler
 
 logger = logging.getLogger(__name__)
 
