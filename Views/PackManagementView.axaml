@@ -116,8 +116,9 @@
                             <TextBlock Text="🔑 License/Order Number" FontWeight="Bold" FontSize="14"/>
                             <TextBlock Text="Enter your order number to download and install your purchased pack" 
                                      FontSize="12" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                            <TextBox Watermark="Enter order number..." Margin="0,0,0,10"/>
-                            <Button Content="🔗 Verify &amp; Install" Background="#4CAF50" Foreground="White" Padding="10"/>
+                            <TextBox x:Name="OrderNumberTextBox" Watermark="Enter order number..." Margin="0,0,0,10"/>
+                            <Button x:Name="VerifyButton" Content="🔗 Verify &amp; Install" Background="#4CAF50" Foreground="White" Padding="10" Click="OnVerifyOrderClick"/>
+                            <TextBlock x:Name="StatusTextBlock" Text="" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                         
                         <StackPanel Grid.Column="1" Margin="7,0,0,0">

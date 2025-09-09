@@ -14,14 +14,36 @@ namespace WestfallPersonalAssistant.Platform
 
         public void ShowNotification(string title, string message)
         {
-            // Windows-specific notification implementation
-            Console.WriteLine($"Windows Notification: {title} - {message}");
+            try
+            {
+                // Use Windows Toast Notifications for better user experience
+                // For now, fallback to console output
+                Console.WriteLine($"🔔 Windows Notification: {title}");
+                Console.WriteLine($"   {message}");
+                
+                // TODO: In future, implement Windows.UI.Notifications.ToastNotification
+                // for proper Windows 10/11 toast notifications
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error showing Windows notification: {ex.Message}");
+            }
         }
 
         public bool IsElevated()
         {
-            // Check if running as administrator on Windows
-            return Environment.UserName.Equals("Administrator", StringComparison.OrdinalIgnoreCase);
+            try
+            {
+                // Check if running as administrator on Windows
+                var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var principal = new System.Security.Principal.WindowsPrincipal(identity);
+                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                // Fallback method
+                return Environment.UserName.Equals("Administrator", StringComparison.OrdinalIgnoreCase);
+            }
         }
     }
 }
