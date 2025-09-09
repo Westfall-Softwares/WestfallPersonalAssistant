@@ -8,10 +8,6 @@ yarn-error.log*
 build/
 dist/
 
-# .NET build artifacts
-bin/
-obj/
-
 # Environment variables
 .env
 .env.local
@@ -29,6 +25,7 @@ env/
 venv/
 ENV/
 .venv/
+.pytest_cache/
 
 # Model files (typically large)
 *.gguf
@@ -37,6 +34,8 @@ ENV/
 *.pt
 *.pth
 *.safetensors
+models/
+data/sensitive/
 
 # Logs
 logs/
@@ -76,8 +75,19 @@ captures/
 *.jpg
 *.jpeg
 !westfall.png
-!build/icon.*
-!public/favicon.*
+!assets/**
+!electron/assets/**
 
 # Launcher state
 .first-run-complete
+
+# Archive directory (cleanup)
+archive/
+
+# Database files
+*.sqlite
+*.db
+
+# Backups
+*.backup
+*.bak

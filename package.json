@@ -2,7 +2,7 @@
   "name": "entrepreneur-assistant",
   "version": "1.0.0",
   "description": "A business-focused AI assistant with Tailor Pack support for entrepreneurs and small businesses",
-  "main": "main.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "concurrently \"npm run start\" \"npm run backend\"",
@@ -10,7 +10,7 @@
     "build": "npm run build-react && electron-builder",
     "build-react": "react-scripts build",
     "test": "react-scripts test",
-    "launch": "node launcher.js",
+    "launch": "node electron/launcher.js",
     "setup-deps": "npm install && pip install -r backend/requirements.txt"
   },
   "keywords": [
@@ -54,11 +54,10 @@
     },
     "files": [
       "build/**/*",
-      "main.js",
-      "preload.js",
+      "electron/**/*",
       "backend/**/*",
       "node_modules/**/*",
-      "westfall.png"
+      "assets/**/*"
     ],
     "extraResources": [
       {
@@ -71,13 +70,13 @@
       "allowToChangeInstallationDirectory": true
     },
     "mac": {
-      "icon": "westfall.png"
+      "icon": "assets/westfall.png"
     },
     "win": {
-      "icon": "westfall.png"
+      "icon": "assets/westfall.png"
     },
     "linux": {
-      "icon": "westfall.png"
+      "icon": "assets/westfall.png"
     }
   },
   "browserslist": {
