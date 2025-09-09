@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Xunit;
 using WestfallPersonalAssistant.Services;
 using WestfallPersonalAssistant.TailorPack;
+using ProgressInfo = WestfallPersonalAssistant.TailorPack.ProgressInfo;
 
 namespace WestfallPersonalAssistant.Tests
 {

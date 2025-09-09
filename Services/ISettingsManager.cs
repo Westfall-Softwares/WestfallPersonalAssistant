@@ -41,5 +41,15 @@ namespace WestfallPersonalAssistant.Services
         /// Event fired when settings are changed
         /// </summary>
         event EventHandler<ApplicationSettings>? SettingsChanged;
+        
+        /// <summary>
+        /// Get a specific setting value
+        /// </summary>
+        Task<string?> GetSettingAsync(string key);
+        
+        /// <summary>
+        /// Save a specific setting value
+        /// </summary>
+        Task SaveSettingAsync(string key, string value);
     }
 }
