@@ -97,9 +97,27 @@ namespace WestfallPersonalAssistant.Services
             if (string.IsNullOrWhiteSpace(message) || !ScreenReaderMode)
                 return;
                 
-            // Implementation would depend on platform-specific screen reader APIs
-            // For now, we'll use a simple approach that works with most screen readers
-            OnScreenReaderAnnouncement?.Invoke(message);
+            // Sanitize the message to prevent issues
+            var sanitizedMessage = message.Replace("<", "").Replace(">", "").Trim();
+            
+            if (string.IsNullOrWhiteSpace(sanitizedMessage))
+                return;
+                
+            // Implementation for cross-platform screen reader support
+            try
+            {
+                // Primary announcement mechanism
+                OnScreenReaderAnnouncement?.Invoke(sanitizedMessage);
+                
+                // Additional platform-specific announcements could be added here
+                // For example, on Windows: use SAPI or UI Automation
+                // On macOS: use NSAccessibility
+                // On Linux: use AT-SPI
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error announcing to screen reader: {ex.Message}");
+            }
         }
         
         public void LoadSettings()

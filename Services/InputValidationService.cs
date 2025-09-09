@@ -5,6 +5,7 @@ using System.Linq;
 using System.IO;
 using System.Text;
 using System.Web;
+using Ganss.Xss;
 
 namespace WestfallPersonalAssistant.Services
 {
@@ -127,13 +128,26 @@ namespace WestfallPersonalAssistant.Services
             return ValidationResult.Success();
         }
         
+        private static readonly HtmlSanitizer HtmlSanitizer = new HtmlSanitizer();
+        
+        static InputValidationService()
+        {
+            // Configure HTML sanitizer to be more restrictive
+            HtmlSanitizer.AllowedTags.Clear();
+            HtmlSanitizer.AllowedAttributes.Clear();
+            HtmlSanitizer.AllowedCssProperties.Clear();
+            HtmlSanitizer.AllowedSchemes.Clear();
+            HtmlSanitizer.AllowedSchemes.Add("http");
+            HtmlSanitizer.AllowedSchemes.Add("https");
+        }
+        
         public string SanitizeHtml(string input)
         {
             if (string.IsNullOrEmpty(input))
                 return string.Empty;
                 
-            // Basic HTML encoding to prevent XSS
-            return HttpUtility.HtmlEncode(input);
+            // Use proper HTML sanitization library
+            return HtmlSanitizer.Sanitize(input);
         }
         
         public string SanitizeForDisplay(string input)

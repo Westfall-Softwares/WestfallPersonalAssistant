@@ -110,7 +110,8 @@ namespace WestfallPersonalAssistant.Tests
             
             // Assert
             Assert.DoesNotContain("<script>", result);
-            Assert.Contains("&lt;script&gt;", result);
+            // HtmlSanitizer removes dangerous content entirely, which is safer than escaping
+            Assert.Equal(string.Empty, result.Trim());
         }
         
         [Fact]
