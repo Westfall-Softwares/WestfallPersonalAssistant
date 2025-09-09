@@ -43,7 +43,7 @@ const BACKEND_PORT = 8756; // Use consistent port
 // Health check function
 async function checkBackendHealth(port = BACKEND_PORT) {
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/health`, {
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`, {
       method: 'GET',
       timeout: 5000
     });
