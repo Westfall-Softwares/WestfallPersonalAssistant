@@ -348,9 +348,10 @@ class FirstRunExperience:
         if not self.check_first_run():
             return False  # Not first run
         
-        # Show welcome screen
-        welcome = WelcomeScreen(self.parent)
+        # Show welcome screen with enhanced Tailor Pack introduction
+        welcome = EnhancedWelcomeScreen(self.parent)
         welcome.tour_requested.connect(self.show_tour)
+        welcome.tailor_pack_intro_requested.connect(self.show_tailor_pack_introduction)
         
         result = welcome.exec_()
         
@@ -361,19 +362,24 @@ class FirstRunExperience:
         
         return False
     
+    def show_tailor_pack_introduction(self):
+        """Show comprehensive Tailor Pack introduction"""
+        intro_dialog = TailorPackIntroductionDialog(self.parent)
+        intro_dialog.exec_()
+    
     def show_setup_wizard(self):
-        """Show the setup wizard"""
+        """Show the enhanced setup wizard"""
         try:
             from util.entrepreneur_config import FirstRunWizard, get_entrepreneur_config
             config = get_entrepreneur_config()
-            wizard = FirstRunWizard(config)
+            wizard = EnhancedFirstRunWizard(config)
             wizard.exec_()
         except Exception as e:
             print(f"Error showing setup wizard: {e}")
     
     def show_tour(self):
-        """Show the application tour"""
-        tour = QuickTour(self.parent)
+        """Show the interactive application tour"""
+        tour = InteractiveQuickTour(self.parent)
         tour.exec_()
     
     def show_tips_dialog(self):
@@ -415,3 +421,448 @@ def show_welcome_if_needed(parent=None) -> bool:
     """Show welcome flow if this is the first run"""
     first_run = FirstRunExperience(parent)
     return first_run.show_welcome_flow()
+
+
+class EnhancedWelcomeScreen(QDialog):
+    """Enhanced welcome screen with better Tailor Pack introduction"""
+    
+    tour_requested = pyqtSignal()
+    tailor_pack_intro_requested = pyqtSignal()
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Welcome to Westfall Assistant - Entrepreneur Edition")
+        self.setFixedSize(700, 500)
+        self.init_ui()
+    
+    def init_ui(self):
+        """Initialize the enhanced UI"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(30, 30, 30, 30)
+        
+        # Header
+        header = QLabel("🚀 Welcome to Your Business Growth Journey!")
+        header.setFont(QFont("Arial", 20, QFont.Bold))
+        header.setAlignment(Qt.AlignCenter)
+        header.setStyleSheet("color: #2563eb; margin-bottom: 10px;")
+        layout.addWidget(header)
+        
+        # Subtitle
+        subtitle = QLabel("Your AI-powered business assistant with extensible Tailor Packs")
+        subtitle.setFont(QFont("Arial", 12))
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setStyleSheet("color: #64748b; margin-bottom: 20px;")
+        layout.addWidget(subtitle)
+        
+        # Key benefits
+        benefits_frame = QFrame()
+        benefits_frame.setStyleSheet("""
+            QFrame {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        benefits_layout = QVBoxLayout(benefits_frame)
+        
+        benefits_title = QLabel("✨ What makes this assistant special:")
+        benefits_title.setFont(QFont("Arial", 14, QFont.Bold))
+        benefits_title.setStyleSheet("color: #1e293b; margin-bottom: 10px;")
+        benefits_layout.addWidget(benefits_title)
+        
+        benefits = [
+            "🎯 Tailored specifically for entrepreneurs and small businesses",
+            "📦 Tailor Packs: Industry-specific tools that adapt to your business",
+            "🤖 AI-powered insights to help grow your business",
+            "📊 Real-time dashboard with key business metrics",
+            "🔧 Customizable workflows that match your processes"
+        ]
+        
+        for benefit in benefits:
+            benefit_label = QLabel(benefit)
+            benefit_label.setFont(QFont("Arial", 11))
+            benefit_label.setStyleSheet("color: #475569; margin: 3px 0; padding-left: 10px;")
+            benefits_layout.addWidget(benefit_label)
+        
+        layout.addWidget(benefits_frame)
+        
+        # Tailor Pack highlight
+        tailor_pack_frame = QFrame()
+        tailor_pack_frame.setStyleSheet("""
+            QFrame {
+                background-color: #ecfdf5;
+                border: 2px solid #10b981;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        tailor_pack_layout = QVBoxLayout(tailor_pack_frame)
+        
+        tailor_pack_title = QLabel("📦 About Tailor Packs")
+        tailor_pack_title.setFont(QFont("Arial", 14, QFont.Bold))
+        tailor_pack_title.setStyleSheet("color: #065f46;")
+        tailor_pack_layout.addWidget(tailor_pack_title)
+        
+        tailor_pack_desc = QLabel(
+            "Tailor Packs are specialized functionality modules that add industry-specific "
+            "tools and automations to your assistant. Think of them as professional "
+            "software extensions designed specifically for your type of business."
+        )
+        tailor_pack_desc.setFont(QFont("Arial", 11))
+        tailor_pack_desc.setWordWrap(True)
+        tailor_pack_desc.setStyleSheet("color: #047857; margin: 10px 0;")
+        tailor_pack_layout.addWidget(tailor_pack_desc)
+        
+        learn_more_btn = QPushButton("Learn More About Tailor Packs")
+        learn_more_btn.clicked.connect(self.show_tailor_pack_intro)
+        learn_more_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #10b981;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #059669;
+            }
+        """)
+        tailor_pack_layout.addWidget(learn_more_btn)
+        
+        layout.addWidget(tailor_pack_frame)
+        
+        # Action buttons
+        button_layout = QHBoxLayout()
+        
+        tour_btn = QPushButton("Take a Quick Tour")
+        tour_btn.clicked.connect(self.start_tour)
+        tour_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6366f1;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4f46e5;
+            }
+        """)
+        
+        setup_btn = QPushButton("Start Quick Setup")
+        setup_btn.clicked.connect(self.start_setup)
+        setup_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2563eb;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1d4ed8;
+            }
+        """)
+        
+        skip_btn = QPushButton("Skip for Now")
+        skip_btn.clicked.connect(self.reject)
+        skip_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6b7280;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #4b5563;
+            }
+        """)
+        
+        button_layout.addWidget(tour_btn)
+        button_layout.addWidget(setup_btn)
+        button_layout.addWidget(skip_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def show_tailor_pack_intro(self):
+        """Show Tailor Pack introduction"""
+        self.tailor_pack_intro_requested.emit()
+    
+    def start_setup(self):
+        """Start the quick setup process"""
+        self.accept()
+    
+    def start_tour(self):
+        """Start the application tour"""
+        self.tour_requested.emit()
+        self.accept()
+
+
+class TailorPackIntroductionDialog(QDialog):
+    """Comprehensive Tailor Pack introduction dialog"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Tailor Packs - Your Business Advantage")
+        self.setFixedSize(800, 600)
+        self.init_ui()
+    
+    def init_ui(self):
+        """Initialize the UI"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(30, 30, 30, 30)
+        
+        # Header
+        header = QLabel("📦 Tailor Packs: Specialized Business Tools")
+        header.setFont(QFont("Arial", 18, QFont.Bold))
+        header.setAlignment(Qt.AlignCenter)
+        header.setStyleSheet("color: #1e293b; margin-bottom: 15px;")
+        layout.addWidget(header)
+        
+        # Scroll area for content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: none;")
+        
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        
+        # What are Tailor Packs section
+        what_section = self.create_section(
+            "What are Tailor Packs?",
+            "Tailor Packs are specialized software modules that extend your assistant "
+            "with industry-specific tools, automations, and workflows. Each pack is "
+            "designed by experts in specific business domains to solve real challenges "
+            "entrepreneurs face every day."
+        )
+        content_layout.addWidget(what_section)
+        
+        # Benefits section
+        benefits_section = self.create_section(
+            "Key Benefits",
+            "",
+            [
+                "🎯 Industry-Specific: Tools designed for your exact business type",
+                "⚡ Ready-to-Use: Pre-configured workflows that work immediately",
+                "🔧 Customizable: Adapt tools to match your unique processes",
+                "📈 Growth-Focused: Features that scale with your business",
+                "🔄 Regular Updates: New features and improvements over time"
+            ]
+        )
+        content_layout.addWidget(benefits_section)
+        
+        # Popular packs section
+        packs_section = self.create_popular_packs_section()
+        content_layout.addWidget(packs_section)
+        
+        # How it works section
+        how_section = self.create_section(
+            "How It Works",
+            "",
+            [
+                "1️⃣ Choose packs relevant to your business",
+                "2️⃣ Install with a simple order number or trial",
+                "3️⃣ Configure tools to match your workflow",
+                "4️⃣ Start using powerful business features immediately"
+            ]
+        )
+        content_layout.addWidget(how_section)
+        
+        scroll.setWidget(content_widget)
+        layout.addWidget(scroll)
+        
+        # Close button
+        close_btn = QPushButton("Got it! Let's get started")
+        close_btn.clicked.connect(self.accept)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2563eb;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1d4ed8;
+            }
+        """)
+        layout.addWidget(close_btn)
+    
+    def create_section(self, title, description, bullet_points=None):
+        """Create a content section"""
+        frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 5px 0;
+            }
+        """)
+        
+        layout = QVBoxLayout(frame)
+        
+        # Title
+        title_label = QLabel(title)
+        title_label.setFont(QFont("Arial", 14, QFont.Bold))
+        title_label.setStyleSheet("color: #1e293b; margin-bottom: 10px;")
+        layout.addWidget(title_label)
+        
+        # Description
+        if description:
+            desc_label = QLabel(description)
+            desc_label.setFont(QFont("Arial", 11))
+            desc_label.setWordWrap(True)
+            desc_label.setStyleSheet("color: #475569; margin-bottom: 10px; line-height: 1.4;")
+            layout.addWidget(desc_label)
+        
+        # Bullet points
+        if bullet_points:
+            for point in bullet_points:
+                point_label = QLabel(point)
+                point_label.setFont(QFont("Arial", 11))
+                point_label.setStyleSheet("color: #475569; margin: 3px 0; padding-left: 10px;")
+                layout.addWidget(point_label)
+        
+        return frame
+    
+    def create_popular_packs_section(self):
+        """Create the popular packs section"""
+        frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                background-color: #f0f9ff;
+                border: 1px solid #0ea5e9;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 5px 0;
+            }
+        """)
+        
+        layout = QVBoxLayout(frame)
+        
+        title_label = QLabel("🌟 Popular Tailor Packs")
+        title_label.setFont(QFont("Arial", 14, QFont.Bold))
+        title_label.setStyleSheet("color: #0c4a6e; margin-bottom: 10px;")
+        layout.addWidget(title_label)
+        
+        packs = [
+            ("Marketing Essentials", "Campaign tracking, social media management, lead generation"),
+            ("Sales Pipeline Pro", "Advanced CRM, deal tracking, sales analytics"),
+            ("Finance Master", "Accounting integration, expense tracking, financial reporting"),
+            ("Legal Essentials", "Contract templates, compliance tracking, legal document management")
+        ]
+        
+        for pack_name, pack_desc in packs:
+            pack_frame = QFrame()
+            pack_frame.setStyleSheet("""
+                QFrame {
+                    background-color: white;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 4px;
+                    padding: 10px;
+                    margin: 3px 0;
+                }
+            """)
+            pack_layout = QVBoxLayout(pack_frame)
+            pack_layout.setSpacing(5)
+            
+            name_label = QLabel(pack_name)
+            name_label.setFont(QFont("Arial", 12, QFont.Bold))
+            name_label.setStyleSheet("color: #1e293b;")
+            pack_layout.addWidget(name_label)
+            
+            desc_label = QLabel(pack_desc)
+            desc_label.setFont(QFont("Arial", 10))
+            desc_label.setStyleSheet("color: #64748b;")
+            desc_label.setWordWrap(True)
+            pack_layout.addWidget(desc_label)
+            
+            layout.addWidget(pack_frame)
+        
+        return frame
+
+
+class EnhancedFirstRunWizard(QDialog):
+    """Enhanced first-run wizard with better guidance"""
+    
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.setWindowTitle("Business Setup Wizard")
+        self.setFixedSize(600, 500)
+        self.init_ui()
+    
+    def init_ui(self):
+        """Initialize enhanced wizard UI"""
+        # This would be implemented with step-by-step guidance
+        # For now, fall back to the existing wizard
+        from util.entrepreneur_config import FirstRunWizard
+        wizard = FirstRunWizard(self.config)
+        wizard.exec_()
+        self.accept()
+
+
+class InteractiveQuickTour(QDialog):
+    """Interactive application tour"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Quick Tour")
+        self.setFixedSize(500, 400)
+        self.init_ui()
+    
+    def init_ui(self):
+        """Initialize tour UI"""
+        layout = QVBoxLayout(self)
+        
+        # Tour content would be implemented here
+        # For now, show a simple overview
+        title = QLabel("🎯 Quick Tour")
+        title.setFont(QFont("Arial", 18, QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        tour_text = QLabel(
+            "This assistant helps entrepreneurs like you manage and grow your business.\n\n"
+            "Key areas to explore:\n"
+            "• Dashboard - Your business overview\n"
+            "• Tailor Packs - Specialized business tools\n"
+            "• Analytics - Data-driven insights\n"
+            "• AI Assistant - Smart business help\n\n"
+            "Take your time to explore each section!"
+        )
+        tour_text.setWordWrap(True)
+        tour_text.setStyleSheet("padding: 20px; line-height: 1.5;")
+        layout.addWidget(tour_text)
+        
+        close_btn = QPushButton("Start Exploring!")
+        close_btn.clicked.connect(self.accept)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2563eb;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1d4ed8;
+            }
+        """)
+        layout.addWidget(close_btn)

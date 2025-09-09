@@ -105,6 +105,60 @@ namespace WestfallPersonalAssistant.TailorPack
                 return false;
             }
         }
+
+        /// <summary>
+        /// Asynchronously load pack to avoid blocking UI thread
+        /// </summary>
+        public async Task<bool> LoadPackAsync(string packId, IProgress<ProgressInfo>? progress = null)
+        {
+            return await Task.Run(async () =>
+            {
+                try
+                {
+                    progress?.Report(new ProgressInfo(0, $"Checking pack {packId}..."));
+                    
+                    if (_loadedPacks.ContainsKey(packId))
+                    {
+                        Console.WriteLine($"Pack {packId} is already loaded");
+                        progress?.Report(new ProgressInfo(100, "Pack already loaded"));
+                        return true;
+                    }
+                    
+                    progress?.Report(new ProgressInfo(25, $"Initializing pack {packId}..."));
+                    Console.WriteLine($"Loading pack: {packId}");
+                    
+                    // Simulate some loading work
+                    await Task.Delay(100);
+                    
+                    progress?.Report(new ProgressInfo(50, "Creating pack instance..."));
+                    
+                    // For now, we only support the demo pack
+                    if (packId == "marketing-essentials")
+                    {
+                        var pack = new WestfallPersonalAssistant.Packs.Demo.MarketingEssentialsPack();
+                        
+                        progress?.Report(new ProgressInfo(75, "Loading pack features..."));
+                        await Task.Delay(50); // Simulate feature loading
+                        
+                        bool result = LoadPackInstance(pack);
+                        
+                        progress?.Report(new ProgressInfo(100, result ? "Pack loaded successfully" : "Pack load failed"));
+                        return result;
+                    }
+                    
+                    Console.WriteLine($"Pack {packId} not found or not supported");
+                    progress?.Report(new ProgressInfo(100, "Pack not found"));
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading pack {packId}: {ex.Message}");
+                    progress?.Report(new ProgressInfo(100, $"Error: {ex.Message}"));
+                    PackError?.Invoke(this, new PackErrorEventArgs(packId, $"Load failed: {ex.Message}"));
+                    return false;
+                }
+            });
+        }
         
         private bool LoadPackInstance(ITailorPack pack)
         {
@@ -329,6 +383,23 @@ namespace WestfallPersonalAssistant.TailorPack
         {
             PackId = packId;
             Error = error;
+        }
+    }
+
+    /// <summary>
+    /// Progress information for long-running operations
+    /// </summary>
+    public class ProgressInfo
+    {
+        public int Percentage { get; }
+        public string Message { get; }
+        public TimeSpan? EstimatedTimeRemaining { get; }
+
+        public ProgressInfo(int percentage, string message, TimeSpan? estimatedTimeRemaining = null)
+        {
+            Percentage = Math.Max(0, Math.Min(100, percentage));
+            Message = message ?? string.Empty;
+            EstimatedTimeRemaining = estimatedTimeRemaining;
         }
     }
 }
