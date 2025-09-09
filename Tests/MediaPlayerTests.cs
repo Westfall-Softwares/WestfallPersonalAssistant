@@ -63,30 +63,23 @@ namespace WestfallPersonalAssistant.Tests
                 Duration = TimeSpan.FromMinutes(3)
             };
 
-            var spotifyItem = new MediaItem
+            var youtubeItem = new MediaItem
             {
-                Id = "spotify:track:123",
-                Title = "Test Spotify Song",
-                Artist = "Test Artist",
-                SourceType = MediaSourceType.Spotify,
+                Id = "youtube:video:123",
+                Title = "Test YouTube Video",
+                Artist = "Test Channel",
+                SourceType = MediaSourceType.YouTube,
                 Duration = TimeSpan.FromMinutes(3)
             };
 
             // Act & Assert - Start with local
             Assert.Equal(MediaSourceType.Local, manager.ActiveSourceType);
 
-            // Switch to Spotify item (this would normally fail without authentication, but we'll catch the exception)
-            try
-            {
-                await manager.PlayAsync(spotifyItem);
-            }
-            catch (InvalidOperationException)
-            {
-                // Expected - Spotify is not authenticated
-            }
+            // Switch to YouTube item
+            await manager.PlayAsync(youtubeItem);
 
-            // The active source type should have switched even if playback failed
-            Assert.Equal(MediaSourceType.Spotify, manager.ActiveSourceType);
+            // The active source type should have switched to YouTube
+            Assert.Equal(MediaSourceType.YouTube, manager.ActiveSourceType);
         }
 
         [Fact]
@@ -143,45 +136,7 @@ namespace WestfallPersonalAssistant.Tests
             Assert.NotEmpty(playlist.Id);
         }
 
-        [Fact]
-        public async Task SpotifyMediaPlayerService_Authentication_ShouldWork()
-        {
-            // Arrange
-            var fileSystemService = new MockFileSystemService();
-            var secureStorageService = new MockSecureStorageService();
-            var spotifyService = new SpotifyMediaPlayerService(fileSystemService, secureStorageService);
 
-            // Act
-            var authResult = await spotifyService.AuthenticateAsync("test_client_id", "test_client_secret");
-
-            // Assert
-            Assert.True(authResult);
-            Assert.True(spotifyService.IsAuthenticated());
-            
-            spotifyService.Dispose();
-        }
-
-        [Fact]
-        public async Task SpotifyMediaPlayerService_SearchTracks_ShouldReturnResults()
-        {
-            // Arrange
-            var fileSystemService = new MockFileSystemService();
-            var secureStorageService = new MockSecureStorageService();
-            var spotifyService = new SpotifyMediaPlayerService(fileSystemService, secureStorageService);
-
-            // Authenticate first
-            await spotifyService.AuthenticateAsync("test_client_id", "test_client_secret");
-
-            // Act
-            var results = await spotifyService.SearchTracksAsync("test query");
-
-            // Assert
-            Assert.NotNull(results);
-            Assert.True(results.Count > 0);
-            Assert.All(results, item => Assert.Equal(MediaSourceType.Spotify, item.SourceType));
-            
-            spotifyService.Dispose();
-        }
 
         [Fact]
         public async Task YouTubeMediaPlayerService_SearchVideos_ShouldReturnResults()
@@ -214,14 +169,11 @@ namespace WestfallPersonalAssistant.Tests
 
             // Act
             var localService = manager.GetPlayerService(MediaSourceType.Local);
-            var spotifyService = manager.GetSpotifyService();
             var youtubeService = manager.GetYouTubeService();
 
             // Assert
             Assert.NotNull(localService);
             Assert.IsType<LocalMediaPlayerService>(localService);
-            Assert.NotNull(spotifyService);
-            Assert.IsType<SpotifyMediaPlayerService>(spotifyService);
             Assert.NotNull(youtubeService);
             Assert.IsType<YouTubeMediaPlayerService>(youtubeService);
         }
