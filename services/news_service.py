@@ -1,4 +1,5 @@
 import sys
+import os
 import requests
 from datetime import datetime
 from PyQt5.QtWidgets import *
@@ -293,9 +294,19 @@ class NewsWindow(QMainWindow):
         
         # Try NewsAPI first
         try:
-            from security.api_key_vault import APIKeyVault
-            vault = APIKeyVault()
-            api_key = vault.get_key('newsapi')
+            api_key = None
+            
+            # Try environment variable first
+            api_key = os.getenv('NEWSAPI_KEY')
+            
+            # Fall back to secure vault
+            if not api_key:
+                try:
+                    from security.api_key_vault import APIKeyVault
+                    vault = APIKeyVault()
+                    api_key = vault.get_key('newsapi')
+                except:
+                    pass
             
             if api_key:
                 url = f"https://newsapi.org/v2/top-headlines?country=us&apiKey={api_key}"
@@ -443,6 +454,12 @@ class NewsWorker(QThread):
     
     def get_api_key(self):
         try:
+            # Try environment variable first
+            api_key = os.getenv('NEWSAPI_KEY')
+            if api_key:
+                return api_key
+            
+            # Fall back to secure vault
             from security.api_key_vault import APIKeyVault
             vault = APIKeyVault()
             return vault.get_key('newsapi')

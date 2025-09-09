@@ -332,9 +332,42 @@ def get_email_service(config: Optional[Dict[str, Any]] = None) -> EmailService:
     Get a configured email service instance.
     
     Args:
-        config: Email configuration
+        config: Email configuration, if None will load from environment variables
         
     Returns:
         EmailService instance
     """
+    if config is None:
+        # Load configuration from environment variables
+        config = {
+            'smtp_host': os.getenv('EMAIL_SMTP_HOST'),
+            'smtp_port': int(os.getenv('EMAIL_SMTP_PORT', '587')),
+            'username': os.getenv('EMAIL_USERNAME'),
+            'password': os.getenv('EMAIL_PASSWORD'),
+            'use_tls': os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true',
+            'imap_host': os.getenv('EMAIL_IMAP_HOST'),
+            'imap_port': int(os.getenv('EMAIL_IMAP_PORT', '993')),
+            'use_ssl': os.getenv('EMAIL_USE_SSL', 'true').lower() == 'true',
+        }
+        
+        # Only include configured values
+        config = {k: v for k, v in config.items() if v is not None}
+    
     return EmailService(config)
+
+
+def get_email_service_from_app_config() -> EmailService:
+    """
+    Get email service configured from app configuration.
+    
+    Returns:
+        EmailService instance with configuration from app_config
+    """
+    try:
+        from config.app_config import get_app_config
+        app_config = get_app_config()
+        email_config = app_config.get_email_config()
+        return EmailService(email_config)
+    except ImportError:
+        # Fall back to environment variable loading
+        return get_email_service()

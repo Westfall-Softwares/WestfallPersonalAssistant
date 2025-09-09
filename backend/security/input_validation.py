@@ -273,6 +273,40 @@ class InputValidator:
         
         return parsed_date
     
+    def contains_suspicious_patterns(self, value: str) -> bool:
+        """Check if input contains suspicious patterns."""
+        if not isinstance(value, str):
+            return False
+        
+        # Check for dangerous patterns
+        for pattern in self.dangerous_patterns:
+            if pattern.search(value):
+                return True
+        
+        # Additional suspicious patterns for AI input
+        suspicious_ai_patterns = [
+            re.compile(r'ignore\s+previous\s+instructions', re.IGNORECASE),
+            re.compile(r'ignore\s+all\s+previous', re.IGNORECASE),
+            re.compile(r'pretend\s+you\s+are', re.IGNORECASE),
+            re.compile(r'system\s+prompt', re.IGNORECASE),
+            re.compile(r'role\s*:\s*system', re.IGNORECASE),
+            re.compile(r'</system>', re.IGNORECASE),
+            re.compile(r'\\n\\n###', re.IGNORECASE),
+        ]
+        
+        for pattern in suspicious_ai_patterns:
+            if pattern.search(value):
+                return True
+        
+        return False
+    
+    def is_safe_string(self, value: str) -> bool:
+        """Check if string contains only safe characters."""
+        if not isinstance(value, str):
+            return False
+        
+        return bool(self.patterns['safe_string'].match(value))
+    
     def validate_config_data(self, config: Dict) -> Dict:
         """Validate configuration data structure."""
         if not isinstance(config, dict):
