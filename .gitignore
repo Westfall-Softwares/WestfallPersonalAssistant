@@ -35,7 +35,7 @@ ENV/
 *.pth
 *.safetensors
 models/
-data/sensitive/
+data/
 
 # Logs
 logs/
