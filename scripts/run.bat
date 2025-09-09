@@ -29,7 +29,7 @@ for /f "tokens=2" %%i in ('node --version') do echo ✅ Node.js %%i detected
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do echo ✅ Python %%i detected
 echo.
 
-REM Use the Node.js launcher
-node launcher.js
+REM Use the Node.js launcher with updated path
+node electron\launcher.js
 
 pause

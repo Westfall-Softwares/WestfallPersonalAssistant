@@ -24,5 +24,5 @@ echo "✅ Node.js $(node --version) detected"
 echo "✅ Python $(python3 --version | cut -d' ' -f2) detected"
 echo ""
 
-# Use the Node.js launcher
-node launcher.js
+# Use the Node.js launcher with updated path
+node electron/launcher.js
