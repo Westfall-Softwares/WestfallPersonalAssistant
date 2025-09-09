@@ -125,6 +125,18 @@ class TaskManager:
             logger.error("Error getting task %s: %s", task_id, e)
             return None
 
+    def get_task_by_id(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a task by its ID.
+
+        Args:
+            task_id: ID of the task to retrieve
+
+        Returns:
+            Task dictionary if found, None otherwise
+        """
+        return self.get_task(task_id)
+
     def update_task(self, task_id: str, updates: Dict[str, Any]) -> bool:
         """
         Update a task with new information.
@@ -201,6 +213,32 @@ class TaskManager:
             True if task was completed successfully, False otherwise
         """
         return self.update_task(task_id, {'completed': True})
+
+    def schedule_recurring(self, task: Dict[str, Any], interval: str) -> str:
+        """
+        Schedule a recurring task.
+
+        Args:
+            task: Dictionary containing task information
+            interval: Recurrence interval (e.g., 'daily', 'weekly', 'monthly')
+
+        Returns:
+            Task ID of the created recurring task
+        """
+        try:
+            # Add recurring metadata to the task
+            task['recurring'] = True
+            task['interval'] = interval
+            
+            # Add the task
+            task_id = self.add_task(task)
+            
+            logger.info("Scheduled recurring task: %s with interval: %s", task_id, interval)
+            return task_id
+            
+        except Exception as e:
+            logger.error("Error scheduling recurring task: %s", e)
+            raise
 
     def search_tasks(self, query: str) -> List[Dict[str, Any]]:
         """

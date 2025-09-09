@@ -18,6 +18,10 @@ from models.model_manager import get_model_manager, ModelManager
 # Type checking imports (prevent circular imports)
 if TYPE_CHECKING:
     from core.task_manager import TaskManager
+    from services.email_service import EmailService
+
+# Define Response type
+Response = Dict[str, Any]
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,9 @@ class AssistantCore:
         self.is_initialized = False
         self.conversation_count = 0
         self.session_start_time = datetime.now()
+        
+        # Initialize voice assistant as None (can be set up later)
+        self.voice_assistant = None
         
         # Event callbacks
         self.on_response_callback: Optional[Callable[[str], None]] = None
@@ -212,6 +219,35 @@ Please provide helpful, accurate, and concise responses. If you're unsure about 
                     "voice": self.settings.voice.tts_enabled,
                     "extensions": self.settings.features.extensions_enabled
                 }
+            }
+        }
+
+    def get_system_status(self) -> Dict[str, Any]:
+        """Get current system status"""
+        # Import services here to avoid circular imports
+        try:
+            from services.email_service import EmailService
+            email_available = True
+        except ImportError:
+            email_available = False
+            
+        try:
+            from services.weather_service import WeatherService  
+            weather_available = True
+        except ImportError:
+            weather_available = False
+        
+        return {
+            'status': 'running' if self.is_initialized else 'stopped',
+            'services': {
+                'email': email_available,
+                'weather': weather_available,
+                'voice': self.voice_assistant is not None
+            },
+            'session_info': {
+                'started': self.session_start_time.isoformat(),
+                'conversation_count': self.conversation_count,
+                'uptime_seconds': (datetime.now() - self.session_start_time).total_seconds()
             }
         }
     
