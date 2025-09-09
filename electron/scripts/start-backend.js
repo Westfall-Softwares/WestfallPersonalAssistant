@@ -34,7 +34,7 @@ async function findAvailablePort(startPort = BACKEND_PORT) {
  */
 async function checkHealth(port) {
   return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+    const req = http.get(`http://127.0.0.1:${port}/api/health`, (res) => {
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {

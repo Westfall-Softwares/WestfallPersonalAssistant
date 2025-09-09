@@ -36,41 +36,49 @@ except ImportError:
 
 # Import local modules with error handling
 try:
-    from westfall_backend.routers import health, llm, tools
-    from westfall_backend.services.settings import get_settings
-    from westfall_backend.services.logging import setup_logging
-    from westfall_backend.services.llama_supervisor import LlamaSupervisor
+    from .routers import health, llm, tools
+    from .services.settings import get_settings
+    from .services.logging import setup_logging
+    from .services.llama_supervisor import LlamaSupervisor
 except ImportError as e:
-    print(f"Local import error: {e}")
-    # Create minimal stubs for missing modules
-    class StubRouter:
-        def __init__(self):
-            from fastapi import APIRouter
-            self.router = APIRouter()
-            
-            @self.router.get("/")
-            async def stub():
-                return {"status": "stub", "message": "Module not fully loaded"}
-    
-    health = llm = tools = StubRouter()
-    
-    def get_settings():
-        class StubSettings:
+    print(f"Relative import error: {e}")
+    try:
+        # Fallback to absolute imports
+        from backend.westfall_backend.routers import health, llm, tools
+        from backend.westfall_backend.services.settings import get_settings
+        from backend.westfall_backend.services.logging import setup_logging
+        from backend.westfall_backend.services.llama_supervisor import LlamaSupervisor
+    except ImportError as e2:
+        print(f"Absolute import error: {e2}")
+        # Create minimal stubs for missing modules
+        class StubRouter:
             def __init__(self):
-                self.llm = type('obj', (object,), {})()
-                self.server = type('obj', (object,), {})()
-                self.security = type('obj', (object,), {})()
-                self.data = type('obj', (object,), {})()
-        return StubSettings()
-    
-    def setup_logging():
-        logging.basicConfig(level=logging.INFO)
-    
-    class LlamaSupervisor:
-        def __init__(self, settings):
-            self.settings = settings
-        async def shutdown(self):
-            pass
+                from fastapi import APIRouter
+                self.router = APIRouter()
+                
+                @self.router.get("/")
+                async def stub():
+                    return {"status": "stub", "message": "Module not fully loaded"}
+        
+        health = llm = tools = StubRouter()
+        
+        def get_settings():
+            class StubSettings:
+                def __init__(self):
+                    self.llm = type('obj', (object,), {})()
+                    self.server = type('obj', (object,), {})()
+                    self.security = type('obj', (object,), {})()
+                    self.data = type('obj', (object,), {})()
+            return StubSettings()
+        
+        def setup_logging():
+            logging.basicConfig(level=logging.INFO)
+        
+        class LlamaSupervisor:
+            def __init__(self, settings):
+                self.settings = settings
+            async def shutdown(self):
+                pass
 
 # Global state
 llama_supervisor = None

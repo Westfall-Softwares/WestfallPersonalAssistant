@@ -22,12 +22,30 @@ def main():
     print("Westfall Personal Assistant Backend Server")
     print("Starting with new modular backend structure...")
     
-    # Delegate to the new backend implementation
+    # Try FastAPI first, fall back to simple server
     try:
-        from simple_server import main as simple_main
-        simple_main()
+        print("FastAPI available, attempting to load full backend...")
+        from westfall_backend.app import main as fastapi_main
+        print("Using FastAPI backend...")
+        fastapi_main()
+    except ImportError as e:
+        print(f"FastAPI import error: {e}")
+        print("Falling back to simple server...")
+        try:
+            from simple_server import main as simple_main
+            simple_main()
+        except Exception as e2:
+            print(f"Failed to start simple server: {e2}")
+            sys.exit(1)
     except Exception as e:
-        print(f"Failed to start backend: {e}")
+        print(f"Failed to start FastAPI backend: {e}")
+        print("Falling back to simple server...")
+        try:
+            from simple_server import main as simple_main
+            simple_main()
+        except Exception as e2:
+            print(f"Failed to start simple server: {e2}")
+            sys.exit(1)
         print("\nTroubleshooting:")
         print("1. Install FastAPI dependencies: pip install fastapi uvicorn psutil")
         print("2. Check Python version (requires 3.8+)")
