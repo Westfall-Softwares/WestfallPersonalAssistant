@@ -68,8 +68,8 @@ class LlamaSupervisor:
             "name": self.get_model_name(),
             "path": str(self.model_path) if self.model_path else None,
             "size": self.get_model_size(),
-            "context_length": self.settings.llm.context_length,
-            "gpu_layers": self.settings.llm.gpu_layers,
+            "context_length": self.settings.n_ctx,
+            "gpu_layers": self.settings.n_gpu_layers,
             "load_time": self.load_time,
             **self.model_info
         }
@@ -88,10 +88,10 @@ class LlamaSupervisor:
             "context_length": info.get("context_length", 4096),
             "parameters": {
                 "gpu_layers": info.get("gpu_layers", 0),
-                "temperature": self.settings.llm.temperature,
-                "top_p": self.settings.llm.top_p,
-                "top_k": self.settings.llm.top_k,
-                "max_tokens": self.settings.llm.max_tokens
+                "temperature": 0.7,  # Default values for now
+                "top_p": 0.9,
+                "top_k": 40,
+                "max_tokens": 2048
             }
         }
     
@@ -99,8 +99,9 @@ class LlamaSupervisor:
         """List available models in the models directory."""
         models = []
         
-        if self.settings.data.models_dir.exists():
-            for model_file in self.settings.data.models_dir.glob("*.gguf"):
+        models_dir = self.settings.get_data_dir() / "models"
+        if models_dir.exists():
+            for model_file in models_dir.glob("*.gguf"):
                 size = model_file.stat().st_size
                 models.append({
                     "name": model_file.name,

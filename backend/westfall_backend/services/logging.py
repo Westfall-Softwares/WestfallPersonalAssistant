@@ -64,10 +64,18 @@ def setup_logging() -> None:
     """Setup application logging configuration."""
     
     settings = get_settings()
+    data_dir = settings.get_data_dir()
+    logs_dir = data_dir / "logs"
+    
+    # Create logs directory
+    try:
+        logs_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: Could not create logs directory: {e}")
     
     # Root logger configuration
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
     
     # Clear existing handlers
     root_logger.handlers.clear()
@@ -86,8 +94,8 @@ def setup_logging() -> None:
     root_logger.addHandler(console_handler)
     
     # File handler (rotating)
-    if settings.data.logs_dir:
-        log_file = settings.data.logs_dir / "backend.log"
+    try:
+        log_file = logs_dir / "backend.log"
         file_handler = logging.handlers.RotatingFileHandler(
             log_file,
             maxBytes=10 * 1024 * 1024,  # 10MB
@@ -97,10 +105,12 @@ def setup_logging() -> None:
         file_handler.setFormatter(json_formatter)
         file_handler.addFilter(RequestContextFilter())
         root_logger.addHandler(file_handler)
+    except Exception as e:
+        print(f"Warning: Could not create file log handler: {e}")
     
     # Error file handler
-    if settings.data.logs_dir:
-        error_log_file = settings.data.logs_dir / "backend-error.log"
+    try:
+        error_log_file = logs_dir / "backend-error.log"
         error_handler = logging.handlers.RotatingFileHandler(
             error_log_file,
             maxBytes=10 * 1024 * 1024,  # 10MB
@@ -110,15 +120,13 @@ def setup_logging() -> None:
         error_handler.setFormatter(json_formatter)
         error_handler.addFilter(RequestContextFilter())
         root_logger.addHandler(error_handler)
+    except Exception as e:
+        print(f"Warning: Could not create error log handler: {e}")
     
     # Set levels for third-party loggers
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("uvicorn.access").setLevel(logging.INFO)
     logging.getLogger("fastapi").setLevel(logging.INFO)
-    
-    # Suppress verbose loggers in production
-    if settings.environment == "production":
-        logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
