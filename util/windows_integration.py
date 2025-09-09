@@ -31,7 +31,7 @@ class WindowsIntegrationManager:
         
         # Try to initialize Windows optimizations
         try:
-            from util.windows_optimizations import get_windows_optimization_manager
+            from utils.windows_optimizations import get_windows_optimization_manager
             self.managers['windows_optimization'] = get_windows_optimization_manager()
             init_result = self.managers['windows_optimization'].initialize_optimizations()
             results['initialized_modules'].append('windows_optimization')
@@ -42,7 +42,7 @@ class WindowsIntegrationManager:
         
         # Try to initialize system monitoring
         try:
-            from util.windows_system_monitor import enhance_resource_manager
+            from utils.windows_system_monitor import enhance_resource_manager
             enhancement_success = enhance_resource_manager()
             if enhancement_success:
                 results['initialized_modules'].append('system_monitoring')
@@ -54,7 +54,7 @@ class WindowsIntegrationManager:
         
         # Try to initialize task automation
         try:
-            from util.task_automation import get_productivity_manager
+            from utils.task_automation import get_productivity_manager
             self.managers['productivity'] = get_productivity_manager()
             productivity_init = self.managers['productivity'].initialize()
             results['initialized_modules'].append('task_automation')
@@ -65,7 +65,7 @@ class WindowsIntegrationManager:
         
         # Try to initialize local AI optimization
         try:
-            from util.local_ai_optimization import get_local_ai_manager
+            from utils.local_ai_optimization import get_local_ai_manager
             self.managers['local_ai'] = get_local_ai_manager()
             ai_init = self.managers['local_ai'].initialize()
             results['initialized_modules'].append('local_ai_optimization')

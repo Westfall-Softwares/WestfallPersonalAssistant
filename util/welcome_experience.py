@@ -337,7 +337,7 @@ class FirstRunExperience:
         """Check if this is the first run"""
         # Check if user has completed setup
         try:
-            from util.entrepreneur_config import get_entrepreneur_config
+            from utils.entrepreneur_config import get_entrepreneur_config
             config = get_entrepreneur_config()
             return config.get_first_run_wizard_needed()
         except:
@@ -370,7 +370,7 @@ class FirstRunExperience:
     def show_setup_wizard(self):
         """Show the enhanced setup wizard"""
         try:
-            from util.entrepreneur_config import FirstRunWizard, get_entrepreneur_config
+            from utils.entrepreneur_config import FirstRunWizard, get_entrepreneur_config
             config = get_entrepreneur_config()
             wizard = EnhancedFirstRunWizard(config)
             wizard.exec_()
@@ -810,7 +810,7 @@ class EnhancedFirstRunWizard(QDialog):
         """Initialize enhanced wizard UI"""
         # This would be implemented with step-by-step guidance
         # For now, fall back to the existing wizard
-        from util.entrepreneur_config import FirstRunWizard
+        from utils.entrepreneur_config import FirstRunWizard
         wizard = FirstRunWizard(self.config)
         wizard.exec_()
         self.accept()

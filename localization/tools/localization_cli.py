@@ -15,7 +15,7 @@ import os
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from util.localization import LocalizationManager, get_localization_manager
+from utils.localization import LocalizationManager, get_localization_manager
 
 
 class LocalizationCLI:

@@ -483,7 +483,7 @@ class WindowsSystemOptimizer(QObject):
 def enhance_resource_manager():
     """Enhance the existing resource manager with Windows monitoring"""
     try:
-        from util.resource_manager import get_resource_manager
+        from utils.resource_manager import get_resource_manager
         
         resource_manager = get_resource_manager()
         

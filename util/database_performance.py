@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 
-from util.resource_manager import get_resource_manager
-from util.error_handler import get_error_handler
+from utils.resource_manager import get_resource_manager
+from utils.error_handler import get_error_handler
 
 
 @dataclass
