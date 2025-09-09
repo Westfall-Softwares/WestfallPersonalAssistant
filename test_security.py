@@ -153,6 +153,80 @@ def test_api_routes_validation():
         print(f"❌ Error testing API routes: {e}")
         return False
 
+def test_core_modules_validation():
+    """Test that core modules have proper input validation."""
+    print("Testing core modules input validation...")
+    
+    try:
+        # Test assistant core
+        from core.assistant import AssistantCore
+        assistant = AssistantCore()
+        
+        # Test invalid message types
+        try:
+            result = assistant.process_message(123)  # Invalid type
+            if "Error:" not in result:
+                print("❌ Assistant should reject non-string messages")
+                return False
+        except:
+            pass  # Expected to fail
+        
+        # Test empty message
+        result = assistant.process_message("")
+        if "Error:" not in result:
+            print("❌ Assistant should reject empty messages")
+            return False
+        
+        # Test task manager
+        from core.task_manager import TaskManager
+        task_manager = TaskManager()
+        
+        # Test invalid task data
+        try:
+            task_manager.add_task("not a dict")  # Invalid type
+            print("❌ Task manager should reject non-dict tasks")
+            return False
+        except ValueError:
+            pass  # Expected
+        
+        # Test empty title
+        try:
+            task_manager.add_task({"title": ""})
+            print("❌ Task manager should reject empty titles")
+            return False
+        except ValueError:
+            pass  # Expected
+        
+        # Test valid task
+        task_id = task_manager.add_task({
+            "title": "Test Task",
+            "description": "A test task",
+            "priority": "medium"
+        })
+        
+        if not task_id:
+            print("❌ Task manager should accept valid tasks")
+            return False
+        
+        # Test invalid search query
+        try:
+            task_manager.search_tasks("")
+            print("❌ Task manager should reject empty search queries")
+            return False
+        except ValueError:
+            pass  # Expected
+        
+        print("✅ Core modules have proper input validation")
+        return True
+        
+    except ImportError as e:
+        print(f"❌ Failed to import core modules: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Error testing core modules: {e}")
+        return False
+
+
 def test_services_use_env_vars():
     """Test that services properly use environment variables."""
     print("Testing services use environment variables...")
@@ -247,6 +321,7 @@ def main():
         test_app_config_imports,
         test_input_validation,
         test_api_routes_validation,
+        test_core_modules_validation,
         test_services_use_env_vars,
         test_no_hardcoded_keys,
     ]

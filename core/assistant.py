@@ -123,9 +123,59 @@ class AssistantCore:
             logger.error(f"Error loading default model: {e}")
     
     def process_message(self, message: str, context: Dict[str, Any] = None) -> str:
-        """Process a user message and return assistant response"""
+        """Process a user message and return assistant response with input validation"""
         if not self.is_initialized:
             return "Assistant not initialized"
+        
+        # Input validation
+        try:
+            from backend.security.input_validation import input_validator, ValidationError
+            
+            # Validate message input
+            if not isinstance(message, str):
+                return "Error: Message must be a string"
+            
+            if len(message.strip()) == 0:
+                return "Error: Message cannot be empty"
+            
+            if len(message) > 2000:
+                return "Error: Message too long (max 2000 characters)"
+            
+            # Sanitize the message
+            try:
+                message = input_validator.sanitize_string(message, max_length=2000)
+            except ValidationError as ve:
+                logger.warning(f"Message validation failed: {ve}")
+                return f"Error: Invalid message format - {str(ve)}"
+            
+            # Check for suspicious patterns
+            if input_validator.contains_suspicious_patterns(message):
+                logger.warning(f"Suspicious message detected: {message[:50]}...")
+                return "Error: Message contains potentially unsafe content"
+            
+        except ImportError:
+            # Fallback validation if security module not available
+            if not isinstance(message, str) or len(message.strip()) == 0:
+                return "Error: Invalid message"
+            if len(message) > 2000:
+                return "Error: Message too long"
+        
+        # Validate context if provided
+        if context is not None:
+            if not isinstance(context, dict):
+                logger.warning("Invalid context type provided, ignoring")
+                context = {}
+            
+            # Validate context values
+            validated_context = {}
+            for key, value in context.items():
+                if isinstance(key, str) and len(key) <= 50:
+                    if isinstance(value, (str, int, float, bool)):
+                        if isinstance(value, str) and len(str(value)) <= 500:
+                            validated_context[key] = value
+                        elif not isinstance(value, str):
+                            validated_context[key] = value
+            context = validated_context
         
         try:
             self.conversation_count += 1
