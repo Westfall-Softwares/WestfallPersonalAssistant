@@ -127,8 +127,16 @@ class AssistantCore:
                 "session_time": (datetime.now() - self.session_start_time).total_seconds()
             })
             
-            # Generate response using model manager
-            response = self._generate_response(message, context)
+            # Use message handler for command processing and intent detection
+            from core.message_handler import get_message_handler
+            message_handler = get_message_handler()
+            
+            # Check if it's a command or special intent
+            if message.startswith('/') or any(word in message.lower() for word in ['help', 'status', 'time', 'calculate', 'file', 'note']):
+                response = message_handler.process_message(message, context)
+            else:
+                # Generate AI response using model manager
+                response = self._generate_response(message, context)
             
             # Log the interaction (if enabled)
             if self.settings.logging.log_user_inputs:

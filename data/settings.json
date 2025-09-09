@@ -1,0 +1,88 @@
+{
+  "ui": {
+    "theme_mode": "ThemeMode.AUTO",
+    "window_width": 1200,
+    "window_height": 800,
+    "remember_window_size": true,
+    "auto_save": true,
+    "auto_save_interval": 300,
+    "font_size": 12,
+    "font_family": "Segoe UI",
+    "enable_animations": true,
+    "confirm_exit": true,
+    "startup_minimized": false,
+    "system_tray_enabled": true
+  },
+  "models": {
+    "default_provider": "ollama",
+    "ollama_base_url": "http://localhost:11434",
+    "ollama_default_model": "llama2",
+    "openai_api_key": "",
+    "openai_default_model": "gpt-3.5-turbo",
+    "local_models_directory": "models",
+    "temperature": 0.7,
+    "max_tokens": 512,
+    "top_p": 0.9,
+    "top_k": 40,
+    "repeat_penalty": 1.1,
+    "gpu_layers": -1,
+    "vram_limit_gb": 5.0,
+    "batch_size": 512,
+    "threads": 8,
+    "context_length": 4096
+  },
+  "voice": {
+    "tts_enabled": false,
+    "tts_voice": "default",
+    "tts_speed": 1.0,
+    "tts_volume": 0.8,
+    "stt_enabled": false,
+    "stt_language": "en-US",
+    "stt_continuous": false,
+    "wake_word_enabled": false,
+    "wake_word": "assistant"
+  },
+  "memory": {
+    "conversation_history_enabled": true,
+    "max_conversation_length": 100,
+    "auto_summarize_enabled": true,
+    "summarize_threshold": 50,
+    "storage_backend": "file",
+    "history_file": "data/conversation_history.json",
+    "database_url": "sqlite:///data/assistant.db",
+    "encrypt_history": false,
+    "retention_days": 30
+  },
+  "security": {
+    "enable_input_validation": true,
+    "enable_output_filtering": true,
+    "enable_api_key_encryption": true,
+    "max_requests_per_minute": 60,
+    "max_tokens_per_hour": 100000,
+    "content_filtering_enabled": true,
+    "blocked_keywords": []
+  },
+  "logging": {
+    "log_level": "LogLevel.INFO",
+    "log_to_file": true,
+    "log_file": "logs/assistant.log",
+    "max_log_size_mb": 10,
+    "backup_count": 5,
+    "log_user_inputs": false,
+    "log_ai_responses": true,
+    "log_api_calls": true,
+    "log_errors": true
+  },
+  "features": {
+    "business_dashboard_enabled": false,
+    "crm_enabled": false,
+    "finance_tracking_enabled": false,
+    "time_tracking_enabled": false,
+    "extensions_enabled": true,
+    "extension_directory": "extensions",
+    "auto_load_extensions": true,
+    "screen_capture_enabled": false,
+    "automation_enabled": false,
+    "web_search_enabled": true
+  }
+}
