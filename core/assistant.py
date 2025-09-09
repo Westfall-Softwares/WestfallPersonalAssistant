@@ -7,13 +7,17 @@ Contains the main assistant functionality without GUI dependencies.
 
 import logging
 import threading
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from datetime import datetime
 from pathlib import Path
 
 # Import our new modules
 from config.settings import get_settings, Settings
 from models.model_manager import get_model_manager, ModelManager
+
+# Type checking imports (prevent circular imports)
+if TYPE_CHECKING:
+    from core.task_manager import TaskManager
 
 logger = logging.getLogger(__name__)
 
