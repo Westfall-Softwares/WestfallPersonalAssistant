@@ -21,6 +21,14 @@ A privacy-first personal assistant that runs entirely on your local machine. No 
 - **Windows/macOS/Linux** support
 
 ### Installation
+
+#### Option 1: Download Installer (Recommended)
+Download the latest installer for your platform from [Releases](https://github.com/Westfall-Softwares/WestfallPersonalAssistant/releases):
+- **Windows**: `.exe` installer (NSIS)
+- **macOS**: `.dmg` package
+- **Linux**: `.AppImage` or `.deb` package
+
+#### Option 2: Development Setup
 ```bash
 # Clone repository
 git clone https://github.com/Westfall-Softwares/WestfallPersonalAssistant.git
@@ -185,7 +193,12 @@ docs/                          # Architecture documentation
 
 4. **Run the assistant**
    ```bash
-   python main.py
+   # Development mode (both Electron and backend)
+   cd electron
+   npm run dev
+   
+   # Or start backend only for API access
+   python -m backend.westfall_backend.app
    ```
 
 ### Docker Installation
@@ -243,14 +256,21 @@ nano .env
 
 ### Starting the Assistant
 
+For **desktop application** (recommended for beta):
 ```bash
-python main.py
+cd electron
+npm run dev
+```
+
+For **API development** (backend only):
+```bash
+python -m backend.westfall_backend.app
 ```
 
 The assistant will be available at:
-- **Web Interface**: http://localhost:5000
-- **Command Line**: Direct interaction in the terminal
-- **Voice Interface**: Start speaking after the assistant is running
+- **Desktop App**: Full-featured Electron application with chat interface
+- **Backend API**: http://127.0.0.1:8756 (configurable via WESTFALL_PORT in .env)
+- **API Documentation**: http://127.0.0.1:8756/docs
 
 ### Voice Commands
 
@@ -300,12 +320,15 @@ WestfallPersonalAssistant provides a REST API for integration with other applica
 
 ```bash
 # Example API request
-curl -X POST http://localhost:5000/api/query \
+curl -X POST http://127.0.0.1:8756/api/llm/chat \
   -H "Content-Type: application/json" \
-  -d '{"query": "What is the weather in New York?", "context": "weather"}'
+  -d '{"message": "What is the weather in New York?"}'
+
+# Health check
+curl http://127.0.0.1:8756/api/health
 ```
 
-API documentation is available at: http://localhost:5000/api/docs
+API documentation is available at: http://127.0.0.1:8756/docs
 
 ### LLaVA Model Customization
 
@@ -372,8 +395,11 @@ python utils/test_voice.py
 # Verify model files exist
 ls -la models/llava/
 
-# Try with text-only mode
-python main.py --text-only
+# Try with electron development mode
+cd electron && npm run dev
+
+# Or start backend directly with debug logging
+WESTFALL_LOG_LEVEL=DEBUG python -m backend.westfall_backend.app
 ```
 
 ### Logs
@@ -397,16 +423,27 @@ grep ERROR logs/assistant.log
 
 ### Memory Usage
 
-Reduce memory footprint:
+Configure memory settings via environment variables:
 ```bash
-python main.py --optimize-memory
+# Set model context size (impacts memory usage)
+export WESTFALL_N_CTX=2048
+
+# Limit GPU layers (reduce GPU memory usage)
+export WESTFALL_N_GPU_LAYERS=10
+
+# Start application
+cd electron && npm run dev
 ```
 
 ### GPU Acceleration
 
-Enable GPU for faster processing:
+Configure GPU acceleration via environment variables:
 ```bash
-python main.py --use-gpu
+# Enable GPU layers (adjust based on your GPU memory)
+export WESTFALL_N_GPU_LAYERS=32
+
+# Start backend with GPU acceleration
+python -m backend.westfall_backend.app
 ```
 
 Supported GPU configurations:

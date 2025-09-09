@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-backend:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11', '3.12']
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install -r backend/requirements.txt
+    
+    - name: Build backend with PyInstaller
+      run: |
+        cd backend
+        pyinstaller --onefile --name westfall-backend-${{ matrix.os }}-py${{ matrix.python-version }} westfall_backend/app.py
+    
+    - name: Upload backend artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-${{ matrix.os }}-py${{ matrix.python-version }}
+        path: backend/dist/
+
+  build-electron:
+    needs: build-backend
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Download backend artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: backend-${{ matrix.os }}-*
+        path: dist-backend/
+        merge-multiple: true
+    
+    - name: Install dependencies
+      run: |
+        cd electron
+        npm install
+    
+    - name: Build Electron app for Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd electron
+        npm run build -- --linux --publish=never
+    
+    - name: Build Electron app for Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        cd electron
+        npm run build -- --win --publish=never
+    
+    - name: Build Electron app for macOS
+      if: matrix.os == 'macos-latest'
+      run: |
+        cd electron
+        npm run build -- --mac --publish=never
+    
+    - name: Upload installers
+      uses: actions/upload-artifact@v4
+      with:
+        name: installers-${{ matrix.os }}
+        path: electron/dist/
+
+  release:
+    needs: [build-backend, build-electron]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+    
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: artifacts/**/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
