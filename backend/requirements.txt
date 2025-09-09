@@ -1,51 +1,9 @@
-# Backend dependencies for Westfall Personal Assistant
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-pydantic>=2.9.0
-pydantic-settings>=2.1.0
-python-multipart>=0.0.10
-httpx>=0.27.0
-anyio>=4.4.0
-loguru>=0.7.2
-
-# Security dependencies for Phase 1
-cryptography>=41.0.0
-keyring>=25.0.0
-bcrypt>=3.2.0
-sqlalchemy>=2.0.0
-alembic>=1.16.0
-
-# AI Assistant dependencies for Phase 2
-psutil>=5.9.0
-
-# Development dependencies
-requests>=2.32.0
-
-# News reader dependencies
-aiohttp>=3.8.0
-feedparser>=6.0.10
-
-# Optional AI/ML dependencies (install based on needs)
-# Uncomment the lines below to enable full functionality:
-
-# For GGUF/GGML models (recommended for local inference)
+fastapi==0.114.2
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+httpx==0.27.2
+anyio==4.6.2.post1
+loguru==0.7.2
+python-multipart==0.0.9
 llama-cpp-python==0.2.90
-
-# For PyTorch/Transformers models  
-# torch>=2.4.0
-# transformers>=4.45.0
-
-# For screen capture and image processing (Phase 2)
-# opencv-python>=4.10.0
-# pytesseract>=0.3.10
-# pillow>=10.4.0
-
-# For music player (optional)
-# pygame>=2.5.0
-# mutagen>=1.47.0
-# python-vlc>=3.0.0
-# pydub>=0.25.0
-# simpleaudio>=1.0.4
-
-# Additional utilities
-# numpy>=2.0.0
