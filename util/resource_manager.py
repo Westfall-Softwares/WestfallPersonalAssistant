@@ -98,6 +98,67 @@ class ResourceManager(QObject):
         if file_handle and hasattr(file_handle, 'close'):
             self.open_files.add(file_handle)
             logging.debug("Registered open file handle")
+
+    @contextmanager
+    def managed_file(self, file_path: str, mode: str = 'r'):
+        """Context manager for automatic file cleanup"""
+        file_handle = None
+        try:
+            file_handle = open(file_path, mode)
+            self.register_open_file(file_handle)
+            yield file_handle
+        finally:
+            if file_handle and not file_handle.closed:
+                file_handle.close()
+                try:
+                    self.open_files.remove(file_handle)
+                except KeyError:
+                    pass  # Already removed
+    
+    @contextmanager 
+    def managed_temp_file(self, suffix: str = '', prefix: str = 'wpa_'):
+        """Context manager for temporary files with automatic cleanup"""
+        temp_file = None
+        try:
+            temp_file = tempfile.NamedTemporaryFile(
+                suffix=suffix, 
+                prefix=prefix, 
+                delete=False
+            )
+            self.register_temp_file(temp_file.name)
+            yield temp_file
+        finally:
+            if temp_file:
+                temp_file.close()
+                try:
+                    os.unlink(temp_file.name)
+                    self.temp_files.discard(temp_file.name)
+                except (OSError, PermissionError):
+                    pass  # File may already be deleted
+    
+    @contextmanager
+    def managed_database_connection(self, database_path: str):
+        """Context manager for database connections with automatic cleanup"""
+        connection = None
+        try:
+            connection = sqlite3.connect(database_path)
+            self.register_database_connection(connection)
+            yield connection
+        except Exception as e:
+            if connection:
+                connection.rollback()
+            raise
+        finally:
+            if connection:
+                try:
+                    connection.close()
+                    if hasattr(self, '_db_connections'):
+                        try:
+                            self._db_connections.remove(connection)
+                        except ValueError:
+                            pass  # Already removed
+                except Exception as e:
+                    logging.error(f"Error closing database connection: {e}")
     
     def cleanup_temp_files(self) -> int:
         """Clean up temporary files"""
@@ -384,3 +445,125 @@ def get_resource_manager() -> ResourceManager:
 def cleanup_all_resources():
     """Cleanup all tracked resources"""
     return get_resource_manager().full_cleanup()
+
+
+class LRUCache:
+    """LRU (Least Recently Used) cache with size limits and automatic eviction"""
+    
+    def __init__(self, max_size_mb: int = 50, max_items: int = 1000):
+        """Initialize LRU cache with size and item limits"""
+        self.max_size_bytes = max_size_mb * 1024 * 1024
+        self.max_items = max_items
+        self.cache = {}
+        self.access_order = []  # Most recent at end
+        self.current_size_bytes = 0
+        self._lock = threading.Lock()
+    
+    def _estimate_size(self, value) -> int:
+        """Estimate memory size of a value"""
+        if isinstance(value, str):
+            return len(value.encode('utf-8'))
+        elif isinstance(value, bytes):
+            return len(value)
+        elif isinstance(value, (int, float)):
+            return 8  # Approximate
+        elif isinstance(value, (list, tuple)):
+            return sum(self._estimate_size(item) for item in value)
+        elif isinstance(value, dict):
+            return sum(self._estimate_size(k) + self._estimate_size(v) 
+                      for k, v in value.items())
+        else:
+            # Fallback estimation
+            return sys.getsizeof(value)
+    
+    def _evict_lru(self):
+        """Evict least recently used items to stay within limits"""
+        while (len(self.cache) > self.max_items or 
+               self.current_size_bytes > self.max_size_bytes):
+            if not self.access_order:
+                break
+                
+            # Remove least recently used item
+            lru_key = self.access_order.pop(0)
+            if lru_key in self.cache:
+                value_size = self._estimate_size(self.cache[lru_key])
+                del self.cache[lru_key]
+                self.current_size_bytes -= value_size
+                logging.debug(f"LRU cache evicted key: {lru_key}")
+    
+    def get(self, key, default=None):
+        """Get value from cache, updating access order"""
+        with self._lock:
+            if key in self.cache:
+                # Move to end (most recent)
+                self.access_order.remove(key)
+                self.access_order.append(key)
+                return self.cache[key]
+            return default
+    
+    def set(self, key, value):
+        """Set value in cache with LRU eviction"""
+        with self._lock:
+            value_size = self._estimate_size(value)
+            
+            # Remove existing key if present
+            if key in self.cache:
+                old_size = self._estimate_size(self.cache[key])
+                self.current_size_bytes -= old_size
+                self.access_order.remove(key)
+            
+            # Add new value
+            self.cache[key] = value
+            self.access_order.append(key)
+            self.current_size_bytes += value_size
+            
+            # Evict if necessary
+            self._evict_lru()
+    
+    def remove(self, key):
+        """Remove key from cache"""
+        with self._lock:
+            if key in self.cache:
+                value_size = self._estimate_size(self.cache[key])
+                del self.cache[key]
+                self.access_order.remove(key)
+                self.current_size_bytes -= value_size
+                return True
+            return False
+    
+    def clear(self):
+        """Clear all cache entries"""
+        with self._lock:
+            self.cache.clear()
+            self.access_order.clear()
+            self.current_size_bytes = 0
+    
+    def stats(self) -> Dict[str, Any]:
+        """Get cache statistics"""
+        with self._lock:
+            return {
+                'size_mb': self.current_size_bytes / (1024 * 1024),
+                'max_size_mb': self.max_size_bytes / (1024 * 1024),
+                'items': len(self.cache),
+                'max_items': self.max_items,
+                'usage_percent': (self.current_size_bytes / self.max_size_bytes) * 100
+            }
+
+
+# Global cache instances
+_data_cache = None
+_image_cache = None
+
+def get_data_cache() -> LRUCache:
+    """Get global data cache instance"""
+    global _data_cache
+    if _data_cache is None:
+        _data_cache = LRUCache(max_size_mb=50, max_items=500)
+    return _data_cache
+
+def get_image_cache() -> LRUCache:
+    """Get global image cache instance"""
+    global _image_cache
+    if _image_cache is None:
+        _image_cache = LRUCache(max_size_mb=25, max_items=100)
+    return _image_cache
