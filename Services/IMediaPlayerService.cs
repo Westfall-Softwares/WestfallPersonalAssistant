@@ -10,7 +10,6 @@ namespace WestfallPersonalAssistant.Services
     public enum MediaSourceType
     {
         Local,
-        Spotify,
         YouTube,
         AppleMusic
     }

@@ -79,7 +79,6 @@ namespace WestfallPersonalAssistant.Services
             _playerServices = new Dictionary<MediaSourceType, IMediaPlayerService>
             {
                 { MediaSourceType.Local, new LocalMediaPlayerService(fileSystemService) },
-                { MediaSourceType.Spotify, new SpotifyMediaPlayerService(fileSystemService, secureStorageService) },
                 { MediaSourceType.YouTube, new YouTubeMediaPlayerService(fileSystemService, networkService) }
             };
 
@@ -339,14 +338,6 @@ namespace WestfallPersonalAssistant.Services
         public IMediaPlayerService? GetPlayerService(MediaSourceType sourceType)
         {
             return _playerServices.TryGetValue(sourceType, out var service) ? service : null;
-        }
-
-        /// <summary>
-        /// Get the Spotify service for authentication
-        /// </summary>
-        public SpotifyMediaPlayerService? GetSpotifyService()
-        {
-            return GetPlayerService(MediaSourceType.Spotify) as SpotifyMediaPlayerService;
         }
 
         /// <summary>
