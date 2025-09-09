@@ -44,7 +44,9 @@ def dashboard():
 @web_bp.route('/settings')
 def settings():
     """Settings page."""
-    return render_template('settings.html')
+    # Redirect to the settings UI page
+    from flask import redirect, url_for
+    return redirect(url_for('settings.settings_page'))
 
 @web_bp.route('/about')
 def about():
