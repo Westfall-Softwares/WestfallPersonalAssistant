@@ -35,7 +35,7 @@ import {
   Settings as SettingsIcon
 } from '@mui/icons-material';
 
-const { ipcRenderer } = window.electronAPI;
+const ipcRenderer = window.electronAPI?.ipcRenderer;
 
 function SystemSettings({ settings, onSettingsChange }) {
   const [localSettings, setLocalSettings] = useState(settings);

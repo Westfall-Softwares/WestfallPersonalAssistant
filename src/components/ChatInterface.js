@@ -28,7 +28,7 @@ import {
 } from '@mui/icons-material';
 import ConversationHistory from './ConversationHistory';
 
-const { ipcRenderer } = window.electronAPI;
+const ipcRenderer = window.electronAPI?.ipcRenderer;
 
 const ChatInterface = ({ thinkingMode, modelStatus }) => {
   const [messages, setMessages] = useState([]);
