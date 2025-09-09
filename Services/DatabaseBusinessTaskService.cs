@@ -114,10 +114,10 @@ namespace WestfallPersonalAssistant.Services
             await _databaseService.ExecuteNonQueryAsync(sql,
                 task.Id, task.Title, task.Description, task.DueDate.ToString("O"), 
                 task.Category, task.IsCompleted ? 1 : 0, task.Priority,
-                task.CreatedDate.ToString("O"), task.CompletedDate?.ToString("O"),
-                task.Status, task.AssignedTo, task.EstimatedHours, task.ActualHours,
-                task.Tags, task.BusinessImpact, task.ProjectId, task.ClientId,
-                (int)task.TaskType, task.RevenueImpact, (int)task.StrategicImportance);
+                task.CreatedDate.ToString("O"), task.CompletedDate?.ToString("O") ?? string.Empty,
+                task.Status ?? string.Empty, task.AssignedTo ?? string.Empty, task.EstimatedHours, task.ActualHours,
+                task.Tags ?? string.Empty, task.BusinessImpact ?? string.Empty, task.ProjectId ?? string.Empty, task.ClientId ?? string.Empty,
+                (int)task.TaskType, task.RevenueImpact ?? 0, (int)task.StrategicImportance);
             
             TaskCreated?.Invoke(this, task);
             return task;
@@ -137,9 +137,9 @@ namespace WestfallPersonalAssistant.Services
             await _databaseService.ExecuteNonQueryAsync(sql,
                 task.Id, task.Title, task.Description, task.DueDate.ToString("O"),
                 task.Category, task.IsCompleted ? 1 : 0, task.Priority,
-                task.CompletedDate?.ToString("O"), task.Status, task.AssignedTo,
-                task.EstimatedHours, task.ActualHours, task.Tags, task.BusinessImpact,
-                task.ProjectId, task.ClientId, (int)task.TaskType, task.RevenueImpact,
+                task.CompletedDate?.ToString("O") ?? string.Empty, task.Status ?? string.Empty, task.AssignedTo ?? string.Empty,
+                task.EstimatedHours, task.ActualHours, task.Tags ?? string.Empty, task.BusinessImpact ?? string.Empty,
+                task.ProjectId ?? string.Empty, task.ClientId ?? string.Empty, (int)task.TaskType, task.RevenueImpact ?? 0,
                 (int)task.StrategicImportance);
             
             TaskUpdated?.Invoke(this, task);

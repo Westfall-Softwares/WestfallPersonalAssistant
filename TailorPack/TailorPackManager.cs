@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using WestfallPersonalAssistant.Services;
 
 namespace WestfallPersonalAssistant.TailorPack
@@ -15,6 +16,7 @@ namespace WestfallPersonalAssistant.TailorPack
         private readonly FeatureRegistry _featureRegistry;
         private readonly FeatureActivationService _activationService;
         private IFileSystemService? _fileSystemService;
+        private IOrderVerificationService? _orderVerificationService;
         
         public static TailorPackManager Instance 
         {
@@ -41,6 +43,7 @@ namespace WestfallPersonalAssistant.TailorPack
         public void Initialize(IFileSystemService fileSystemService)
         {
             _fileSystemService = fileSystemService;
+            _orderVerificationService = new OrderVerificationService(fileSystemService);
             DiscoverPacks();
         }
         
@@ -251,6 +254,57 @@ namespace WestfallPersonalAssistant.TailorPack
         public TailorPackManifest[] GetPackManifests()
         {
             return _loadedPacks.Values.Select(pack => pack.GetManifest()).ToArray();
+        }
+        
+        /// <summary>
+        /// Verify order number and attempt to activate pack
+        /// </summary>
+        public async Task<bool> VerifyAndActivatePackAsync(string orderNumber)
+        {
+            if (_orderVerificationService == null)
+            {
+                Console.WriteLine("Order verification service not initialized");
+                return false;
+            }
+            
+            try
+            {
+                var result = await _orderVerificationService.ValidateOrderAsync(orderNumber);
+                if (result.IsValid && result.License != null)
+                {
+                    Console.WriteLine($"Order verified for pack: {result.License.PackId}");
+                    
+                    // Load and activate the pack
+                    if (LoadPack(result.License.PackId))
+                    {
+                        return _activationService.ActivatePackFeatures(result.License.PackId);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Order verification failed: {result.ErrorMessage}");
+                    if (result.TrialAvailable)
+                    {
+                        Console.WriteLine("Trial version may be available");
+                    }
+                }
+                
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error verifying order: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Check if a pack is licensed
+        /// </summary>
+        public async Task<bool> IsPackLicensedAsync(string packId)
+        {
+            if (_orderVerificationService == null) return false;
+            return await _orderVerificationService.IsPackLicensedAsync(packId);
         }
     }
     
