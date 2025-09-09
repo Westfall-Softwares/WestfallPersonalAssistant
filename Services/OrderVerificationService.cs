@@ -11,13 +11,27 @@ namespace WestfallPersonalAssistant.Services
     public class OrderVerificationService : IOrderVerificationService
     {
         private readonly IFileSystemService _fileSystemService;
+        private readonly ISecurityLogger? _securityLogger;
+        private readonly ISecureStorageService? _secureStorageService;
+        private readonly IInputValidationService? _inputValidationService;
         private readonly string _licensesPath;
         private readonly Dictionary<string, PackLicense> _activeLicenses = new();
         private readonly Dictionary<string, TrialLicense> _trialLicenses = new();
+        private readonly Dictionary<string, int> _failedAttempts = new();
+        private readonly Dictionary<string, DateTime> _lastAttempts = new();
+        private const int MaxFailedAttempts = 3;
+        private readonly TimeSpan _lockoutDuration = TimeSpan.FromMinutes(15);
 
-        public OrderVerificationService(IFileSystemService fileSystemService)
+        public OrderVerificationService(
+            IFileSystemService fileSystemService, 
+            ISecurityLogger? securityLogger = null,
+            ISecureStorageService? secureStorageService = null,
+            IInputValidationService? inputValidationService = null)
         {
             _fileSystemService = fileSystemService;
+            _securityLogger = securityLogger;
+            _secureStorageService = secureStorageService;
+            _inputValidationService = inputValidationService;
             _licensesPath = Path.Combine(_fileSystemService.GetAppDataPath(), "licenses");
             _ = InitializeAsync();
         }
@@ -41,11 +55,63 @@ namespace WestfallPersonalAssistant.Services
 
         public async Task<OrderValidationResult> ValidateOrderAsync(string orderNumber)
         {
+            const string operation = "Order Validation";
+            var clientId = Environment.MachineName; // Simple client identifier
+            
             try
             {
+                // Input validation
+                if (_inputValidationService != null)
+                {
+                    var validationResult = _inputValidationService.ValidateText(orderNumber, 100);
+                    if (!validationResult.IsValid)
+                    {
+                        await _securityLogger?.LogSecurityEventAsync(new SecurityEvent
+                        {
+                            EventType = SecurityEventType.SecurityViolation,
+                            LogLevel = SecurityLogLevel.Warning,
+                            User = clientId,
+                            Action = operation,
+                            Resource = "Order Validation",
+                            Success = false,
+                            FailureReason = $"Input validation failed: {validationResult.ErrorMessage}"
+                        });
+                        
+                        return new OrderValidationResult
+                        {
+                            IsValid = false,
+                            ErrorMessage = "Invalid order number format",
+                            TrialAvailable = true
+                        };
+                    }
+                }
+                
+                // Check for rate limiting
+                if (IsRateLimited(clientId))
+                {
+                    await _securityLogger?.LogSecurityEventAsync(new SecurityEvent
+                    {
+                        EventType = SecurityEventType.SecurityViolation,
+                        LogLevel = SecurityLogLevel.Warning,
+                        User = clientId,
+                        Action = operation,
+                        Resource = "Order Validation",
+                        Success = false,
+                        FailureReason = "Rate limited due to too many failed attempts"
+                    });
+                    
+                    return new OrderValidationResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Too many failed attempts. Please try again later.",
+                        TrialAvailable = false
+                    };
+                }
+                
                 // Basic format validation
                 if (string.IsNullOrWhiteSpace(orderNumber) || orderNumber.Length < 8)
                 {
+                    await RecordFailedAttempt(clientId, operation, "Invalid format");
                     return new OrderValidationResult
                     {
                         IsValid = false,
@@ -60,8 +126,28 @@ namespace WestfallPersonalAssistant.Services
                 
                 if (license != null)
                 {
+                    // Success - clear failed attempts
+                    _failedAttempts.Remove(clientId);
+                    _lastAttempts.Remove(clientId);
+                    
                     _activeLicenses[license.PackId] = license;
                     await SaveLicensesAsync();
+                    
+                    await _securityLogger?.LogSecurityEventAsync(new SecurityEvent
+                    {
+                        EventType = SecurityEventType.Authentication,
+                        LogLevel = SecurityLogLevel.Info,
+                        User = clientId,
+                        Action = operation,
+                        Resource = $"Pack License: {license.PackId}",
+                        Success = true,
+                        Metadata = new Dictionary<string, object>
+                        {
+                            ["PackId"] = license.PackId,
+                            ["LicenseType"] = license.LicenseType,
+                            ["ExpirationDate"] = license.ExpiryDate?.ToString("yyyy-MM-dd") ?? "Perpetual"
+                        }
+                    });
                     
                     return new OrderValidationResult
                     {
@@ -71,6 +157,7 @@ namespace WestfallPersonalAssistant.Services
                     };
                 }
 
+                await RecordFailedAttempt(clientId, operation, "Order not found");
                 return new OrderValidationResult
                 {
                     IsValid = false,
@@ -80,6 +167,17 @@ namespace WestfallPersonalAssistant.Services
             }
             catch (Exception ex)
             {
+                await _securityLogger?.LogSecurityEventAsync(new SecurityEvent
+                {
+                    EventType = SecurityEventType.SystemEvent,
+                    LogLevel = SecurityLogLevel.Error,
+                    User = clientId,
+                    Action = operation,
+                    Resource = "Order Validation System",
+                    Success = false,
+                    FailureReason = ex.Message
+                });
+                
                 return new OrderValidationResult
                 {
                     IsValid = false,
@@ -87,6 +185,53 @@ namespace WestfallPersonalAssistant.Services
                     TrialAvailable = true
                 };
             }
+        }
+        
+        private bool IsRateLimited(string clientId)
+        {
+            if (!_failedAttempts.TryGetValue(clientId, out var attempts) || 
+                !_lastAttempts.TryGetValue(clientId, out var lastAttempt))
+            {
+                return false;
+            }
+            
+            // Check if still in lockout period
+            if (attempts >= MaxFailedAttempts && 
+                DateTime.UtcNow - lastAttempt < _lockoutDuration)
+            {
+                return true;
+            }
+            
+            // Reset if lockout period has passed
+            if (DateTime.UtcNow - lastAttempt >= _lockoutDuration)
+            {
+                _failedAttempts.Remove(clientId);
+                _lastAttempts.Remove(clientId);
+            }
+            
+            return false;
+        }
+        
+        private async Task RecordFailedAttempt(string clientId, string operation, string reason)
+        {
+            _failedAttempts[clientId] = _failedAttempts.GetValueOrDefault(clientId, 0) + 1;
+            _lastAttempts[clientId] = DateTime.UtcNow;
+            
+            await _securityLogger?.LogSecurityEventAsync(new SecurityEvent
+            {
+                EventType = SecurityEventType.Authentication,
+                LogLevel = SecurityLogLevel.Warning,
+                User = clientId,
+                Action = operation,
+                Resource = "Order Validation",
+                Success = false,
+                FailureReason = reason,
+                Metadata = new Dictionary<string, object>
+                {
+                    ["FailedAttempts"] = _failedAttempts[clientId],
+                    ["MaxAttempts"] = MaxFailedAttempts
+                }
+            });
         }
 
         public async Task<PackLicense?> GetLicenseAsync(string packId)
