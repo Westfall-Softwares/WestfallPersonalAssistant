@@ -47,23 +47,14 @@ namespace WestfallPersonalAssistant.Services
                 theme["PrimaryPressed"] = AdjustColorBrightness(themeConfig.PrimaryColor, -0.1f);
                 theme["SecondaryHover"] = AdjustColorBrightness(themeConfig.SecondaryColor, 0.1f);
 
-                // TODO support custom gradients
-                // Current theme system only supports solid colors. Future enhancement should:
-                // 1. Extend theme JSON schema to allow gradient definitions
-                // 2. Generate ResourceDictionary brushes dynamically for gradients
-                // 3. Support linear and radial gradient configurations
-                // 4. Allow multiple color stops with positions and opacity
-                // Example future gradient schema:
-                // "gradients": {
-                //   "HeaderGradient": {
-                //     "type": "linear",
-                //     "angle": 90,
-                //     "stops": [
-                //       { "color": "#FF6B6B", "position": 0.0 },
-                //       { "color": "#4ECDC4", "position": 1.0 }
-                //     ]
-                //   }
-                // }
+                // Add gradient support
+                if (themeConfig.Gradients != null && themeConfig.Gradients.Count > 0)
+                {
+                    foreach (var gradientPair in themeConfig.Gradients)
+                    {
+                        theme[gradientPair.Key] = ConvertGradientToString(gradientPair.Value);
+                    }
+                }
 
                 // Border and shadow colors
                 theme["BorderColor"] = themeConfig.BorderColor ?? AdjustColorBrightness(themeConfig.BackgroundColor, -0.2f);
@@ -85,6 +76,47 @@ namespace WestfallPersonalAssistant.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error generating theme: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Generates a theme from a Theme object (with full gradient support)
+        /// </summary>
+        /// <param name="theme">Theme object</param>
+        /// <returns>Generated theme dictionary with gradients</returns>
+        public async Task<Dictionary<string, object>> GenerateThemeFromObjectAsync(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            try
+            {
+                var themeDict = new Dictionary<string, object>();
+
+                // Add all solid colors
+                foreach (var colorPair in theme.Colors)
+                {
+                    themeDict[colorPair.Key] = colorPair.Value;
+                }
+
+                // Add gradients with special prefix or conversion
+                foreach (var gradientPair in theme.Gradients)
+                {
+                    themeDict[$"Gradient_{gradientPair.Key}"] = ConvertGradientToString(gradientPair.Value);
+                }
+
+                // Save theme to file
+                if (!string.IsNullOrWhiteSpace(theme.Name))
+                {
+                    await SaveThemeObjectAsync(theme);
+                }
+
+                return themeDict;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating theme from object: {ex.Message}");
                 throw;
             }
         }
@@ -227,6 +259,186 @@ namespace WestfallPersonalAssistant.Services
             
             return colorString; // Return original if adjustment fails
         }
+
+        /// <summary>
+        /// Converts a gradient definition to a string representation
+        /// In a real implementation, this would generate appropriate CSS or XAML gradient syntax
+        /// </summary>
+        private string ConvertGradientToString(GradientDefinition gradient)
+        {
+            if (gradient.Type == GradientType.Linear)
+            {
+                var stops = string.Join(", ", gradient.Stops.Select(s => $"{s.Color} {s.Position:P0}"));
+                return $"linear-gradient({gradient.Angle}deg, {stops})";
+            }
+            else if (gradient.Type == GradientType.Radial)
+            {
+                var stops = string.Join(", ", gradient.Stops.Select(s => $"{s.Color} {s.Position:P0}"));
+                return $"radial-gradient(ellipse {gradient.RadiusX:P0} {gradient.RadiusY:P0} at {gradient.Center.X:P0} {gradient.Center.Y:P0}, {stops})";
+            }
+
+            return "none";
+        }
+
+        /// <summary>
+        /// Creates a linear gradient definition
+        /// </summary>
+        public static GradientDefinition CreateLinearGradient(string name, double angle, params (string color, double position)[] stops)
+        {
+            var gradient = new GradientDefinition
+            {
+                Name = name,
+                Type = GradientType.Linear,
+                Angle = angle
+            };
+
+            foreach (var (color, position) in stops)
+            {
+                if (Color.TryParse(color, out var parsedColor))
+                {
+                    gradient.Stops.Add(new GradientStop(parsedColor, position));
+                }
+            }
+
+            return gradient;
+        }
+
+        /// <summary>
+        /// Creates a radial gradient definition
+        /// </summary>
+        public static GradientDefinition CreateRadialGradient(string name, Point center, double radiusX, double radiusY, params (string color, double position)[] stops)
+        {
+            var gradient = new GradientDefinition
+            {
+                Name = name,
+                Type = GradientType.Radial,
+                Center = center,
+                RadiusX = radiusX,
+                RadiusY = radiusY
+            };
+
+            foreach (var (color, position) in stops)
+            {
+                if (Color.TryParse(color, out var parsedColor))
+                {
+                    gradient.Stops.Add(new GradientStop(parsedColor, position));
+                }
+            }
+
+            return gradient;
+        }
+
+        /// <summary>
+        /// Loads a theme object with gradient support
+        /// </summary>
+        /// <param name="themeName">Name of the theme to load</param>
+        /// <returns>Theme object or null if not found</returns>
+        public async Task<Theme?> LoadThemeObjectAsync(string themeName)
+        {
+            if (string.IsNullOrWhiteSpace(themeName))
+                return null;
+
+            try
+            {
+                var themeFilePath = Path.Combine(_themesDirectory, $"{themeName}.json");
+                if (!_fileSystemService.FileExists(themeFilePath))
+                    return null;
+
+                var themeJson = await _fileSystemService.ReadAllTextAsync(themeFilePath);
+                return JsonSerializer.Deserialize<Theme>(themeJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading theme object {themeName}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Saves a theme object with gradient support
+        /// </summary>
+        /// <param name="theme">Theme object to save</param>
+        /// <returns>Task representing the save operation</returns>
+        public async Task SaveThemeObjectAsync(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            if (string.IsNullOrWhiteSpace(theme.Name))
+                throw new ArgumentException("Theme name cannot be null or empty", nameof(theme));
+
+            try
+            {
+                if (!_fileSystemService.DirectoryExists(_themesDirectory))
+                {
+                    _fileSystemService.CreateDirectory(_themesDirectory);
+                }
+
+                theme.UpdatedAt = DateTime.UtcNow;
+                var themeFilePath = Path.Combine(_themesDirectory, $"{theme.Name}.json");
+                var themeJson = JsonSerializer.Serialize(theme, new JsonSerializerOptions 
+                { 
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                
+                await _fileSystemService.WriteAllTextAsync(themeFilePath, themeJson);
+                Console.WriteLine($"Theme with gradients saved: {theme.Name}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving theme object {theme.Name}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Creates a sample gradient theme for demonstration
+        /// </summary>
+        public async Task<Theme> CreateSampleGradientThemeAsync()
+        {
+            var theme = new Theme
+            {
+                Name = "Ocean Breeze",
+                Description = "A calming theme with ocean-inspired gradients",
+                Author = "Westfall Assistant",
+                Colors = new Dictionary<string, string>
+                {
+                    { "Primary", "#3498db" },
+                    { "Secondary", "#2ecc71" },
+                    { "Background", "#ecf0f1" },
+                    { "Foreground", "#2c3e50" },
+                    { "Accent", "#e74c3c" }
+                },
+                Gradients = new Dictionary<string, GradientDefinition>
+                {
+                    {
+                        "HeaderBackground",
+                        CreateLinearGradient("HeaderBackground", 45, 
+                            ("#3498db", 0.0), 
+                            ("#2ecc71", 1.0))
+                    },
+                    {
+                        "SidebarBackground",
+                        CreateRadialGradient("SidebarBackground", new Point(0.5, 0.5), 0.8, 0.8,
+                            ("#3498db", 0.0),
+                            ("#2c3e50", 1.0))
+                    },
+                    {
+                        "ButtonGradient",
+                        CreateLinearGradient("ButtonGradient", 90,
+                            ("#e74c3c", 0.0),
+                            ("#c0392b", 1.0))
+                    }
+                }
+            };
+
+            await SaveThemeObjectAsync(theme);
+            return theme;
+        }
     }
 
     /// <summary>
@@ -241,5 +453,80 @@ namespace WestfallPersonalAssistant.Services
         public string ForegroundColor { get; set; } = "#212529";
         public string AccentColor { get; set; } = "#FFC107";
         public string? BorderColor { get; set; }
+        public Dictionary<string, GradientDefinition>? Gradients { get; set; }
+    }
+
+    /// <summary>
+    /// Gradient type enumeration
+    /// </summary>
+    public enum GradientType
+    {
+        Linear,
+        Radial
+    }
+
+    /// <summary>
+    /// Represents a gradient stop with color and position
+    /// </summary>
+    public class GradientStop
+    {
+        public Color Color { get; set; }
+        public double Position { get; set; } // 0.0 to 1.0
+
+        public GradientStop() { }
+
+        public GradientStop(Color color, double position)
+        {
+            Color = color;
+            Position = Math.Max(0.0, Math.Min(1.0, position));
+        }
+    }
+
+    /// <summary>
+    /// Represents a gradient definition for themes
+    /// </summary>
+    public class GradientDefinition
+    {
+        public string Name { get; set; } = string.Empty;
+        public GradientType Type { get; set; } = GradientType.Linear;
+        public List<GradientStop> Stops { get; set; } = new();
+
+        // For Linear gradients
+        public double Angle { get; set; } = 0.0; // In degrees, 0-360
+
+        // For Radial gradients
+        public Point Center { get; set; } = new Point(0.5, 0.5); // 0.0 to 1.0 relative positioning
+        public double RadiusX { get; set; } = 0.5; // 0.0 to 1.0 relative to width
+        public double RadiusY { get; set; } = 0.5; // 0.0 to 1.0 relative to height
+    }
+
+    /// <summary>
+    /// Simple point structure for gradient centers
+    /// </summary>
+    public struct Point
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+
+        public Point(double x, double y)
+        {
+            X = x;
+            Y = y;
+        }
+    }
+
+    /// <summary>
+    /// Extended theme class with gradient support
+    /// </summary>
+    public class Theme
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Version { get; set; } = "1.0";
+        public Dictionary<string, string> Colors { get; set; } = new();
+        public Dictionary<string, GradientDefinition> Gradients { get; set; } = new();
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public string Description { get; set; } = string.Empty;
+        public string Author { get; set; } = string.Empty;
     }
 }
