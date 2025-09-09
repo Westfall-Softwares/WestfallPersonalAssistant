@@ -19,7 +19,7 @@ from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QPixmap, QImage
 
-from util.resource_manager import get_resource_manager
+from utils.resource_manager import get_resource_manager
 
 
 class CacheManager(QObject):

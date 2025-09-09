@@ -15,7 +15,7 @@ from PyQt5.QtCore import (
     QRect, QPoint, QSize, QThread
 )
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPixmap
-from util.app_theme import AppTheme
+from utils.app_theme import AppTheme
 
 
 class ProgressOverlay(QWidget):

@@ -21,7 +21,7 @@ except ImportError:
     HAS_PANDAS = False
 
 try:
-    from util.app_theme import AppTheme
+    from utils.app_theme import AppTheme
     HAS_THEME = True
 except ImportError:
     HAS_THEME = False
@@ -33,7 +33,7 @@ except ImportError:
         TEXT_SECONDARY = "#cccccc"
 
 try:
-    from util.error_handler import get_error_handler
+    from utils.error_handler import get_error_handler
     HAS_ERROR_HANDLER = True
 except ImportError:
     HAS_ERROR_HANDLER = False

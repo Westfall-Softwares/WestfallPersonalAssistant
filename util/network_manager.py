@@ -9,7 +9,7 @@ import json
 import logging
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
-from util.error_handler import get_error_handler
+from utils.error_handler import get_error_handler
 
 class NetworkRequest(QThread):
     """Thread for network requests with proper error handling"""

@@ -55,7 +55,7 @@ except ImportError:
     from placeholder_windows import ContactsWindow
 
 try:
-    from util.entrepreneur_config import SettingsWindow
+    from utils.entrepreneur_config import SettingsWindow
 except ImportError:
     from placeholder_windows import SettingsWindow
 
@@ -114,20 +114,20 @@ from ai_assistant.core.chat_manager import AIChatWidget
 
 # Import dependency manager if available
 try:
-    from util.dependency_manager import DependencyManager, DependencyManagerDialog
+    from utils.dependency_manager import DependencyManager, DependencyManagerDialog
     DEPENDENCY_MANAGER_AVAILABLE = True
 except ImportError:
     DEPENDENCY_MANAGER_AVAILABLE = False
 
 # Import advanced features
 try:
-    from util.voice_control import get_voice_manager
-    from util.marketplace_manager import get_marketplace_manager
-    from util.template_exchange import get_template_manager
-    from util.api_gateway import get_api_gateway
-    from util.tailor_pack_manager import get_tailor_pack_manager
-    from util.tailor_pack_widget import TailorPackManagerWidget
-    from util.welcome_experience import show_welcome_if_needed
+    from utils.voice_control import get_voice_manager
+    from utils.marketplace_manager import get_marketplace_manager
+    from utils.template_exchange import get_template_manager
+    from utils.api_gateway import get_api_gateway
+    from utils.tailor_pack_manager import get_tailor_pack_manager
+    from utils.tailor_pack_widget import TailorPackManagerWidget
+    from utils.welcome_experience import show_welcome_if_needed
     ADVANCED_FEATURES_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Advanced features import error: {e}")
@@ -1162,7 +1162,7 @@ class MainWindow(QMainWindow):
             
             # Update business profile status
             try:
-                from util.entrepreneur_config import get_entrepreneur_config
+                from utils.entrepreneur_config import get_entrepreneur_config
                 config = get_entrepreneur_config()
                 if config.business_profile.business_name:
                     business_name = config.business_profile.business_name
@@ -1853,7 +1853,7 @@ class MainWindow(QMainWindow):
                 # Show import progress
                 self.status_bar.showMessage("Importing Tailor Pack...")
                 
-                from util.tailor_pack_manager import get_tailor_pack_manager
+                from utils.tailor_pack_manager import get_tailor_pack_manager
                 manager = get_tailor_pack_manager()
                 
                 try:
@@ -2128,7 +2128,7 @@ class VoiceControlWidget(QWidget):
             
         # Get voice manager
         try:
-            from util.voice_control import get_voice_manager
+            from utils.voice_control import get_voice_manager
             self.voice_manager = get_voice_manager()
             
             # Status display
@@ -2243,7 +2243,7 @@ class MarketplaceWidget(QWidget):
             return
             
         try:
-            from util.marketplace_manager import get_marketplace_manager
+            from utils.marketplace_manager import get_marketplace_manager
             self.marketplace = get_marketplace_manager()
             
             # Search bar
@@ -2354,7 +2354,7 @@ class TemplateWidget(QWidget):
             return
             
         try:
-            from util.template_exchange import get_template_manager
+            from utils.template_exchange import get_template_manager
             self.template_manager = get_template_manager()
             
             # Toolbar
@@ -2545,7 +2545,7 @@ class APIGatewayWidget(QWidget):
             return
             
         try:
-            from util.api_gateway import get_api_gateway
+            from utils.api_gateway import get_api_gateway
             self.gateway = get_api_gateway()
             
             # Status overview

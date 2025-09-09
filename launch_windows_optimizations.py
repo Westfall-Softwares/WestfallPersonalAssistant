@@ -22,7 +22,7 @@ def setup_windows_optimizations() -> Dict[str, Any]:
     This is the main entry point for Windows optimization features
     """
     try:
-        from util.windows_integration import initialize_windows_optimizations
+        from utils.windows_integration import initialize_windows_optimizations
         
         logger.info("Initializing Windows 10 optimizations...")
         
@@ -61,7 +61,7 @@ def setup_windows_optimizations() -> Dict[str, Any]:
 def get_optimization_status() -> Dict[str, Any]:
     """Get current status of Windows optimizations"""
     try:
-        from util.windows_integration import get_windows_optimization_summary
+        from utils.windows_integration import get_windows_optimization_summary
         return get_windows_optimization_summary()
     except Exception as e:
         logger.error(f"Failed to get optimization status: {e}")
@@ -71,7 +71,7 @@ def get_optimization_status() -> Dict[str, Any]:
 def apply_optimal_settings() -> Dict[str, Any]:
     """Apply optimal Windows settings for best performance"""
     try:
-        from util.windows_integration import get_windows_integration_manager
+        from utils.windows_integration import get_windows_integration_manager
         
         manager = get_windows_integration_manager()
         if not manager.initialized:
@@ -87,7 +87,7 @@ def apply_optimal_settings() -> Dict[str, Any]:
 def shutdown_optimizations():
     """Shutdown Windows optimization services"""
     try:
-        from util.windows_integration import get_windows_integration_manager
+        from utils.windows_integration import get_windows_integration_manager
         
         manager = get_windows_integration_manager()
         manager.shutdown()
@@ -100,7 +100,7 @@ def shutdown_optimizations():
 def create_daily_report() -> Dict[str, Any]:
     """Create daily optimization report"""
     try:
-        from util.windows_integration import get_windows_integration_manager
+        from utils.windows_integration import get_windows_integration_manager
         
         manager = get_windows_integration_manager()
         if not manager.initialized:
@@ -135,7 +135,7 @@ def integrate_with_main_app() -> bool:
             
             # Apply optimal settings if auto-optimize is enabled
             try:
-                from util.windows_integration import get_windows_integration_manager
+                from utils.windows_integration import get_windows_integration_manager
                 manager = get_windows_integration_manager()
                 
                 if manager.config.get('auto_optimize', True):

@@ -28,7 +28,7 @@ except ImportError:
                 pass  # Fallback implementation
     except ImportError:
         QAccessible = None
-from util.app_theme import AppTheme
+from utils.app_theme import AppTheme
 
 
 class AccessibilityManager(QObject):
