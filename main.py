@@ -23,6 +23,13 @@ from core.assistant import get_assistant_core
 def setup_environment():
     """Setup the application environment"""
     try:
+        # Check critical paths exist
+        required_paths = ['models', 'data', 'logs', 'tmp']
+        for path in required_paths:
+            if not os.path.exists(path):
+                print(f"Creating missing directory: {path}")
+                os.makedirs(path, exist_ok=True)
+        
         # Load settings
         settings = get_settings()
         
