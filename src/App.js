@@ -30,6 +30,7 @@ import ThinkingModeSelector from './components/ThinkingModeSelector';
 import TailorPackManager from './components/TailorPackManager';
 import BusinessDashboard from './components/BusinessDashboard';
 import BusinessSetupWizard from './components/BusinessSetupWizard';
+import IntegratedSettings from './components/IntegratedSettings';
 
 const drawerWidth = 240;
 
@@ -69,15 +70,15 @@ function App() {
     }
 
     // Listen for IPC events
-    if (window.electronAPI) {
+    if (window.electronAPI && window.electronAPI.ipcRenderer) {
       const handleOpenSettings = () => {
         setCurrentView('settings');
       };
 
-      window.electronAPI.ipcRenderer?.on('open-settings', handleOpenSettings);
+      window.electronAPI.ipcRenderer.on('open-settings', handleOpenSettings);
 
       return () => {
-        window.electronAPI.ipcRenderer?.removeListener('open-settings', handleOpenSettings);
+        window.electronAPI.ipcRenderer.removeListener('open-settings', handleOpenSettings);
       };
     }
   }, []);
@@ -195,6 +196,9 @@ function App() {
         <Toolbar />
         {renderContent()}
       </Box>
+
+      {/* Integrated Settings Modal */}
+      <IntegratedSettings />
     </Box>
   );
 }

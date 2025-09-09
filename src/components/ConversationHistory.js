@@ -34,7 +34,7 @@ import {
   StarBorder as StarBorderIcon
 } from '@mui/icons-material';
 
-const { ipcRenderer } = window.electronAPI;
+const ipcRenderer = window.electronAPI?.ipcRenderer;
 
 function ConversationHistory({ open, onClose, onSelectConversation }) {
   const [conversations, setConversations] = useState([]);
