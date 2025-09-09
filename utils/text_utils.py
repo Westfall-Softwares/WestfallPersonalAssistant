@@ -68,7 +68,7 @@ def extract_keywords(text: str, min_length: int = 3) -> List[str]:
     stop_words = {
         'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
         'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
-        'before', 'after', 'above', 'below', 'is', 'are', 'was', 'were', 'be',
+        'before', 'after', 'above', 'below', 'over', 'under', 'is', 'are', 'was', 'were', 'be',
         'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
         'would', 'should', 'could', 'can', 'may', 'might', 'must', 'this',
         'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they'
@@ -133,7 +133,9 @@ def camel_to_snake(text: str) -> str:
         Text in snake_case
     """
     # Insert underscore before uppercase letters (except at start)
+    # Handle sequences of uppercase letters properly
     text = re.sub('([a-z0-9])([A-Z])', r'\1_\2', text)
+    text = re.sub('([A-Z])([A-Z][a-z])', r'\1_\2', text)
     return text.lower()
 
 

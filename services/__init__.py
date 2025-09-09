@@ -7,5 +7,6 @@ and third-party services like weather, news, email, etc.
 
 from .weather_service import WeatherWindow
 from .news_service import NewsImageLoader, NewsCard
+from .email_service import EmailService, get_email_service
 
-__all__ = ['WeatherWindow', 'NewsImageLoader', 'NewsCard']
+__all__ = ['WeatherWindow', 'NewsImageLoader', 'NewsCard', 'EmailService', 'get_email_service']

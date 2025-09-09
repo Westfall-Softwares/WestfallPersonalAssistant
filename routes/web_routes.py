@@ -5,7 +5,13 @@ This module contains all web page route definitions.
 """
 
 from flask import Blueprint, render_template
-from core.assistant import get_assistant_core
+
+# Import core modules with graceful fallback
+try:
+    from core.assistant import get_assistant_core
+except ImportError:
+    def get_assistant_core():
+        return None
 
 web_bp = Blueprint('web', __name__)
 
@@ -14,8 +20,11 @@ def index():
     """Home page."""
     try:
         assistant = get_assistant_core()
-        status = assistant.get_status()
-        return render_template('index.html', assistant_status=status)
+        if assistant:
+            status = assistant.get_status()
+            return render_template('index.html', assistant_status=status)
+        else:
+            return render_template('index.html', assistant_status={'initialized': False})
     except Exception as e:
         return render_template('index.html', error=str(e))
 
@@ -24,8 +33,11 @@ def dashboard():
     """Dashboard page."""
     try:
         assistant = get_assistant_core()
-        status = assistant.get_status()
-        return render_template('dashboard.html', assistant_status=status)
+        if assistant:
+            status = assistant.get_status()
+            return render_template('dashboard.html', assistant_status=status)
+        else:
+            return render_template('dashboard.html', assistant_status={'initialized': False})
     except Exception as e:
         return render_template('dashboard.html', error=str(e))
 

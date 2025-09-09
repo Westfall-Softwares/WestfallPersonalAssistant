@@ -28,7 +28,12 @@ def create_app():
     
     # Load settings
     settings = get_settings()
-    app.config.update(settings.get('flask', {}))
+    
+    # Configure Flask app with basic settings
+    app.config.update({
+        'SECRET_KEY': os.environ.get('SECRET_KEY', 'westfall-dev-key-change-in-production'),
+        'DEBUG': os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    })
     
     # Setup logging
     logger = setup_logging()
@@ -44,13 +49,10 @@ def main():
     """Main entry point for the web application."""
     app = create_app()
     
-    # Get configuration
-    settings = get_settings()
-    flask_config = settings.get('flask', {})
-    
-    host = flask_config.get('host', '127.0.0.1')
-    port = flask_config.get('port', 5000)
-    debug = flask_config.get('debug', False)
+    # Get configuration from environment
+    host = os.environ.get('FLASK_HOST', '127.0.0.1')
+    port = int(os.environ.get('FLASK_PORT', '5000'))
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     print(f"Starting Flask web server on {host}:{port}")
     app.run(host=host, port=port, debug=debug)
