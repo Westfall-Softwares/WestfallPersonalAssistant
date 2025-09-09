@@ -137,5 +137,70 @@ namespace WestfallPersonalAssistant.Services
                 await SaveSettingsAsync(settings);
             }
         }
+        
+        /// <summary>
+        /// Get a specific setting value
+        /// </summary>
+        public async Task<string?> GetSettingAsync(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return null;
+                
+            var settings = await LoadSettingsAsync();
+            
+            // Use reflection to get the property value
+            var property = typeof(ApplicationSettings).GetProperty(key);
+            if (property != null && property.CanRead)
+            {
+                var value = property.GetValue(settings);
+                return value?.ToString();
+            }
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// Save a specific setting value
+        /// </summary>
+        public async Task SaveSettingAsync(string key, string value)
+        {
+            if (string.IsNullOrEmpty(key))
+                throw new ArgumentException("Key cannot be null or empty", nameof(key));
+                
+            var settings = await LoadSettingsAsync();
+            
+            // Use reflection to set the property value
+            var property = typeof(ApplicationSettings).GetProperty(key);
+            if (property != null && property.CanWrite)
+            {
+                // Try to convert the string value to the appropriate type
+                var targetType = property.PropertyType;
+                object convertedValue;
+                
+                if (targetType == typeof(string))
+                {
+                    convertedValue = value;
+                }
+                else if (targetType == typeof(bool) && bool.TryParse(value, out var boolValue))
+                {
+                    convertedValue = boolValue;
+                }
+                else if (targetType == typeof(int) && int.TryParse(value, out var intValue))
+                {
+                    convertedValue = intValue;
+                }
+                else
+                {
+                    convertedValue = value;
+                }
+                
+                property.SetValue(settings, convertedValue);
+                await SaveSettingsAsync(settings);
+            }
+            else
+            {
+                throw new ArgumentException($"Property '{key}' not found or is read-only");
+            }
+        }
     }
 }

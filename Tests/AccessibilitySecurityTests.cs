@@ -135,6 +135,7 @@ namespace WestfallPersonalAssistant.Tests
     public class MockSettingsManager : ISettingsManager
     {
         private WestfallPersonalAssistant.Models.ApplicationSettings _settings = new();
+        private Dictionary<string, string> _additionalSettings = new();
         
         public WestfallPersonalAssistant.Models.ApplicationSettings GetCurrentSettings() => _settings;
         public Task<WestfallPersonalAssistant.Models.ApplicationSettings> LoadSettingsAsync() => Task.FromResult(_settings);
@@ -143,6 +144,18 @@ namespace WestfallPersonalAssistant.Tests
         public Task ResetSettingsAsync() => Task.CompletedTask;
         public bool SettingsExist() => true;
         public event EventHandler<WestfallPersonalAssistant.Models.ApplicationSettings>? SettingsChanged;
+        
+        public Task<string?> GetSettingAsync(string key)
+        {
+            _additionalSettings.TryGetValue(key, out var value);
+            return Task.FromResult(value);
+        }
+        
+        public Task SaveSettingAsync(string key, string value)
+        {
+            _additionalSettings[key] = value;
+            return Task.CompletedTask;
+        }
     }
     
     public class MockFileSystemService : IFileSystemService
