@@ -175,6 +175,10 @@ namespace WestfallPersonalAssistant.Services
         {
             try
             {
+                // TODO optimise delta sync for large pagination
+                // Current implementation fetches full pack list which is inefficient for large marketplaces.
+                // Consider switching from full list fetch to "since <timestamp>" incremental API
+                // to reduce bandwidth and improve sync performance for large pack catalogs.
                 var response = await _networkService.SendSecureRequestAsync($"{_marketplaceApiUrl}/packs");
                 if (response != null && response.IsSuccessStatusCode)
                 {
