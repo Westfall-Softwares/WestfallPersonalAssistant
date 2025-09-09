@@ -1,9 +1,12 @@
 # Backend dependencies for Westfall Personal Assistant
 fastapi>=0.115.0
-uvicorn>=0.30.0
+uvicorn[standard]>=0.30.0
 pydantic>=2.9.0
 pydantic-settings>=2.1.0
 python-multipart>=0.0.10
+httpx>=0.27.0
+anyio>=4.4.0
+loguru>=0.7.2
 
 # Security dependencies for Phase 1
 cryptography>=41.0.0
@@ -26,7 +29,7 @@ feedparser>=6.0.10
 # Uncomment the lines below to enable full functionality:
 
 # For GGUF/GGML models (recommended for local inference)
-llama-cpp-python>=0.2.90
+llama-cpp-python==0.2.90
 
 # For PyTorch/Transformers models  
 # torch>=2.4.0

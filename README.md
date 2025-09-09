@@ -52,26 +52,29 @@ npm run dev
 
 ## 🛠️ Development
 
-### Backend Development
-```bash
-# Start backend only
-python -m backend.westfall_backend.app
-
-# Run backend tests
-python backend/tests/test_smoke.py
-
-# API documentation at: http://127.0.0.1:8756/api/docs
-```
-
 ### Electron Development
 ```bash
 cd electron
 
-# Start with hot reload
+# Start development server (includes backend auto-start)
+npm run dev
+
+# Start frontend only
 npm run dev:electron
 
 # Build for distribution
 npm run build
+```
+
+### Backend Development (Advanced)
+For backend development, the Python service is managed by Electron:
+```bash
+# Backend starts automatically via npm run dev
+# API documentation at: http://127.0.0.1:8756/api/docs
+
+# Test backend startup directly (development only)
+cd electron
+node scripts/start-backend.js
 ```
 
 ### Testing Integration
@@ -89,11 +92,12 @@ backend/
 │   ├── routers/                # API route handlers
 │   │   ├── health.py           # Health & status endpoints
 │   │   ├── llm.py              # LLM inference endpoints
-│   │   └── tools.py            # Domain tools (finance, etc.)
+│   │   ├── tools.py            # Domain tools (finance, etc.)
+│   │   └── tools/              # Tools subdirectory
 │   └── services/               # Business logic services
 │       ├── settings.py         # Configuration management
 │       ├── logging.py          # Structured logging
-│       └── llama_supervisor.py # LLM model management
+│       └── llama_runtime.py    # LLM model management
 ├── services/tools/             # Migrated domain modules
 └── tests/                      # Backend tests
 
@@ -101,9 +105,12 @@ electron/
 ├── main.js                     # Electron main process
 ├── preload.js                  # Secure preload script
 ├── scripts/start-backend.js    # Backend startup integration
-└── renderer/                   # React UI components
+├── renderer/                   # React UI components
+├── package.json                # Electron dependencies & build config
+└── tsconfig.json               # TypeScript configuration
 
-shared/                         # Shared types & schemas
+utils/                          # Shared utilities
+tests/                          # Cross-platform tests
 docs/                          # Architecture documentation
 ```
 
