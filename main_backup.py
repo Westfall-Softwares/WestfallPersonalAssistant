@@ -32,7 +32,7 @@ except ImportError:
     from placeholder_windows import CalendarWindow
 
 from weather import WeatherWindow
-from news import NewsWindow
+from services.news_service import NewsWindow
 
 try:
     from browser import BrowserWindow
