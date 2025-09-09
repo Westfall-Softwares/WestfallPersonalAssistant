@@ -1,66 +1,122 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="WestfallPersonalAssistant.Views.DashboardView">
-    <ScrollViewer>
+             x:Class="WestfallPersonalAssistant.Views.DashboardView"
+             AutomationProperties.Name="Business Dashboard"
+             AutomationProperties.HelpText="Business overview with KPIs, tasks, and quick actions">
+    <ScrollViewer AutomationProperties.Name="Dashboard Content" 
+                  AutomationProperties.HelpText="Scrollable business dashboard content">
         <StackPanel Spacing="20" Margin="20">
             <!-- Header -->
             <TextBlock Text="🚀 Business Dashboard" 
-                     FontSize="28" FontWeight="Bold" Margin="0,0,0,10"/>
+                     FontSize="28" FontWeight="Bold" Margin="0,0,0,10"
+                     AutomationProperties.Name="Dashboard Title"
+                     AutomationProperties.HelpText="Main dashboard heading"/>
+            
+            <!-- Live Region for Dynamic Updates -->
+            <Border x:Name="LiveRegion" IsVisible="False"
+                    AutomationProperties.LiveSetting="Polite"
+                    AutomationProperties.Name="Dashboard Updates">
+                <TextBlock x:Name="LiveRegionText" Text="" />
+            </Border>
             
             <!-- KPI Cards -->
-            <Grid ColumnDefinitions="*,*,*,*">
-                <Border Grid.Column="0" Background="#E3F2FD" CornerRadius="8" Padding="15" Margin="0,0,8,0">
+            <Grid ColumnDefinitions="*,*,*,*"
+                  AutomationProperties.Name="Key Performance Indicators"
+                  AutomationProperties.HelpText="Business metrics overview with revenue, customers, orders, and average deal size">
+                
+                <Border Grid.Column="0" Background="#E3F2FD" CornerRadius="8" Padding="15" Margin="0,0,8,0"
+                        AutomationProperties.Name="Revenue Metrics"
+                        AutomationProperties.HelpText="Current revenue: $12,450, up 15.2% this month">
                     <StackPanel>
-                        <TextBlock Text="💰 Revenue" FontWeight="Bold" FontSize="14"/>
-                        <TextBlock Text="$12,450" FontSize="20" FontWeight="Bold"/>
-                        <TextBlock Text="+15.2% this month" FontSize="12" Foreground="Green"/>
+                        <TextBlock Text="💰 Revenue" FontWeight="Bold" FontSize="14"
+                                 AutomationProperties.Name="Revenue Label"/>
+                        <TextBlock Text="$12,450" FontSize="20" FontWeight="Bold"
+                                 AutomationProperties.Name="Revenue Amount"
+                                 AutomationProperties.HelpText="Current revenue total"/>
+                        <TextBlock Text="+15.2% this month" FontSize="12" Foreground="Green"
+                                 AutomationProperties.Name="Revenue Change"
+                                 AutomationProperties.HelpText="Revenue increased by 15.2% this month"/>
                     </StackPanel>
                 </Border>
                 
-                <Border Grid.Column="1" Background="#F3E5F5" CornerRadius="8" Padding="15" Margin="7,0,8,0">
+                <Border Grid.Column="1" Background="#F3E5F5" CornerRadius="8" Padding="15" Margin="7,0,8,0"
+                        AutomationProperties.Name="Customer Metrics"
+                        AutomationProperties.HelpText="Current customers: 847, with 23 new customers this month">
                     <StackPanel>
-                        <TextBlock Text="👥 Customers" FontWeight="Bold" FontSize="14"/>
-                        <TextBlock Text="847" FontSize="20" FontWeight="Bold"/>
-                        <TextBlock Text="+23 new this month" FontSize="12" Foreground="Green"/>
+                        <TextBlock Text="👥 Customers" FontWeight="Bold" FontSize="14"
+                                 AutomationProperties.Name="Customers Label"/>
+                        <TextBlock Text="847" FontSize="20" FontWeight="Bold"
+                                 AutomationProperties.Name="Customer Count"
+                                 AutomationProperties.HelpText="Total number of customers"/>
+                        <TextBlock Text="+23 new this month" FontSize="12" Foreground="Green"
+                                 AutomationProperties.Name="New Customers"
+                                 AutomationProperties.HelpText="23 new customers added this month"/>
                     </StackPanel>
                 </Border>
                 
-                <Border Grid.Column="2" Background="#E8F5E8" CornerRadius="8" Padding="15" Margin="7,0,8,0">
+                <Border Grid.Column="2" Background="#E8F5E8" CornerRadius="8" Padding="15" Margin="7,0,8,0"
+                        AutomationProperties.Name="Orders Metrics"
+                        AutomationProperties.HelpText="Current orders: 156, down 5.1% from last month">
                     <StackPanel>
-                        <TextBlock Text="📦 Orders" FontWeight="Bold" FontSize="14"/>
-                        <TextBlock Text="156" FontSize="20" FontWeight="Bold"/>
-                        <TextBlock Text="-5.1% vs last month" FontSize="12" Foreground="Red"/>
+                        <TextBlock Text="📦 Orders" FontWeight="Bold" FontSize="14"
+                                 AutomationProperties.Name="Orders Label"/>
+                        <TextBlock Text="156" FontSize="20" FontWeight="Bold"
+                                 AutomationProperties.Name="Orders Count"
+                                 AutomationProperties.HelpText="Total number of orders"/>
+                        <TextBlock Text="-5.1% vs last month" FontSize="12" Foreground="Red"
+                                 AutomationProperties.Name="Orders Change"
+                                 AutomationProperties.HelpText="Orders decreased by 5.1% compared to last month"/>
                     </StackPanel>
                 </Border>
                 
-                <Border Grid.Column="3" Background="#FFF3E0" CornerRadius="8" Padding="15" Margin="7,0,0,0">
+                <Border Grid.Column="3" Background="#FFF3E0" CornerRadius="8" Padding="15" Margin="7,0,0,0"
+                        AutomationProperties.Name="Average Deal Metrics"
+                        AutomationProperties.HelpText="Average deal size: $1,234, up 8.7% from last month">
                     <StackPanel>
-                        <TextBlock Text="📊 Avg Deal" FontWeight="Bold" FontSize="14"/>
-                        <TextBlock Text="$1,234" FontSize="20" FontWeight="Bold"/>
-                        <TextBlock Text="+8.7% vs last month" FontSize="12" Foreground="Green"/>
+                        <TextBlock Text="📊 Avg Deal" FontWeight="Bold" FontSize="14"
+                                 AutomationProperties.Name="Average Deal Label"/>
+                        <TextBlock Text="$1,234" FontSize="20" FontWeight="Bold"
+                                 AutomationProperties.Name="Average Deal Amount"
+                                 AutomationProperties.HelpText="Average deal value"/>
+                        <TextBlock Text="+8.7% vs last month" FontSize="12" Foreground="Green"
+                                 AutomationProperties.Name="Deal Change"
+                                 AutomationProperties.HelpText="Average deal size increased by 8.7% compared to last month"/>
                     </StackPanel>
                 </Border>
             </Grid>
             
             <!-- Business Tasks Section -->
-            <Border Background="#FAFAFA" CornerRadius="8" Padding="20">
+            <Border Background="#FAFAFA" CornerRadius="8" Padding="20"
+                    AutomationProperties.Name="Business Tasks Section"
+                    AutomationProperties.HelpText="List of current business tasks with completion status">
                 <StackPanel>
-                    <TextBlock Text="📋 Business Tasks" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
-                    <ItemsControl x:Name="TasksList">
+                    <TextBlock Text="📋 Business Tasks" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"
+                             AutomationProperties.Name="Business Tasks Heading"/>
+                    <ItemsControl x:Name="TasksList"
+                                  AutomationProperties.Name="Tasks List"
+                                  AutomationProperties.HelpText="Business tasks list - use Tab to navigate through tasks">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="White" CornerRadius="5" Padding="15" Margin="0,0,0,10">
+                                <Border Background="White" CornerRadius="5" Padding="15" Margin="0,0,0,10"
+                                        AutomationProperties.Name="{Binding Title}"
+                                        AutomationProperties.HelpText="{Binding Description}">
                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsCompleted}" Margin="0,0,10,0"/>
+                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsCompleted}" Margin="0,0,10,0"
+                                                AutomationProperties.Name="{Binding Title, StringFormat='Mark {0} as completed'}"
+                                                AutomationProperties.HelpText="Check to mark this task as completed"/>
                                         <StackPanel Grid.Column="1">
-                                            <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
-                                            <TextBlock Text="{Binding Description}" FontSize="12" Foreground="Gray"/>
+                                            <TextBlock Text="{Binding Title}" FontWeight="Bold"
+                                                     AutomationProperties.Name="Task Title"/>
+                                            <TextBlock Text="{Binding Description}" FontSize="12" Foreground="Gray"
+                                                     AutomationProperties.Name="Task Description"/>
                                         </StackPanel>
-                                        <Border Grid.Column="2" Background="#E3F2FD" CornerRadius="3" Padding="5,2" Margin="10,0">
+                                        <Border Grid.Column="2" Background="#E3F2FD" CornerRadius="3" Padding="5,2" Margin="10,0"
+                                                AutomationProperties.Name="Task Category">
                                             <TextBlock Text="{Binding Category}" FontSize="11"/>
                                         </Border>
                                         <TextBlock Grid.Column="3" Text="{Binding DueDate, StringFormat='Due: {0:MMM dd}'}" 
-                                                 FontSize="12" Foreground="Gray"/>
+                                                 FontSize="12" Foreground="Gray"
+                                                 AutomationProperties.Name="Due Date"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -70,24 +126,39 @@
             </Border>
             
             <!-- Quick Actions -->
-            <Border Background="#F5F5F5" CornerRadius="8" Padding="20">
+            <Border Background="#F5F5F5" CornerRadius="8" Padding="20"
+                    AutomationProperties.Name="Quick Actions Section"
+                    AutomationProperties.HelpText="Common business actions for reports, CRM, and business planning">
                 <StackPanel>
-                    <TextBlock Text="⚡ Quick Actions" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
+                    <TextBlock Text="⚡ Quick Actions" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"
+                             AutomationProperties.Name="Quick Actions Heading"/>
                     <Grid ColumnDefinitions="*,*,*">
-                        <Button Grid.Column="0" Content="📊 View Reports" Padding="15" Background="#4CAF50" Foreground="White" Margin="0,0,5,0"/>
-                        <Button Grid.Column="1" Content="📞 Contact CRM" Padding="15" Background="#2196F3" Foreground="White" Margin="5,0,5,0"/>
-                        <Button Grid.Column="2" Content="💼 Business Plan" Padding="15" Background="#FF9800" Foreground="White" Margin="5,0,0,0"/>
+                        <Button Grid.Column="0" Content="📊 View Reports" Padding="15" Background="#4CAF50" Foreground="White" Margin="0,0,5,0"
+                                AutomationProperties.Name="View Reports"
+                                AutomationProperties.HelpText="Open business reports and analytics"/>
+                        <Button Grid.Column="1" Content="📞 Contact CRM" Padding="15" Background="#2196F3" Foreground="White" Margin="5,0,5,0"
+                                AutomationProperties.Name="Contact CRM"
+                                AutomationProperties.HelpText="Access customer relationship management tools"/>
+                        <Button Grid.Column="2" Content="💼 Business Plan" Padding="15" Background="#FF9800" Foreground="White" Margin="5,0,0,0"
+                                AutomationProperties.Name="Business Plan"
+                                AutomationProperties.HelpText="View and edit business planning tools"/>
                     </Grid>
                 </StackPanel>
             </Border>
             
             <!-- Tailor Pack Integration -->
-            <Border Background="#E8F5E8" CornerRadius="8" Padding="20">
+            <Border Background="#E8F5E8" CornerRadius="8" Padding="20"
+                    AutomationProperties.Name="Tailor Pack Integration Section"
+                    AutomationProperties.HelpText="Enhance business capabilities with specialized functionality packs">
                 <StackPanel>
-                    <TextBlock Text="📦 Tailor Pack Integration" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
+                    <TextBlock Text="📦 Tailor Pack Integration" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"
+                             AutomationProperties.Name="Tailor Pack Integration Heading"/>
                     <TextBlock Text="Enhance your business capabilities with specialized Tailor Packs" 
-                             FontSize="14" Margin="0,0,0,10"/>
-                    <Button Content="🛒 Browse Tailor Packs" Padding="15" Background="#9C27B0" Foreground="White" HorizontalAlignment="Left"/>
+                             FontSize="14" Margin="0,0,0,10"
+                             AutomationProperties.Name="Tailor Pack Description"/>
+                    <Button Content="🛒 Browse Tailor Packs" Padding="15" Background="#9C27B0" Foreground="White" HorizontalAlignment="Left"
+                            AutomationProperties.Name="Browse Tailor Packs"
+                            AutomationProperties.HelpText="Browse and install specialized business functionality packs"/>
                 </StackPanel>
             </Border>
         </StackPanel>

@@ -2,7 +2,10 @@ using Avalonia.Controls;
 using WestfallPersonalAssistant.Services;
 using WestfallPersonalAssistant.TailorPack;
 using WestfallPersonalAssistant.Packs.Demo;
+using WestfallPersonalAssistant.Views;
+using WestfallPersonalAssistant.ViewModels;
 using System;
+using System.Windows.Input;
 
 namespace WestfallPersonalAssistant
 {
@@ -13,6 +16,14 @@ namespace WestfallPersonalAssistant
         private readonly IDatabaseService _databaseService;
         private readonly IBusinessTaskService _businessTaskService;
         private readonly IBusinessGoalService _businessGoalService;
+        private readonly IAccessibilityService _accessibilityService;
+        private AccessibilitySettingsView _accessibilitySettingsView;
+        
+        public ICommand SwitchToDashboardCommand { get; private set; }
+        public ICommand SwitchToAnalyticsCommand { get; private set; }
+        public ICommand SwitchToPacksCommand { get; private set; }
+        public ICommand ShowAccessibilityHelpCommand { get; private set; }
+        public ICommand OpenAccessibilitySettingsCommand { get; private set; }
         
         public MainWindow()
         {
@@ -25,8 +36,102 @@ namespace WestfallPersonalAssistant
             _databaseService = new DatabaseService(_fileSystemService);
             _businessTaskService = new DatabaseBusinessTaskService(_databaseService);
             _businessGoalService = new DatabaseBusinessGoalService(_databaseService);
+            _accessibilityService = new AccessibilityService(_settingsManager);
+            
+            // Initialize commands
+            InitializeCommands();
+            
+            // Set DataContext for command binding
+            DataContext = this;
             
             InitializeServices();
+        }
+        
+        private void InitializeCommands()
+        {
+            SwitchToDashboardCommand = new RelayCommand(() => {
+                if (MainTabControl != null) 
+                {
+                    MainTabControl.SelectedIndex = 0;
+                    _accessibilityService.AnnounceToScreenReader("Switched to Dashboard");
+                }
+            });
+            
+            SwitchToAnalyticsCommand = new RelayCommand(() => {
+                if (MainTabControl != null) 
+                {
+                    MainTabControl.SelectedIndex = 1;
+                    _accessibilityService.AnnounceToScreenReader("Switched to Analytics");
+                }
+            });
+            
+            SwitchToPacksCommand = new RelayCommand(() => {
+                if (MainTabControl != null) 
+                {
+                    MainTabControl.SelectedIndex = 2;
+                    _accessibilityService.AnnounceToScreenReader("Switched to Tailor Packs");
+                }
+            });
+            
+            ShowAccessibilityHelpCommand = new RelayCommand(() => {
+                var helpMessage = @"Accessibility Help:
+                
+Keyboard Shortcuts:
+- Ctrl+1: Switch to Dashboard
+- Ctrl+2: Switch to Analytics  
+- Ctrl+3: Switch to Tailor Packs
+- Ctrl+Alt+A: Open Accessibility Settings
+- F1: Show this help
+- Tab: Navigate forward
+- Shift+Tab: Navigate backward
+- Enter: Activate focused element
+- Escape: Close dialogs
+
+Features:
+- Screen reader support with ARIA labels
+- High contrast mode available
+- Text size adjustment (80% to 200%)
+- Focus indicators
+- Keyboard-only navigation
+
+Press Ctrl+Alt+A to open accessibility settings.";
+                
+                _accessibilityService.AnnounceToScreenReader(helpMessage);
+            });
+            
+            OpenAccessibilitySettingsCommand = new RelayCommand(() => {
+                ShowAccessibilitySettings();
+            });
+        }
+        
+        private void ShowAccessibilitySettings()
+        {
+            if (_accessibilitySettingsView == null)
+            {
+                _accessibilitySettingsView = new AccessibilitySettingsView();
+                var viewModel = new AccessibilitySettingsViewModel(_accessibilityService);
+                
+                viewModel.CloseRequested += (s, e) => {
+                    _accessibilitySettingsView.IsVisible = false;
+                    _accessibilityService.AnnounceToScreenReader("Accessibility settings closed");
+                };
+                
+                _accessibilitySettingsView.DataContext = viewModel;
+            }
+            
+            // Show accessibility settings in a new window or overlay
+            var settingsWindow = new Window
+            {
+                Title = "Accessibility Settings",
+                Content = _accessibilitySettingsView,
+                Width = 600,
+                Height = 800,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                CanResize = true
+            };
+            
+            settingsWindow.Show(this);
+            _accessibilityService.AnnounceToScreenReader("Accessibility settings opened");
         }
         
         private async void InitializeServices()
