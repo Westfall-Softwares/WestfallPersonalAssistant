@@ -571,8 +571,6 @@ export default function TailorPackManager() {
           <strong>💡 Pro Tip:</strong> Start with Marketing Essentials or Sales Pipeline Pro for immediate productivity gains.
         </Typography>
       </Alert>
-        </Typography>
-      </Alert>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
