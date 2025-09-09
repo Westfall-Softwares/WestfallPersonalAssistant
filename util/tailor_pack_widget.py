@@ -9,7 +9,7 @@ from typing import Dict, List, Any
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont, QPixmap, QIcon
-from utils.tailor_pack_manager import get_tailor_pack_manager, TailorPackInfo
+from util.tailor_pack_manager import get_tailor_pack_manager, TailorPackInfo
 
 
 class PackInstallWorker(QThread):

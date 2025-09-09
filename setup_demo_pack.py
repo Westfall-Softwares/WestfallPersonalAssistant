@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from backend.platform_compatibility import PlatformManager
-from utils.tailor_pack_manager import get_tailor_pack_manager
+from util.tailor_pack_manager import get_tailor_pack_manager
 
 def setup_demo_pack():
     """Set up the demo marketing pack in the proper location"""

@@ -125,7 +125,7 @@ try:
     from utils.marketplace_manager import get_marketplace_manager
     from utils.template_exchange import get_template_manager
     from utils.api_gateway import get_api_gateway
-    from utils.tailor_pack_manager import get_tailor_pack_manager
+    from util.tailor_pack_manager import get_tailor_pack_manager
     from utils.tailor_pack_widget import TailorPackManagerWidget
     from utils.welcome_experience import show_welcome_if_needed
     ADVANCED_FEATURES_AVAILABLE = True
@@ -1853,7 +1853,7 @@ class MainWindow(QMainWindow):
                 # Show import progress
                 self.status_bar.showMessage("Importing Tailor Pack...")
                 
-                from utils.tailor_pack_manager import get_tailor_pack_manager
+                from util.tailor_pack_manager import get_tailor_pack_manager
                 manager = get_tailor_pack_manager()
                 
                 try:

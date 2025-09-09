@@ -164,7 +164,7 @@ class AIChatWidget(QWidget):
         """Get entrepreneur and business context for AI responses"""
         try:
             # Get Tailor Pack information
-            from utils.tailor_pack_manager import get_tailor_pack_manager
+            from util.tailor_pack_manager import get_tailor_pack_manager
             pack_manager = get_tailor_pack_manager()
             active_packs = pack_manager.get_active_packs()
             

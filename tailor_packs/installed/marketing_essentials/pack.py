@@ -3,7 +3,7 @@ Marketing Essentials Pack - Main Entry Point
 Implements the marketing functionality for entrepreneurs
 """
 
-from utils.tailor_pack_interface import BusinessTailorPackBase, TailorPackCapability
+from util.tailor_pack_interface import BusinessTailorPackBase, TailorPackCapability
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from typing import Dict, List, Any
 
