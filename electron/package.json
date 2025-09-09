@@ -1,0 +1,40 @@
+{
+  "name": "westfall-electron",
+  "private": true,
+  "version": "0.1.0",
+  "main": "main.js",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:electron\" \"npm:dev:backend\"",
+    "dev:electron": "electron .",
+    "dev:backend": "node scripts/start-backend.js",
+    "lint": "eslint .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.westfall.assistant",
+    "productName": "Westfall Assistant",
+    "files": [
+      "**/*",
+      "!backend/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist-backend/",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": { "target": "nsis" },
+    "mac": { 
+      "category": "public.app-category.productivity", 
+      "hardenedRuntime": true 
+    },
+    "linux": { "target": ["AppImage", "deb"] }
+  },
+  "devDependencies": {
+    "electron": "^31",
+    "electron-builder": "^24",
+    "concurrently": "^8",
+    "eslint": "^9"
+  }
+}

@@ -1,3 +1,104 @@
+# WestfallPersonalAssistant
+
+> **🚀 Beta Release** - Electron desktop app with local AI inference powered by llama.cpp
+
+A privacy-first personal assistant that runs entirely on your local machine. No data leaves your device.
+
+## 🏗️ Architecture (Beta)
+
+**Desktop Application**: Electron frontend + Python FastAPI backend + llama.cpp local inference
+
+- **Frontend**: Electron app with React UI (secure, sandboxed)
+- **Backend**: Python FastAPI service running locally on 127.0.0.1
+- **AI Engine**: llama-cpp-python with GGUF model support
+- **Security**: All processing happens locally, no external API calls required
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Node.js 20+** and **Python 3.11+**
+- **4GB+ RAM** (8GB+ recommended for larger models)
+- **Windows/macOS/Linux** support
+
+### Installation
+```bash
+# Clone repository
+git clone https://github.com/Westfall-Softwares/WestfallPersonalAssistant.git
+cd WestfallPersonalAssistant
+
+# Install Python dependencies
+pip install -r backend/requirements.txt
+
+# Install Electron dependencies
+cd electron
+npm install
+
+# Start development server
+npm run dev
+```
+
+### First Run
+1. **Model Selection**: On first run, select a GGUF model file or download a recommended model
+2. **Backend Startup**: The Python backend starts automatically and loads your model
+3. **Ready to Chat**: Start conversations with your local AI assistant
+
+## 🛠️ Development
+
+### Backend Development
+```bash
+# Start backend only
+python -m backend.westfall_backend.app
+
+# Run backend tests
+python backend/tests/test_smoke.py
+
+# API documentation at: http://127.0.0.1:8756/api/docs
+```
+
+### Electron Development
+```bash
+cd electron
+
+# Start with hot reload
+npm run dev:electron
+
+# Build for distribution
+npm run build
+```
+
+### Testing Integration
+```bash
+# Test full startup integration
+cd electron
+node scripts/start-backend.js
+```
+
+## 📁 Project Structure
+```
+backend/
+├── westfall_backend/           # Main FastAPI application
+│   ├── app.py                  # Application factory
+│   ├── routers/                # API route handlers
+│   │   ├── health.py           # Health & status endpoints
+│   │   ├── llm.py              # LLM inference endpoints
+│   │   └── tools.py            # Domain tools (finance, etc.)
+│   └── services/               # Business logic services
+│       ├── settings.py         # Configuration management
+│       ├── logging.py          # Structured logging
+│       └── llama_supervisor.py # LLM model management
+├── services/tools/             # Migrated domain modules
+└── tests/                      # Backend tests
+
+electron/
+├── main.js                     # Electron main process
+├── preload.js                  # Secure preload script
+├── scripts/start-backend.js    # Backend startup integration
+└── renderer/                   # React UI components
+
+shared/                         # Shared types & schemas
+docs/                          # Architecture documentation
+```
+
 ## Key Features
 
 ### 🧠 AI-Powered Intelligence
