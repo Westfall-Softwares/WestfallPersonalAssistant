@@ -18,12 +18,12 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import modules to test
-from utils.tailor_pack_manager import TailorPackManager, TailorPackManifest
-from utils.pack_extension_system import (
+from util.tailor_pack_manager import TailorPackManager, TailorPackManifest
+from util.pack_extension_system import (
     PackExtensionManager, FeatureRegistry, UIExtensionRegistry,
     PackCapability, UIComponent, UIExtensionPoint
 )
-from utils.order_verification import OrderVerificationService, PackLicense, OrderValidationResult
+from util.order_verification import OrderVerificationService, PackLicense, OrderValidationResult
 
 
 class TestTailorPackManager(unittest.TestCase):

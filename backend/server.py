@@ -2217,7 +2217,7 @@ class TailorPackManifest(BaseModel):
 async def get_installed_tailor_packs():
     """Get list of installed Tailor Packs."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         pack_manager = get_tailor_pack_manager()
         
         installed_packs = pack_manager.get_installed_packs()
@@ -2256,7 +2256,7 @@ async def get_installed_tailor_packs():
 async def import_tailor_pack(request: TailorPackImportRequest):
     """Import a Tailor Pack using order number/license key."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         from utils.order_verification import get_order_verification_service
         
         pack_manager = get_tailor_pack_manager()
@@ -2298,7 +2298,7 @@ async def import_tailor_pack(request: TailorPackImportRequest):
 async def import_tailor_pack_from_file():
     """Import a Tailor Pack from uploaded ZIP file."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         pack_manager = get_tailor_pack_manager()
         
         # This would handle file upload and import
@@ -2326,7 +2326,7 @@ async def import_tailor_pack_from_file():
 async def export_tailor_pack(pack_id: str):
     """Export a Tailor Pack to ZIP file."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         pack_manager = get_tailor_pack_manager()
         
         export_result = pack_manager.export_tailor_pack(pack_id)
@@ -2349,7 +2349,7 @@ async def export_tailor_pack(pack_id: str):
 async def backup_all_tailor_packs():
     """Create backup of all Tailor Packs."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         pack_manager = get_tailor_pack_manager()
         
         backup_result = pack_manager.backup_all_packs()
@@ -2372,7 +2372,7 @@ async def backup_all_tailor_packs():
 async def toggle_tailor_pack(pack_id: str, enabled: bool):
     """Enable or disable a Tailor Pack."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         pack_manager = get_tailor_pack_manager()
         
         if enabled:
@@ -2389,7 +2389,7 @@ async def toggle_tailor_pack(pack_id: str, enabled: bool):
 async def get_tailor_pack_statistics():
     """Get statistics about Tailor Packs."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         pack_manager = get_tailor_pack_manager()
         
         stats = pack_manager.get_pack_statistics()
@@ -2402,7 +2402,7 @@ async def get_tailor_pack_statistics():
 async def resolve_pack_dependencies(pack_id: str):
     """Resolve dependencies for a Tailor Pack."""
     try:
-        from utils.tailor_pack_manager import get_tailor_pack_manager
+        from util.tailor_pack_manager import get_tailor_pack_manager
         pack_manager = get_tailor_pack_manager()
         
         resolution = pack_manager.resolve_dependencies(pack_id)
