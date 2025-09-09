@@ -19,10 +19,12 @@ namespace WestfallPersonalAssistant.Services
         private ColorBlindnessType _colorBlindnessAccommodation = ColorBlindnessType.None;
         
         private readonly ISettingsManager _settingsManager;
+        private readonly IAccessibilityStyleService? _styleService;
         
-        public AccessibilityService(ISettingsManager settingsManager)
+        public AccessibilityService(ISettingsManager settingsManager, IAccessibilityStyleService? styleService = null)
         {
             _settingsManager = settingsManager;
+            _styleService = styleService;
             LoadSettings();
         }
         
@@ -71,12 +73,28 @@ namespace WestfallPersonalAssistant.Services
         public void ApplyAccessibilitySettings()
         {
             // Apply settings to the application
-            AccessibilitySettingsChanged?.Invoke(this, new AccessibilityChangedEventArgs
+            try
             {
-                SettingName = "All",
-                OldValue = null,
-                NewValue = "Applied"
-            });
+                _styleService?.ApplyHighContrastMode(_isHighContrastMode);
+                _styleService?.ApplyTextScaling(_textScalingFactor);
+                _styleService?.ApplyReducedMotion(_reduceMotion);
+                _styleService?.ApplyEnhancedFocusIndicators(_showFocusIndicators);
+                _styleService?.ApplyColorBlindnessAccommodations(_colorBlindnessAccommodation);
+                
+                AccessibilitySettingsChanged?.Invoke(this, new AccessibilityChangedEventArgs
+                {
+                    SettingName = "All",
+                    OldValue = null,
+                    NewValue = "Applied"
+                });
+                
+                AnnounceToScreenReader("Accessibility settings have been applied successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error applying accessibility settings: {ex.Message}");
+                AnnounceToScreenReader("Error applying accessibility settings");
+            }
         }
         
         public void ResetToDefaults()
@@ -97,9 +115,27 @@ namespace WestfallPersonalAssistant.Services
             if (string.IsNullOrWhiteSpace(message) || !ScreenReaderMode)
                 return;
                 
-            // Implementation would depend on platform-specific screen reader APIs
-            // For now, we'll use a simple approach that works with most screen readers
-            OnScreenReaderAnnouncement?.Invoke(message);
+            // Sanitize the message to prevent issues
+            var sanitizedMessage = message.Replace("<", "").Replace(">", "").Trim();
+            
+            if (string.IsNullOrWhiteSpace(sanitizedMessage))
+                return;
+                
+            // Implementation for cross-platform screen reader support
+            try
+            {
+                // Primary announcement mechanism
+                OnScreenReaderAnnouncement?.Invoke(sanitizedMessage);
+                
+                // Additional platform-specific announcements could be added here
+                // For example, on Windows: use SAPI or UI Automation
+                // On macOS: use NSAccessibility
+                // On Linux: use AT-SPI
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error announcing to screen reader: {ex.Message}");
+            }
         }
         
         public void LoadSettings()
@@ -161,6 +197,33 @@ namespace WestfallPersonalAssistant.Services
                 var oldValue = field;
                 field = value;
                 OnPropertyChanged(propertyName);
+                
+                // Apply style changes immediately
+                try
+                {
+                    switch (propertyName)
+                    {
+                        case nameof(IsHighContrastMode):
+                            _styleService?.ApplyHighContrastMode(_isHighContrastMode);
+                            break;
+                        case nameof(TextScalingFactor):
+                            _styleService?.ApplyTextScaling(_textScalingFactor);
+                            break;
+                        case nameof(ReduceMotion):
+                            _styleService?.ApplyReducedMotion(_reduceMotion);
+                            break;
+                        case nameof(ShowFocusIndicators):
+                            _styleService?.ApplyEnhancedFocusIndicators(_showFocusIndicators);
+                            break;
+                        case nameof(ColorBlindnessAccommodation):
+                            _styleService?.ApplyColorBlindnessAccommodations(_colorBlindnessAccommodation);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error applying style for {propertyName}: {ex.Message}");
+                }
                 
                 AccessibilitySettingsChanged?.Invoke(this, new AccessibilityChangedEventArgs
                 {

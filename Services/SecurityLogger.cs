@@ -79,11 +79,11 @@ namespace WestfallPersonalAssistant.Services
             {
                 EventType = SecurityEventType.Authentication,
                 LogLevel = success ? SecurityLogLevel.Info : SecurityLogLevel.Warning,
-                User = username,
+                User = SanitizeUsername(username),
                 Action = success ? "Login Success" : "Login Failed",
                 Resource = "Authentication System",
                 Success = success,
-                FailureReason = failureReason
+                FailureReason = SanitizeFailureReason(failureReason)
             };
             
             await LogSecurityEventAsync(securityEvent);
@@ -95,11 +95,11 @@ namespace WestfallPersonalAssistant.Services
             {
                 EventType = SecurityEventType.PrivilegedOperation,
                 LogLevel = SecurityLogLevel.Info,
-                User = user,
-                Action = operation,
+                User = SanitizeUsername(user),
+                Action = SanitizeOperation(operation),
                 Resource = "Privileged Operation",
                 Success = true,
-                Metadata = parameters ?? new Dictionary<string, object>()
+                Metadata = SanitizeMetadata(parameters ?? new Dictionary<string, object>())
             };
             
             await LogSecurityEventAsync(securityEvent);
@@ -371,6 +371,90 @@ namespace WestfallPersonalAssistant.Services
             }
             
             return null;
+        }
+        
+        /// <summary>
+        /// Sanitizes sensitive data from security logs
+        /// </summary>
+        private string SanitizeUsername(string username)
+        {
+            if (string.IsNullOrEmpty(username))
+                return "[Empty]";
+                
+            // Don't log full usernames - use first character + length
+            if (username.Length <= 2)
+                return "[Short]";
+                
+            return $"{username[0]}***({username.Length})";
+        }
+        
+        private string? SanitizeFailureReason(string? failureReason)
+        {
+            if (string.IsNullOrEmpty(failureReason))
+                return null;
+                
+            // Remove potentially sensitive information from failure reasons
+            var sanitized = failureReason;
+            
+            // Remove file paths
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"[A-Za-z]:\\[^\s]+", "[FILE_PATH]");
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"/[^\s]+", "[FILE_PATH]");
+            
+            // Remove potential passwords or keys
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"(?i)(password|key|token|secret)[=:\s]+[^\s]+", "$1=[REDACTED]");
+            
+            return sanitized;
+        }
+        
+        private string SanitizeOperation(string operation)
+        {
+            if (string.IsNullOrEmpty(operation))
+                return "[Unknown]";
+                
+            // Remove file paths from operation descriptions
+            var sanitized = operation;
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"[A-Za-z]:\\[^\s]+", "[FILE_PATH]");
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"/[^\s]+", "[FILE_PATH]");
+            
+            return sanitized;
+        }
+        
+        private Dictionary<string, object> SanitizeMetadata(Dictionary<string, object> metadata)
+        {
+            var sanitized = new Dictionary<string, object>();
+            
+            foreach (var kvp in metadata)
+            {
+                var key = kvp.Key?.ToLowerInvariant();
+                var value = kvp.Value;
+                
+                // Skip sensitive keys entirely
+                if (key != null && (key.Contains("password") || key.Contains("key") || 
+                                   key.Contains("token") || key.Contains("secret") ||
+                                   key.Contains("credential")))
+                {
+                    sanitized[kvp.Key] = "[REDACTED]";
+                    continue;
+                }
+                
+                // Sanitize string values
+                if (value is string stringValue)
+                {
+                    var sanitizedValue = stringValue;
+                    
+                    // Remove file paths
+                    sanitizedValue = System.Text.RegularExpressions.Regex.Replace(sanitizedValue, @"[A-Za-z]:\\[^\s]+", "[FILE_PATH]");
+                    sanitizedValue = System.Text.RegularExpressions.Regex.Replace(sanitizedValue, @"/[^\s]+", "[FILE_PATH]");
+                    
+                    sanitized[kvp.Key] = sanitizedValue;
+                }
+                else
+                {
+                    sanitized[kvp.Key] = value;
+                }
+            }
+            
+            return sanitized;
         }
         
         public void Dispose()
