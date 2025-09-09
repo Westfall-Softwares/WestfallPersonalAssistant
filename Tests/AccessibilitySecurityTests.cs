@@ -1,6 +1,7 @@
 using System;
 using Xunit;
 using WestfallPersonalAssistant.Services;
+using WestfallPersonalAssistant.TailorPack;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
@@ -370,5 +371,51 @@ namespace WestfallPersonalAssistant.Tests
         public void SetLogLevel(SecurityLogLevel level) { }
         
         public void EnableAuditLogging(bool enabled) { }
+    }
+
+    // Test classes for new async functionality
+    public class AsyncProgressTests
+    {
+        [Fact]
+        public void ProgressInfo_ShouldClampPercentage()
+        {
+            // Arrange & Act
+            var progress1 = new ProgressInfo(-10, "Test");
+            var progress2 = new ProgressInfo(150, "Test");
+            var progress3 = new ProgressInfo(50, "Test");
+            
+            // Assert
+            Assert.Equal(0, progress1.Percentage);
+            Assert.Equal(100, progress2.Percentage);
+            Assert.Equal(50, progress3.Percentage);
+        }
+        
+        [Fact]
+        public void ProgressInfo_ShouldHandleNullMessage()
+        {
+            // Arrange & Act
+            var progress = new ProgressInfo(50, null);
+            
+            // Assert
+            Assert.Equal(string.Empty, progress.Message);
+        }
+        
+        [Fact]
+        public async Task TailorPackManager_LoadPackAsync_ShouldReportProgress()
+        {
+            // Arrange
+            var manager = TailorPackManager.Instance;
+            var progressReports = new List<ProgressInfo>();
+            var progress = new Progress<ProgressInfo>(p => progressReports.Add(p));
+            
+            // Act
+            var result = await manager.LoadPackAsync("marketing-essentials", progress);
+            
+            // Assert
+            Assert.True(progressReports.Count > 0);
+            Assert.True(progressReports.Any(p => p.Percentage == 0));
+            Assert.True(progressReports.Any(p => p.Percentage == 100));
+            Assert.All(progressReports, p => Assert.False(string.IsNullOrEmpty(p.Message)));
+        }
     }
 }

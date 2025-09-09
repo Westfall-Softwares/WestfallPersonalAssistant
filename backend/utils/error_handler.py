@@ -71,7 +71,7 @@ class ErrorHandler:
         self.logger.info(f"Error handler initialized - Debug mode: {self.debug_mode}")
     
     def get_user_friendly_message(self, exc_type, exc_value) -> str:
-        """Get user-friendly error message."""
+        """Get user-friendly error message with recovery suggestions."""
         error_messages = {
             "ConnectionError": "Unable to connect to the service. Please check your internet connection.",
             "FileNotFoundError": "A required file was not found. Please check your installation.",
@@ -83,8 +83,66 @@ class ErrorHandler:
             "MemoryError": "Out of memory. Please close other applications and try again.",
         }
         
+        # Enhanced recovery suggestions
+        recovery_actions = {
+            "ConnectionError": [
+                "Check your internet connection",
+                "Verify firewall settings allow the application",
+                "Try again in a few moments",
+                "Contact support if the problem persists"
+            ],
+            "FileNotFoundError": [
+                "Verify the file exists in the expected location",
+                "Reinstall the application if core files are missing",
+                "Check file permissions",
+                "Restore from backup if available"
+            ],
+            "PermissionError": [
+                "Run as administrator (Windows) or with sudo (Linux/Mac)",
+                "Check file and folder permissions",
+                "Ensure the file isn't being used by another program",
+                "Contact your system administrator"
+            ],
+            "ValueError": [
+                "Double-check your input data",
+                "Ensure all required fields are filled",
+                "Verify data format matches requirements",
+                "Try using different input values"
+            ],
+            "KeyError": [
+                "Reset settings to default values",
+                "Check configuration file for errors",
+                "Re-run the setup wizard",
+                "Contact support for configuration help"
+            ],
+            "ImportError": [
+                "Reinstall the application",
+                "Check system requirements",
+                "Install missing dependencies",
+                "Contact support for installation help"
+            ],
+            "TimeoutError": [
+                "Check your internet connection speed",
+                "Try again with a smaller data set",
+                "Wait and retry in a few minutes",
+                "Contact support if timeouts persist"
+            ],
+            "MemoryError": [
+                "Close other applications to free memory",
+                "Restart the application",
+                "Process data in smaller chunks",
+                "Consider upgrading system memory"
+            ]
+        }
+        
         exc_name = exc_type.__name__
         user_message = error_messages.get(exc_name, f"An unexpected error occurred: {exc_name}")
+        
+        # Add recovery suggestions
+        if exc_name in recovery_actions:
+            user_message += "\n\nSuggested actions:"
+            for i, action in enumerate(recovery_actions[exc_name], 1):
+                user_message += f"\n{i}. {action}"
         
         if self.debug_mode:
             user_message += f"\n\nDebug info: {str(exc_value)}"

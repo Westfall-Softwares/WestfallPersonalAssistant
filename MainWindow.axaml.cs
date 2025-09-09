@@ -138,60 +138,68 @@ Press Ctrl+Alt+A to open accessibility settings.";
         {
             try
             {
-                // Initialize platform services
+                // Phase 1: Quick startup - Initialize only essential services for UI
+                Title = "Westfall Assistant - Starting...";
+                
+                // Show immediate feedback
                 var platformService = PlatformService.Instance;
                 platformService.ShowNotification(
                     "Westfall Assistant", 
                     $"Starting on {platformService.GetPlatformName()}"
                 );
                 
-                // Initialize database
-                await _databaseService.InitializeAsync();
-                
-                // Load settings
-                var settings = await _settingsManager.LoadSettingsAsync();
-                
-                // Apply window settings
-                if (settings.WindowSettings.Width > 0 && settings.WindowSettings.Height > 0)
+                // Phase 2: Background initialization of non-critical services
+                await Task.Run(async () =>
                 {
-                    Width = settings.WindowSettings.Width;
-                    Height = settings.WindowSettings.Height;
-                }
-                
-                if (settings.WindowSettings.X >= 0 && settings.WindowSettings.Y >= 0)
-                {
-                    Position = new Avalonia.PixelPoint(settings.WindowSettings.X, settings.WindowSettings.Y);
-                }
-                
-                if (settings.WindowSettings.IsMaximized)
-                {
-                    WindowState = WindowState.Maximized;
-                }
-                
-                // Initialize TailorPack system
-                var packManager = TailorPackManager.Instance;
-                packManager.Initialize(_fileSystemService);
-                
-                // Load demo pack
-                packManager.LoadPack("marketing-essentials");
-                
-                // Activate demo pack features
-                packManager.ActivationService.ActivatePackFeatures("marketing-essentials");
-                
-                // Initialize sample data if this is the first run
-                if (settings.FirstRun)
-                {
-                    await InitializeSampleDataAsync();
-                    settings.FirstRun = false;
-                    await _settingsManager.SaveSettingsAsync(settings);
-                }
-                
-                Title = $"Westfall Assistant - Entrepreneur Edition ({platformService.GetPlatformName()})";
-                
-                platformService.ShowNotification(
-                    "Westfall Assistant", 
-                    "Ready for business!"
-                );
+                    // Initialize database in background
+                    await _databaseService.InitializeAsync();
+                    
+                    // Load settings asynchronously
+                    var settings = await _settingsManager.LoadSettingsAsync();
+                    
+                    // Apply window settings on UI thread
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        ApplyWindowSettings(settings);
+                    });
+                    
+                    // Phase 3: Initialize TailorPack system with progress
+                    var progress = new Progress<ProgressInfo>(info =>
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            Title = $"Westfall Assistant - {info.Message}";
+                        });
+                    });
+                    
+                    var packManager = TailorPackManager.Instance;
+                    packManager.Initialize(_fileSystemService);
+                    
+                    // Load demo pack asynchronously with progress
+                    await packManager.LoadPackAsync("marketing-essentials", progress);
+                    
+                    // Activate demo pack features
+                    packManager.ActivationService.ActivatePackFeatures("marketing-essentials");
+                    
+                    // Phase 4: Initialize sample data only if needed (first run)
+                    if (settings.FirstRun)
+                    {
+                        await InitializeSampleDataAsync();
+                        settings.FirstRun = false;
+                        await _settingsManager.SaveSettingsAsync(settings);
+                    }
+                    
+                    // Final UI update
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        Title = $"Westfall Assistant - Entrepreneur Edition ({platformService.GetPlatformName()})";
+                        
+                        platformService.ShowNotification(
+                            "Westfall Assistant", 
+                            "Ready for business!"
+                        );
+                    });
+                });
             }
             catch (Exception ex)
             {
@@ -200,11 +208,35 @@ Press Ctrl+Alt+A to open accessibility settings.";
             }
         }
         
+        private void ApplyWindowSettings(Models.ApplicationSettings settings)
+        {
+            // Apply window settings on UI thread
+            if (settings.WindowSettings.Width > 0 && settings.WindowSettings.Height > 0)
+            {
+                Width = settings.WindowSettings.Width;
+                Height = settings.WindowSettings.Height;
+            }
+            
+            if (settings.WindowSettings.X >= 0 && settings.WindowSettings.Y >= 0)
+            {
+                Position = new Avalonia.PixelPoint(settings.WindowSettings.X, settings.WindowSettings.Y);
+            }
+            
+            if (settings.WindowSettings.IsMaximized)
+            {
+                WindowState = WindowState.Maximized;
+            }
+        }
+        
         private async System.Threading.Tasks.Task InitializeSampleDataAsync()
         {
             try
             {
-                // Create sample business tasks
+                // Use parallel processing for better performance
+                var taskCreationTasks = new List<Task>();
+                var goalCreationTasks = new List<Task>();
+                
+                // Create sample business tasks in parallel
                 var sampleTasks = new[]
                 {
                     new Models.BusinessTask
@@ -248,11 +280,6 @@ Press Ctrl+Alt+A to open accessibility settings.";
                         Tags = "finance,projections,forecasting"
                     }
                 };
-                
-                foreach (var task in sampleTasks)
-                {
-                    await _businessTaskService.CreateTaskAsync(task);
-                }
                 
                 // Create sample business goals
                 var sampleGoals = new[]
@@ -298,10 +325,20 @@ Press Ctrl+Alt+A to open accessibility settings.";
                     }
                 };
                 
+                // Create tasks in parallel for better performance
+                foreach (var task in sampleTasks)
+                {
+                    taskCreationTasks.Add(_businessTaskService.CreateTaskAsync(task));
+                }
+                
                 foreach (var goal in sampleGoals)
                 {
-                    await _businessGoalService.CreateGoalAsync(goal);
+                    goalCreationTasks.Add(_businessGoalService.CreateGoalAsync(goal));
                 }
+                
+                // Wait for all tasks and goals to be created
+                await Task.WhenAll(taskCreationTasks);
+                await Task.WhenAll(goalCreationTasks);
                 
                 Console.WriteLine("Sample data initialized successfully");
             }
