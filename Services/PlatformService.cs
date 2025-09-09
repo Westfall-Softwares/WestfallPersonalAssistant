@@ -20,23 +20,82 @@ namespace WestfallPersonalAssistant.Services
             }
         }
         
+        /// <summary>
+        /// Gets the current platform name for display purposes
+        /// </summary>
+        public static string CurrentPlatformName => GetPlatformDisplayName();
+        
+        /// <summary>
+        /// Checks if the current platform is fully supported
+        /// </summary>
+        public static bool IsCurrentPlatformSupported => IsMainPlatformSupported();
+        
         private static IPlatformService CreatePlatformService()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            try
             {
-                return new WindowsPlatformService();
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    return new WindowsPlatformService();
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    return new MacOSPlatformService();
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    return new LinuxPlatformService();
+                }
+                else
+                {
+                    // Graceful fallback for unsupported platforms
+                    var platformName = GetPlatformDisplayName();
+                    Console.WriteLine($"Warning: Platform '{platformName}' is not fully supported. Using fallback implementation.");
+                    return new FallbackPlatformService(platformName);
+                }
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            catch (Exception ex)
             {
-                return new MacOSPlatformService();
+                // If platform detection fails entirely, use fallback
+                Console.WriteLine($"Error during platform detection: {ex.Message}. Using fallback implementation.");
+                return new FallbackPlatformService("Unknown");
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        }
+        
+        private static string GetPlatformDisplayName()
+        {
+            try
             {
-                return new LinuxPlatformService();
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    return "Windows";
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                    return "macOS";
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    return "Linux";
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
+                    return "FreeBSD";
+                
+                // Try to get OS description as fallback
+                return RuntimeInformation.OSDescription;
             }
-            else
+            catch (Exception ex)
             {
-                throw new PlatformNotSupportedException("Unsupported platform");
+                Console.WriteLine($"Could not determine platform name: {ex.Message}");
+                return "Unknown";
+            }
+        }
+        
+        private static bool IsMainPlatformSupported()
+        {
+            try
+            {
+                return RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ||
+                       RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ||
+                       RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+            }
+            catch
+            {
+                return false;
             }
         }
     }
