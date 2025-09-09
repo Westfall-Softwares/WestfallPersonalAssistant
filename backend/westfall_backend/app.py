@@ -39,7 +39,7 @@ try:
     from .routers import health, llm, tools
     from .services.settings import get_settings
     from .services.logging import setup_logging
-    from .services.llama_supervisor import LlamaSupervisor
+    from .services.llama_runtime import LlamaSupervisor
 except ImportError as e:
     print(f"Relative import error: {e}")
     try:
@@ -47,7 +47,7 @@ except ImportError as e:
         from backend.westfall_backend.routers import health, llm, tools
         from backend.westfall_backend.services.settings import get_settings
         from backend.westfall_backend.services.logging import setup_logging
-        from backend.westfall_backend.services.llama_supervisor import LlamaSupervisor
+        from backend.westfall_backend.services.llama_runtime import LlamaSupervisor
     except ImportError as e2:
         print(f"Absolute import error: {e2}")
         # Create minimal stubs for missing modules
