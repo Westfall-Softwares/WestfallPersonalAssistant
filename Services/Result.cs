@@ -98,10 +98,6 @@ namespace WestfallPersonalAssistant.Services
             {
                 return Result<T>.Failure("Invalid input provided. Please check your data.", ex);
             }
-            catch (InvalidOperationException ex)
-            {
-                return Result<T>.Failure("The operation cannot be completed at this time.", ex);
-            }
             catch (System.Net.Http.HttpRequestException ex)
             {
                 return Result<T>.Failure("Service is temporarily unavailable. Please try again later.", ex);
@@ -113,6 +109,10 @@ namespace WestfallPersonalAssistant.Services
             catch (System.Net.NetworkInformation.NetworkInformationException ex)
             {
                 return Result<T>.Failure("Network error occurred. Please check your connection.", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Result<T>.Failure("The operation cannot be completed at this time.", ex);
             }
             catch (Exception ex)
             {
@@ -169,10 +169,6 @@ namespace WestfallPersonalAssistant.Services
             {
                 return Result.Failure("Invalid input provided. Please check your data.", ex);
             }
-            catch (InvalidOperationException ex)
-            {
-                return Result.Failure("The operation cannot be completed at this time.", ex);
-            }
             catch (System.Net.Http.HttpRequestException ex)
             {
                 return Result.Failure("Service is temporarily unavailable. Please try again later.", ex);
@@ -184,6 +180,10 @@ namespace WestfallPersonalAssistant.Services
             catch (System.Net.NetworkInformation.NetworkInformationException ex)
             {
                 return Result.Failure("Network error occurred. Please check your connection.", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Result.Failure("The operation cannot be completed at this time.", ex);
             }
             catch (Exception ex)
             {
