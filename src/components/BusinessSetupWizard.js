@@ -37,6 +37,7 @@ import {
 const steps = [
   'Business Profile',
   'Business Goals',
+  'Connect Calendar',
   'Tool Selection',
   'Configuration',
   'Complete Setup'
@@ -73,6 +74,16 @@ export default function BusinessSetupWizard({ onComplete, onSkip }) {
     notificationPreferences: [],
     dataSharing: false,
     autoBackup: true
+  });
+
+  const [wizardState, setWizardState] = useState({
+    skipCalendar: false
+  });
+
+  const [calendarConnection, setCalendarConnection] = useState({
+    provider: '',
+    isConnected: false,
+    email: ''
   });
 
   const businessTypes = [
@@ -182,8 +193,10 @@ export default function BusinessSetupWizard({ onComplete, onSkip }) {
     const setupData = {
       businessProfile,
       businessGoals,
+      calendarConnection,
       selectedTools,
       configuration,
+      wizardState,
       setupCompletedAt: new Date().toISOString()
     };
     
@@ -381,6 +394,120 @@ export default function BusinessSetupWizard({ onComplete, onSkip }) {
         return (
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6" gutterBottom>
+              Connect Calendar
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Connect your calendar to sync appointments and improve scheduling efficiency.
+            </Typography>
+            
+            {!calendarConnection.isConnected ? (
+              <Box>
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  Connecting your calendar helps the assistant track your availability and automatically schedule meetings.
+                </Alert>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <InputLabel>Calendar Provider</InputLabel>
+                      <Select
+                        value={calendarConnection.provider}
+                        onChange={(e) => setCalendarConnection(prev => ({ ...prev, provider: e.target.value }))}
+                      >
+                        <MenuItem value="google">Google Calendar</MenuItem>
+                        <MenuItem value="outlook">Microsoft Outlook</MenuItem>
+                        <MenuItem value="apple">Apple iCloud</MenuItem>
+                        <MenuItem value="exchange">Exchange Server</MenuItem>
+                        <MenuItem value="other">Other</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  {calendarConnection.provider && (
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Email Address"
+                        type="email"
+                        value={calendarConnection.email}
+                        onChange={(e) => setCalendarConnection(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="Enter your calendar email address"
+                      />
+                    </Grid>
+                  )}
+                  
+                  {calendarConnection.provider && calendarConnection.email && (
+                    <Grid item xs={12}>
+                      <Button
+                        variant="contained"
+                        onClick={() => {
+                          // Simulate calendar connection
+                          setCalendarConnection(prev => ({ ...prev, isConnected: true }));
+                        }}
+                        sx={{ mr: 2 }}
+                      >
+                        Connect {calendarConnection.provider === 'google' ? 'Google Calendar' : 
+                                calendarConnection.provider === 'outlook' ? 'Outlook' :
+                                calendarConnection.provider === 'apple' ? 'Apple iCloud' :
+                                calendarConnection.provider === 'exchange' ? 'Exchange Server' : 'Calendar'}
+                      </Button>
+                      
+                      <Button
+                        variant="outlined"
+                        onClick={() => {
+                          setWizardState(prev => ({ ...prev, skipCalendar: true }));
+                        }}
+                      >
+                        Skip for Now
+                      </Button>
+                    </Grid>
+                  )}
+                  
+                  {!calendarConnection.provider && (
+                    <Grid item xs={12}>
+                      <Button
+                        variant="outlined"
+                        onClick={() => {
+                          setWizardState(prev => ({ ...prev, skipCalendar: true }));
+                        }}
+                      >
+                        Skip for Now
+                      </Button>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            ) : (
+              <Box>
+                <Alert severity="success" sx={{ mb: 3 }}>
+                  Successfully connected to {calendarConnection.provider === 'google' ? 'Google Calendar' : 
+                                             calendarConnection.provider === 'outlook' ? 'Outlook' :
+                                             calendarConnection.provider === 'apple' ? 'Apple iCloud' :
+                                             calendarConnection.provider === 'exchange' ? 'Exchange Server' : 'your calendar'}!
+                </Alert>
+                
+                <Typography variant="body2" color="text.secondary">
+                  Email: {calendarConnection.email}
+                </Typography>
+                
+                <Box sx={{ mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setCalendarConnection(prev => ({ ...prev, isConnected: false }))}
+                  >
+                    Disconnect
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        );
+
+      case 3:
+        return (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="h6" gutterBottom>
               Recommended Tailor Packs
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -439,7 +566,7 @@ export default function BusinessSetupWizard({ onComplete, onSkip }) {
           </Box>
         );
 
-      case 3:
+      case 4:
         return (
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -513,7 +640,7 @@ export default function BusinessSetupWizard({ onComplete, onSkip }) {
           </Box>
         );
 
-      case 4:
+      case 5:
         return (
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -578,6 +705,7 @@ export default function BusinessSetupWizard({ onComplete, onSkip }) {
         return businessGoals.primaryGoals?.length > 0;
       case 2:
       case 3:
+      case 4:
         return true; // These steps are optional
       default:
         return true;
