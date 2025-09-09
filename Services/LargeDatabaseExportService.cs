@@ -35,37 +35,7 @@ namespace WestfallPersonalAssistant.Services
                     progress.Report(info.Percentage / 100.0);
                 }) : null;
 
-                progress?.Report(0.0);
-
-                // Step 1: Validate database exists (10%)
-                if (!_databaseService.DatabaseExists())
-                {
-                    progress?.Report(1.0);
-                    return false;
-                }
-                progress?.Report(0.1);
-
-                // Step 2: Get database size for progress calculation (20%)
-                var dbSize = _databaseService.GetDatabaseSize();
-                progress?.Report(0.2);
-
-                // Step 3: Optimize database before export (30%)
-                await _databaseService.OptimizeDatabaseAsync();
-                progress?.Report(0.3);
-
-                // Step 4: Create backup/export (30% - 90%)
-                var success = await _databaseService.BackupDatabaseAsync(exportPath);
-                progress?.Report(0.9);
-
-                // Step 5: Verify export (90% - 100%)
-                if (success && _fileSystemService.FileExists(exportPath))
-                {
-                    var exportedSize = _fileSystemService.GetFileSize(exportPath);
-                    success = exportedSize > 0;
-                }
-
-                progress?.Report(1.0);
-                return success;
+                return await ExportDatabaseWithDetailedProgressAsync(exportPath, progressInfo);
             }
             catch (Exception ex)
             {
