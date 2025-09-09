@@ -4,6 +4,7 @@ using WestfallPersonalAssistant.Services;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 namespace WestfallPersonalAssistant.Tests
 {
@@ -165,5 +166,209 @@ namespace WestfallPersonalAssistant.Tests
         public string GetTailorPacksPath() => "/tmp/packs";
         public string GetSettingsPath() => "/tmp/settings.json";
         public string GetLogsPath() => "/tmp/logs";
+    }
+    
+    // Test classes for new functionality
+    public class ResultPatternTests
+    {
+        [Fact]
+        public void Result_Success_ShouldReturnSuccessfulResult()
+        {
+            // Arrange & Act
+            var result = Result<string>.Success("test value");
+            
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.Equal("test value", result.Value);
+            Assert.Equal(string.Empty, result.ErrorMessage);
+            Assert.Null(result.Exception);
+        }
+        
+        [Fact]
+        public void Result_Failure_ShouldReturnFailedResult()
+        {
+            // Arrange & Act
+            var result = Result<string>.Failure("error message");
+            
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.Value);
+            Assert.Equal("error message", result.ErrorMessage);
+            Assert.Null(result.Exception);
+        }
+        
+        [Fact]
+        public async Task ExceptionHandler_TryExecuteAsync_ShouldHandleExceptions()
+        {
+            // Arrange
+            Func<Task<string>> operation = () => throw new ArgumentException("test exception");
+            
+            // Act
+            var result = await ExceptionHandler.TryExecuteAsync(operation, "User error message");
+            
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Invalid input provided. Please check your data.", result.ErrorMessage);
+            Assert.NotNull(result.Exception);
+        }
+    }
+    
+    public class TailorPackSecurityTests
+    {
+        private readonly TailorPackSecurityService _service;
+        private readonly MockSecurityLogger _securityLogger;
+        private readonly InputValidationService _validationService;
+        
+        public TailorPackSecurityTests()
+        {
+            _securityLogger = new MockSecurityLogger();
+            _validationService = new InputValidationService();
+            _service = new TailorPackSecurityService(_securityLogger, _validationService);
+        }
+        
+        [Fact]
+        public void GetDefaultPermissions_ShouldReturnSecureDefaults()
+        {
+            // Act
+            var permissions = _service.GetDefaultPermissions();
+            
+            // Assert
+            Assert.False(permissions.AllowFileSystem);
+            Assert.False(permissions.AllowNetwork);
+            Assert.False(permissions.AllowDatabase);
+            Assert.True(permissions.AllowUserInterface);
+            Assert.Equal(TimeSpan.FromSeconds(30), permissions.MaxExecutionTime);
+        }
+        
+        [Fact]
+        public async Task LoadPackSecurelyAsync_WithNonExistentFile_ShouldReturnFailure()
+        {
+            // Arrange
+            var nonExistentPath = "/tmp/nonexistent.dll";
+            var permissions = _service.GetDefaultPermissions();
+            
+            // Act
+            var result = await _service.LoadPackSecurelyAsync(nonExistentPath, permissions);
+            
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Pack file not found", result.ErrorMessage);
+        }
+        
+        [Fact]
+        public void ValidatePackSignature_WithOversizedFile_ShouldReturnFalse()
+        {
+            // Arrange
+            var tempFile = Path.GetTempFileName();
+            try
+            {
+                // Create a file larger than 10MB
+                using var stream = new FileStream(tempFile, FileMode.Create);
+                stream.SetLength(11 * 1024 * 1024); // 11MB
+                
+                // Act
+                var result = _service.ValidatePackSignature(tempFile);
+                
+                // Assert
+                Assert.False(result);
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+        
+        [Fact]
+        public void GetLoadedPacks_WhenNoPacks_ShouldReturnEmptyList()
+        {
+            // Act
+            var packs = _service.GetLoadedPacks();
+            
+            // Assert
+            Assert.Empty(packs);
+        }
+        
+        [Fact]
+        public async Task ExecutePackMethodAsync_WithUnloadedPack_ShouldReturnFailure()
+        {
+            // Act
+            var result = await _service.ExecutePackMethodAsync("nonexistent", "testMethod");
+            
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Equal("Pack not loaded", result.ErrorMessage);
+        }
+    }
+    
+    // Mock security logger for testing
+    public class MockSecurityLogger : ISecurityLogger
+    {
+        public List<SecurityEvent> LoggedEvents { get; } = new();
+        
+        public Task LogSecurityEventAsync(SecurityEvent securityEvent)
+        {
+            LoggedEvents.Add(securityEvent);
+            return Task.CompletedTask;
+        }
+        
+        public Task LogAuthenticationAttemptAsync(string username, bool success, string? failureReason = null)
+        {
+            return Task.CompletedTask;
+        }
+        
+        public Task LogPrivilegedOperationAsync(string operation, string user, Dictionary<string, object>? parameters = null)
+        {
+            return Task.CompletedTask;
+        }
+        
+        public Task LogDataAccessAsync(string resourceType, string resourceId, string action, string user)
+        {
+            return Task.CompletedTask;
+        }
+        
+        public Task LogFileOperationAsync(string filePath, string operation, string user, bool success)
+        {
+            return Task.CompletedTask;
+        }
+        
+        public Task<List<SecurityEvent>> GetSecurityEventsAsync(DateTime? fromDate = null, DateTime? toDate = null, SecurityEventType? eventType = null)
+        {
+            return Task.FromResult(LoggedEvents);
+        }
+        
+        public Task<List<SecurityEvent>> GetFailedLoginsAsync(TimeSpan timeRange)
+        {
+            return Task.FromResult(new List<SecurityEvent>());
+        }
+        
+        public Task<List<SecurityEvent>> GetPrivilegedOperationsAsync(string? user = null, TimeSpan? timeRange = null)
+        {
+            return Task.FromResult(new List<SecurityEvent>());
+        }
+        
+        public Task<bool> CheckSuspiciousActivityAsync(string user, TimeSpan timeRange)
+        {
+            return Task.FromResult(false);
+        }
+        
+        public Task<int> GetFailedLoginCountAsync(string user, TimeSpan timeRange)
+        {
+            return Task.FromResult(0);
+        }
+        
+        public Task RotateLogsAsync()
+        {
+            return Task.CompletedTask;
+        }
+        
+        public Task PurgeOldLogsAsync(TimeSpan retentionPeriod)
+        {
+            return Task.CompletedTask;
+        }
+        
+        public void SetLogLevel(SecurityLogLevel level) { }
+        
+        public void EnableAuditLogging(bool enabled) { }
     }
 }

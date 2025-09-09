@@ -19,10 +19,12 @@ namespace WestfallPersonalAssistant.Services
         private ColorBlindnessType _colorBlindnessAccommodation = ColorBlindnessType.None;
         
         private readonly ISettingsManager _settingsManager;
+        private readonly IAccessibilityStyleService? _styleService;
         
-        public AccessibilityService(ISettingsManager settingsManager)
+        public AccessibilityService(ISettingsManager settingsManager, IAccessibilityStyleService? styleService = null)
         {
             _settingsManager = settingsManager;
+            _styleService = styleService;
             LoadSettings();
         }
         
@@ -71,12 +73,28 @@ namespace WestfallPersonalAssistant.Services
         public void ApplyAccessibilitySettings()
         {
             // Apply settings to the application
-            AccessibilitySettingsChanged?.Invoke(this, new AccessibilityChangedEventArgs
+            try
             {
-                SettingName = "All",
-                OldValue = null,
-                NewValue = "Applied"
-            });
+                _styleService?.ApplyHighContrastMode(_isHighContrastMode);
+                _styleService?.ApplyTextScaling(_textScalingFactor);
+                _styleService?.ApplyReducedMotion(_reduceMotion);
+                _styleService?.ApplyEnhancedFocusIndicators(_showFocusIndicators);
+                _styleService?.ApplyColorBlindnessAccommodations(_colorBlindnessAccommodation);
+                
+                AccessibilitySettingsChanged?.Invoke(this, new AccessibilityChangedEventArgs
+                {
+                    SettingName = "All",
+                    OldValue = null,
+                    NewValue = "Applied"
+                });
+                
+                AnnounceToScreenReader("Accessibility settings have been applied successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error applying accessibility settings: {ex.Message}");
+                AnnounceToScreenReader("Error applying accessibility settings");
+            }
         }
         
         public void ResetToDefaults()
@@ -179,6 +197,33 @@ namespace WestfallPersonalAssistant.Services
                 var oldValue = field;
                 field = value;
                 OnPropertyChanged(propertyName);
+                
+                // Apply style changes immediately
+                try
+                {
+                    switch (propertyName)
+                    {
+                        case nameof(IsHighContrastMode):
+                            _styleService?.ApplyHighContrastMode(_isHighContrastMode);
+                            break;
+                        case nameof(TextScalingFactor):
+                            _styleService?.ApplyTextScaling(_textScalingFactor);
+                            break;
+                        case nameof(ReduceMotion):
+                            _styleService?.ApplyReducedMotion(_reduceMotion);
+                            break;
+                        case nameof(ShowFocusIndicators):
+                            _styleService?.ApplyEnhancedFocusIndicators(_showFocusIndicators);
+                            break;
+                        case nameof(ColorBlindnessAccommodation):
+                            _styleService?.ApplyColorBlindnessAccommodations(_colorBlindnessAccommodation);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error applying style for {propertyName}: {ex.Message}");
+                }
                 
                 AccessibilitySettingsChanged?.Invoke(this, new AccessibilityChangedEventArgs
                 {
