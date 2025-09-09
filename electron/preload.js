@@ -16,8 +16,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   
-  // Backend server status
+  // Backend server status and management
   getBackendStatus: () => ipcRenderer.invoke('get-backend-status'),
+  restartBackend: () => ipcRenderer.invoke('restart-backend'),
+  stopBackend: () => ipcRenderer.invoke('stop-backend'),
   
   // Screen capture
   captureScreen: () => ipcRenderer.invoke('capture-screen'),
@@ -42,13 +44,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // IPC Renderer for event listeners (limited exposure)
   ipcRenderer: {
     on: (channel, callback) => {
-      const validChannels = ['focus-chat', 'open-settings', 'backend-message'];
+      const validChannels = ['focus-chat', 'open-settings', 'backend-message', 'backend-error'];
       if (validChannels.includes(channel)) {
         ipcRenderer.on(channel, callback);
       }
     },
     removeListener: (channel, callback) => {
-      const validChannels = ['focus-chat', 'open-settings', 'backend-message'];
+      const validChannels = ['focus-chat', 'open-settings', 'backend-message', 'backend-error'];
       if (validChannels.includes(channel)) {
         ipcRenderer.removeListener(channel, callback);
       }

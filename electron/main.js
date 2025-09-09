@@ -4,6 +4,24 @@ const { spawn } = require('child_process');
 const Store = require('electron-store');
 const os = require('os');
 
+// Prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, focus our window instead
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      createWindow();
+    }
+  });
+}
+
 // Enable live reload for development
 if (process.env.NODE_ENV === 'development') {
   require('electron-reload')(__dirname, {
@@ -18,38 +36,95 @@ let backendProcess = null;
 let backendServerProcess = null;
 let tray = null;
 let isQuitting = false;
+let backendRestartCount = 0;
+const MAX_RESTART_ATTEMPTS = 3;
+const BACKEND_PORT = 8756; // Use consistent port
 
-// Start the backend server
-function startBackendServer() {
+// Health check function
+async function checkBackendHealth(port = BACKEND_PORT) {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/health`, {
+      method: 'GET',
+      timeout: 5000
+    });
+    const result = await response.json();
+    return result.status === 'ok';
+  } catch (error) {
+    return false;
+  }
+}
+
+// Find available port (fallback mechanism)
+async function findAvailablePort(startPort = BACKEND_PORT) {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(startPort, () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', () => {
+      resolve(findAvailablePort(startPort + 1));
+    });
+  });
+}
+
+// Start the backend server with health checks and auto-restart
+async function startBackendServer() {
   if (backendServerProcess) {
     console.log('Backend server already running');
-    return Promise.resolve(true);
+    const isHealthy = await checkBackendHealth();
+    if (isHealthy) {
+      return Promise.resolve(true);
+    } else {
+      console.log('Backend server unhealthy, restarting...');
+      stopBackendServer();
+    }
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
-      const serverPath = path.join(__dirname, 'backend', 'server.py');
-      console.log('Starting backend server:', serverPath);
+      const serverPath = path.join(__dirname, '..', 'backend', 'server.py');
+      const port = await findAvailablePort(BACKEND_PORT);
+      console.log('Starting backend server:', serverPath, 'on port', port);
       
       // Configure spawn options for background process
       const spawnOptions = {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true, // Hide console window on Windows
-        detached: false
+        detached: false,
+        env: {
+          ...process.env,
+          PORT: port.toString(),
+          HOST: '127.0.0.1'
+        }
       };
 
-      backendServerProcess = spawn('python', [serverPath], spawnOptions);
+      backendServerProcess = spawn('python', [serverPath, '--port', port.toString()], spawnOptions);
 
       let serverReady = false;
+      let healthCheckInterval;
 
       backendServerProcess.stdout.on('data', (data) => {
         const output = data.toString();
         console.log(`Backend Server: ${output}`);
         
         // Check if server has started successfully
-        if (output.includes('Server started successfully') && !serverReady) {
+        if ((output.includes('Server started successfully') || 
+             output.includes('Uvicorn running on')) && !serverReady) {
           serverReady = true;
           console.log('Backend server is ready');
+          
+          // Start health monitoring
+          healthCheckInterval = setInterval(async () => {
+            const isHealthy = await checkBackendHealth(port);
+            if (!isHealthy && !isQuitting) {
+              console.log('Backend health check failed, attempting restart...');
+              clearInterval(healthCheckInterval);
+              await restartBackendServer();
+            }
+          }, 30000); // Check every 30 seconds
+          
           resolve(true);
         }
       });
@@ -60,7 +135,7 @@ function startBackendServer() {
         
         // Also check stderr for the success message and for Uvicorn running
         if ((output.includes('Server started successfully') || 
-             output.includes('Uvicorn running on http://127.0.0.1:8000')) && !serverReady) {
+             output.includes('Uvicorn running on http://127.0.0.1')) && !serverReady) {
           serverReady = true;
           console.log('Backend server is ready');
           resolve(true);
@@ -69,7 +144,14 @@ function startBackendServer() {
 
       backendServerProcess.on('close', (code) => {
         console.log(`Backend server process exited with code ${code}`);
+        if (healthCheckInterval) clearInterval(healthCheckInterval);
         backendServerProcess = null;
+        
+        // Auto-restart if not intentionally stopped
+        if (!isQuitting && code !== 0 && backendRestartCount < MAX_RESTART_ATTEMPTS) {
+          console.log(`Backend crashed, attempting restart (${backendRestartCount + 1}/${MAX_RESTART_ATTEMPTS})`);
+          setTimeout(() => restartBackendServer(), 2000);
+        }
       });
 
       backendServerProcess.on('error', (error) => {
@@ -78,7 +160,7 @@ function startBackendServer() {
         reject(error);
       });
 
-      // Timeout after 30 seconds
+      // Timeout after 45 seconds
       setTimeout(() => {
         if (!serverReady) {
           console.error('Backend server startup timeout');
@@ -88,7 +170,7 @@ function startBackendServer() {
           }
           reject(new Error('Backend server startup timeout'));
         }
-      }, 30000);
+      }, 45000);
 
     } catch (error) {
       console.error(`Error starting backend server: ${error}`);
@@ -97,9 +179,43 @@ function startBackendServer() {
   });
 }
 
+// Restart backend server with backoff
+async function restartBackendServer() {
+  if (backendRestartCount >= MAX_RESTART_ATTEMPTS) {
+    console.error('Max restart attempts reached, giving up');
+    if (mainWindow) {
+      mainWindow.webContents.send('backend-error', {
+        type: 'restart_failed',
+        message: 'Backend server failed to start after multiple attempts'
+      });
+    }
+    return false;
+  }
+
+  backendRestartCount++;
+  stopBackendServer();
+  
+  // Exponential backoff
+  const delay = Math.min(1000 * Math.pow(2, backendRestartCount - 1), 30000);
+  console.log(`Waiting ${delay}ms before restart attempt ${backendRestartCount}`);
+  
+  return new Promise((resolve) => {
+    setTimeout(async () => {
+      try {
+        await startBackendServer();
+        backendRestartCount = 0; // Reset on successful start
+        resolve(true);
+      } catch (error) {
+        console.error('Restart attempt failed:', error);
+        resolve(false);
+      }
+    }, delay);
+  });
+}
+
 // Create system tray
 function createTray() {
-  const iconPath = path.join(__dirname, 'westfall.png');
+  const iconPath = path.join(__dirname, '..', 'assets', 'westfall.png');
   tray = new Tray(iconPath);
   
   const contextMenu = Menu.buildFromTemplate([
@@ -131,6 +247,52 @@ function createTray() {
           createWindow();
         }
       }
+    },
+    { type: 'separator' },
+    {
+      label: 'Backend Status',
+      type: 'submenu',
+      submenu: [
+        {
+          label: backendServerProcess ? 'Running' : 'Stopped',
+          type: 'normal',
+          enabled: false
+        },
+        { type: 'separator' },
+        {
+          label: 'Restart Backend',
+          type: 'normal',
+          click: async () => {
+            try {
+              await restartBackendServer();
+              new Notification({
+                title: 'Backend Restarted',
+                body: 'Backend server has been restarted successfully',
+                icon: path.join(__dirname, '..', 'assets', 'westfall.png')
+              }).show();
+            } catch (error) {
+              new Notification({
+                title: 'Restart Failed',
+                body: 'Failed to restart backend server',
+                icon: path.join(__dirname, '..', 'assets', 'westfall.png')
+              }).show();
+            }
+          }
+        },
+        {
+          label: 'Stop Backend',
+          type: 'normal',
+          enabled: !!backendServerProcess,
+          click: () => {
+            stopBackendServer();
+            new Notification({
+              title: 'Backend Stopped',
+              body: 'Backend server has been stopped',
+              icon: path.join(__dirname, '..', 'assets', 'westfall.png')
+            }).show();
+          }
+        }
+      ]
     },
     { type: 'separator' },
     {
@@ -188,7 +350,7 @@ function createTray() {
 // Screen capture from tray
 async function captureScreenFromTray() {
   try {
-    const response = await fetch('http://127.0.0.1:8000/capture-screen', {
+    const response = await fetch(`http://127.0.0.1:${BACKEND_PORT}/capture-screen`, {
       method: 'POST'
     });
     const result = await response.json();
@@ -198,20 +360,20 @@ async function captureScreenFromTray() {
       new Notification({
         title: 'Screen Captured',
         body: 'Screen captured and ready for analysis',
-        icon: path.join(__dirname, 'westfall.png')
+        icon: path.join(__dirname, '..', 'assets', 'westfall.png')
       }).show();
     } else {
       new Notification({
         title: 'Capture Failed',
         body: result.message || 'Failed to capture screen',
-        icon: path.join(__dirname, 'westfall.png')
+        icon: path.join(__dirname, '..', 'assets', 'westfall.png')
       }).show();
     }
   } catch (error) {
     new Notification({
       title: 'Capture Error',
       body: 'Backend server not available',
-      icon: path.join(__dirname, 'westfall.png')
+      icon: path.join(__dirname, '..', 'assets', 'westfall.png')
     }).show();
   }
 }
@@ -294,12 +456,37 @@ function restoreSession() {
   };
 }
 
-// Stop the backend server
-function stopBackendServer() {
+// Stop the backend server gracefully
+async function stopBackendServer() {
   if (backendServerProcess) {
-    console.log('Stopping backend server');
-    backendServerProcess.kill();
-    backendServerProcess = null;
+    console.log('Stopping backend server gracefully');
+    
+    try {
+      // Try graceful shutdown first
+      await fetch(`http://127.0.0.1:${BACKEND_PORT}/shutdown`, {
+        method: 'POST',
+        timeout: 5000
+      });
+      
+      // Wait a bit for graceful shutdown
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+      console.log('Graceful shutdown failed, forcing termination');
+    }
+    
+    if (backendServerProcess) {
+      backendServerProcess.kill('SIGTERM');
+      
+      // Force kill if still running after 5 seconds
+      setTimeout(() => {
+        if (backendServerProcess) {
+          console.log('Force killing backend server');
+          backendServerProcess.kill('SIGKILL');
+          backendServerProcess = null;
+        }
+      }, 5000);
+    }
+    
     return true;
   }
   return false;
@@ -313,11 +500,13 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     ...windowOptions,
     title: 'Westfall Assistant - Entrepreneur Edition',
-    icon: path.join(__dirname, 'westfall.png'),
+    icon: path.join(__dirname, '..', 'assets', 'westfall.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      sandbox: true,
+      enableRemoteModule: false
     },
     titleBarStyle: 'default',
     show: false,
@@ -360,7 +549,7 @@ function createWindow() {
         new Notification({
           title: 'Westfall Assistant - Entrepreneur Edition',
           body: 'Application was minimized to tray. Double-click the tray icon to restore.',
-          icon: path.join(__dirname, 'westfall.png')
+          icon: path.join(__dirname, '..', 'assets', 'westfall.png')
         }).show();
         store.set('trayNotificationShown', true);
       }
@@ -467,7 +656,7 @@ ipcMain.handle('start-model-server', async (event, modelPath) => {
   return new Promise((resolve, reject) => {
     try {
       backendProcess = spawn('python', [
-        path.join(__dirname, 'backend', 'server.py'),
+        path.join(__dirname, '..', 'backend', 'server.py'),
         '--model', modelPath
       ], {
         stdio: ['pipe', 'pipe', 'pipe']
@@ -509,6 +698,25 @@ ipcMain.handle('stop-model-server', () => {
     return true;
   }
   return false;
+});
+
+// Backend management
+ipcMain.handle('restart-backend', async () => {
+  try {
+    await restartBackendServer();
+    return { success: true, message: 'Backend restarted successfully' };
+  } catch (error) {
+    return { success: false, message: `Failed to restart backend: ${error.message}` };
+  }
+});
+
+ipcMain.handle('stop-backend', async () => {
+  try {
+    await stopBackendServer();
+    return { success: true, message: 'Backend stopped successfully' };
+  } catch (error) {
+    return { success: false, message: `Failed to stop backend: ${error.message}` };
+  }
 });
 
 // GPU information
@@ -565,10 +773,19 @@ ipcMain.handle('get-settings', () => {
 });
 
 // Backend server status
-ipcMain.handle('get-backend-status', () => {
+ipcMain.handle('get-backend-status', async () => {
+  const isRunning = backendServerProcess !== null;
+  let isHealthy = false;
+  
+  if (isRunning) {
+    isHealthy = await checkBackendHealth();
+  }
+  
   return {
-    isRunning: backendServerProcess !== null,
-    serverUrl: 'http://127.0.0.1:8000'
+    isRunning: isRunning,
+    isHealthy: isHealthy,
+    serverUrl: `http://127.0.0.1:${BACKEND_PORT}`,
+    restartCount: backendRestartCount
   };
 });
 
@@ -639,7 +856,7 @@ ipcMain.handle('show-notification', (event, options) => {
   const notification = new Notification({
     title: options.title,
     body: options.body,
-    icon: path.join(__dirname, 'westfall.png'),
+    icon: path.join(__dirname, '..', 'assets', 'westfall.png'),
     ...options
   });
   
@@ -665,7 +882,7 @@ ipcMain.handle('get-system-info', () => {
 ipcMain.handle('capture-screen', async () => {
   try {
     // Call backend screen capture endpoint
-    const response = await fetch('http://127.0.0.1:8000/capture-screen', {
+    const response = await fetch(`http://127.0.0.1:${BACKEND_PORT}/capture-screen`, {
       method: 'POST'
     });
     return await response.json();
@@ -679,7 +896,7 @@ ipcMain.handle('capture-screen', async () => {
 
 ipcMain.handle('start-monitoring', async (event, interval) => {
   try {
-    const response = await fetch('http://127.0.0.1:8000/start-monitoring', {
+    const response = await fetch(`http://127.0.0.1:${BACKEND_PORT}/start-monitoring`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ interval: interval || 30 })
@@ -695,7 +912,7 @@ ipcMain.handle('start-monitoring', async (event, interval) => {
 
 ipcMain.handle('stop-monitoring', async () => {
   try {
-    const response = await fetch('http://127.0.0.1:8000/stop-monitoring', {
+    const response = await fetch(`http://127.0.0.1:${BACKEND_PORT}/stop-monitoring`, {
       method: 'POST'
     });
     return await response.json();
