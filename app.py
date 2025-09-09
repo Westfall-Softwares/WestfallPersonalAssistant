@@ -21,6 +21,7 @@ from utils.logger import setup_logging
 # Import routes
 from routes.api_routes import api_bp
 from routes.web_routes import web_bp
+from routes.settings_routes import settings_bp
 
 def create_app():
     """Create and configure the Flask application."""
@@ -42,6 +43,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(web_bp, url_prefix='/')
+    app.register_blueprint(settings_bp, url_prefix='/')
     
     return app
 
