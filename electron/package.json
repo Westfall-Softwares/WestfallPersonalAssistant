@@ -1,0 +1,52 @@
+{
+  "name": "westfall-electron",
+  "version": "0.1.0-beta.1",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "dev": "echo \"Dev: run backend via uvicorn then launch Electron manually\"",
+    "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg",
+    "dist:linux": "electron-builder --linux AppImage deb",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.westfall.assistant",
+    "productName": "Westfall Assistant",
+    "copyright": "© Westfall",
+    "files": [
+      "**/*",
+      "!backend/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist-backend/",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
+    "asar": true,
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Westfall-Assistant-${version}-win.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg"],
+      "artifactName": "Westfall-Assistant-${version}-mac.${ext}",
+      "hardenedRuntime": false
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "artifactName": "Westfall-Assistant-${version}-linux.${ext}",
+      "category": "Utility"
+    }
+  }
+}
