@@ -12,6 +12,13 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 from backend.platform_compatibility import PlatformManager
 
+# Import theme support
+try:
+    from utils.app_theme import AppTheme
+    HAS_THEME = True
+except ImportError:
+    HAS_THEME = False
+
 
 @dataclass
 class BusinessProfile:
@@ -230,6 +237,70 @@ class SettingsWindow(QMainWindow):
     def init_ui(self):
         self.setWindowTitle("Entrepreneur Assistant Settings")
         self.setGeometry(200, 200, 800, 600)
+        
+        # Apply theme if available
+        if HAS_THEME:
+            self.setStyleSheet(f"""
+                QMainWindow {{
+                    background-color: {AppTheme.BACKGROUND};
+                    color: {AppTheme.TEXT_PRIMARY};
+                }}
+                QListWidget {{
+                    background-color: {AppTheme.SECONDARY_BG};
+                    color: {AppTheme.TEXT_PRIMARY};
+                    border: {AppTheme.BORDER_WIDTH}px solid {AppTheme.BORDER_COLOR};
+                    border-radius: {AppTheme.BORDER_RADIUS}px;
+                }}
+                QListWidget::item {{
+                    padding: {AppTheme.PADDING_MEDIUM}px;
+                    color: {AppTheme.TEXT_PRIMARY};
+                }}
+                QListWidget::item:selected {{
+                    background-color: {AppTheme.PRIMARY_COLOR};
+                    color: {AppTheme.TEXT_PRIMARY};
+                }}
+                QLabel {{
+                    color: {AppTheme.TEXT_PRIMARY};
+                }}
+                QLineEdit, QTextEdit, QComboBox, QSpinBox {{
+                    background-color: {AppTheme.SECONDARY_BG};
+                    color: {AppTheme.TEXT_PRIMARY};
+                    border: {AppTheme.BORDER_WIDTH}px solid {AppTheme.BORDER_COLOR};
+                    border-radius: {AppTheme.BORDER_RADIUS}px;
+                    padding: {AppTheme.PADDING_SMALL}px;
+                }}
+                QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus {{
+                    border-color: {AppTheme.HIGHLIGHT_COLOR};
+                }}
+                QPushButton {{
+                    {AppTheme.get_button_style()}
+                }}
+                QCheckBox {{
+                    color: {AppTheme.TEXT_PRIMARY};
+                }}
+                QCheckBox::indicator:checked {{
+                    background-color: {AppTheme.PRIMARY_COLOR};
+                    border: 1px solid {AppTheme.BORDER_COLOR};
+                }}
+                QGroupBox {{
+                    color: {AppTheme.TEXT_PRIMARY};
+                    border: {AppTheme.BORDER_WIDTH}px solid {AppTheme.BORDER_COLOR};
+                    border-radius: {AppTheme.BORDER_RADIUS}px;
+                    margin-top: 10px;
+                    padding-top: 10px;
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    left: 10px;
+                    padding: 0 5px 0 5px;
+                    color: {AppTheme.TEXT_PRIMARY};
+                }}
+                QStackedWidget {{
+                    background-color: {AppTheme.SECONDARY_BG};
+                    border: {AppTheme.BORDER_WIDTH}px solid {AppTheme.BORDER_COLOR};
+                    border-radius: {AppTheme.BORDER_RADIUS}px;
+                }}
+            """)
         
         # Central widget
         central_widget = QWidget()

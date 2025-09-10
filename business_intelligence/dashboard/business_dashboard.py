@@ -655,9 +655,11 @@ Use the dashboard tabs to track revenue, manage clients, and monitor project pro
     def load_project_data(self):
         """Load project data"""
         if hasattr(self, 'project_layout'):
-            # Clear existing project cards
+            # Clear existing project cards safely
             for i in reversed(range(self.project_layout.count())): 
-                self.project_layout.itemAt(i).widget().setParent(None)
+                item = self.project_layout.itemAt(i)
+                if item and item.widget():
+                    item.widget().setParent(None)
             
             # Add sample project card
             sample_project = self.create_project_card("Sample Project", "Planning", 25, "$5,000")
