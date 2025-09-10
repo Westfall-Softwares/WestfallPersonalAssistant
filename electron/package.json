@@ -1,6 +1,8 @@
 {
   "name": "westfall-electron",
   "version": "0.1.0-beta.1",
+  "description": "Westfall Personal Assistant - Desktop Application",
+  "author": "Westfall Softwares <westfallt13@gmail.com>",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -11,8 +13,8 @@
     "dist": "electron-builder"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron": "32.2.7",
+    "electron-builder": "25.1.8"
   },
   "build": {
     "appId": "com.westfall.assistant",
@@ -26,7 +28,9 @@
       {
         "from": "../dist-backend/",
         "to": "backend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asar": true,
@@ -34,17 +38,25 @@
       "buildResources": "build"
     },
     "win": {
-      "target": ["nsis"],
-      "artifactName": "Westfall-Assistant-${version}-win.${ext}"
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Westfall-Assistant-${version}-win.${ext}",
+      "sign": false
     },
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "artifactName": "Westfall-Assistant-${version}-mac.${ext}",
       "hardenedRuntime": false
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "artifactName": "Westfall-Assistant-${version}-linux.${ext}",
       "category": "Utility"
     }
