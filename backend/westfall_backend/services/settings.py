@@ -15,7 +15,7 @@ def default_data_dir() -> str:
 class Settings(BaseSettings):
     app_name: str = "Westfall Backend"
     host: str = "127.0.0.1"
-    port: int = 0  # 0 = choose free port
+    port: int = 0
     data_dir: str = default_data_dir()
     model_path: str = ""
     n_threads: int = 4
@@ -26,3 +26,4 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_prefix = "WESTFALL_"
+        protected_namespaces = ('settings_',)
