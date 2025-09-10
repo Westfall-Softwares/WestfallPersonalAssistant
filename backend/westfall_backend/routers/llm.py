@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket
 from pydantic import BaseModel
-from ..services.settings import Settings
-from ..services.llama_runtime import LlamaRuntime
+from westfall_backend.services.settings import Settings
+from westfall_backend.services.llama_runtime import LlamaRuntime
 
 router = APIRouter()
 _settings = Settings()

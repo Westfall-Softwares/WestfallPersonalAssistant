@@ -42,7 +42,9 @@
         "nsis"
       ],
       "artifactName": "Westfall-Assistant-${version}-win.${ext}",
-      "sign": false
+      "sign": false,
+      "forceCodeSigning": false,
+      "verifyUpdateCodeSignature": false
     },
     "mac": {
       "category": "public.app-category.productivity",

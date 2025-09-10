@@ -1,5 +1,5 @@
 from typing import Generator
-from .settings import Settings
+from westfall_backend.services.settings import Settings
 from loguru import logger
 
 try:

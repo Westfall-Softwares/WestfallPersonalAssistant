@@ -20,8 +20,10 @@ function createWindow() {
   
   // Load the backend web interface instead of local HTML
   if (backendUrl) {
+    console.log("Loading backend URL:", backendUrl);
     mainWindow.loadURL(backendUrl);
   } else {
+    console.log("No backend URL, loading fallback HTML");
     // Fallback to local HTML if backend isn't available
     mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   }
@@ -34,12 +36,14 @@ app.whenReady().then(async () => {
   if (!gotLock) { app.quit(); return; }
 
   try {
+    console.log("Starting backend...");
     const res = await startBackend();
     backendProc = res.proc;
     backendUrl = res.url;
-    // Optionally pass backendUrl to renderer via file or global
+    console.log("Backend started successfully at:", backendUrl);
   } catch (e) {
     console.error("Backend failed to start:", e);
+    backendUrl = null; // Ensure fallback is used
   }
 
   createWindow();
