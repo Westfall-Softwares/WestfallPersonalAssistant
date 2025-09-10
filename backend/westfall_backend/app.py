@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from .services.settings import Settings
 from .services.logging import setup_logging
-from .routers import health, llm, metrics
+from .routers import health, llm, metrics, web
 import uvicorn
 
 def create_app() -> FastAPI:
@@ -11,6 +11,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(llm.router)
     app.include_router(metrics.router)
+    app.include_router(web.router)
     return app
 
 if __name__ == "__main__":

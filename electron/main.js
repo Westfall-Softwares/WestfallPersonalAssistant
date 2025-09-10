@@ -17,7 +17,15 @@ function createWindow() {
     }
   });
   mainWindow.removeMenu();
-  mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+  
+  // Load the backend web interface instead of local HTML
+  if (backendUrl) {
+    mainWindow.loadURL(backendUrl);
+  } else {
+    // Fallback to local HTML if backend isn't available
+    mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+  }
+  
   mainWindow.on("closed", () => { mainWindow = null; });
 }
 
